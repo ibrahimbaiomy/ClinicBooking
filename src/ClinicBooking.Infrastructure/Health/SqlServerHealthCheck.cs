@@ -43,7 +43,9 @@ public sealed class SqlServerHealthCheck : IHealthCheck
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return HealthCheckResult.Unhealthy("Database is not reachable.", ex);
+            // The exception is deliberately not attached: probes run every few seconds and
+            // would flood the log with stack traces. Its type is enough to diagnose.
+            return HealthCheckResult.Unhealthy($"Database is not reachable ({ex.GetType().Name}).");
         }
     }
 }
