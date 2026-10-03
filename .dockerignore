@@ -13,3 +13,5 @@ docs/
 Dockerfile
 docker-compose*.yml
 .dockerignore
+**/dist/
+**/.angular/

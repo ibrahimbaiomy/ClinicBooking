@@ -3,6 +3,7 @@ using ClinicBooking.Api.Filters;
 using ClinicBooking.Api.Middleware;
 using ClinicBooking.Api.OpenApi;
 using ClinicBooking.Api.Services;
+using ClinicBooking.Api.Spa;
 using ClinicBooking.Infrastructure.Identity;
 using ClinicBooking.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -37,6 +38,9 @@ if (app.Environment.IsDevelopment())
 
 await app.Services.SeedInitialUserAsync();
 
+// Static files first: they skip logging, correlation and authorization (the SPA shell is public).
+app.UseSpaStaticFiles();
+
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging(options => options.GetLevel = (context, _, exception) =>
     context.Request.Path.StartsWithSegments("/health") ? LogEventLevel.Debug
@@ -60,6 +64,8 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     Predicate = check => check.Tags.Contains(ClinicBooking.Infrastructure.DependencyInjection.ReadyTag),
     ResponseWriter = HealthResponseWriter.WriteAsync
 }).AllowAnonymous();
+
+app.MapSpaFallback();
 
 app.Run();
 
