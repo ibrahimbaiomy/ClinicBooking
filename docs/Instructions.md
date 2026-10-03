@@ -145,6 +145,34 @@ and a 409 `error.concurrency.conflict` shown as "reload"; dates through the
 `intl` pipe; unit tests for the logic; then `npm run lint`, `npm test`,
 `npm run build`, `npm run check:i18n` and `npm run check:api`.
 
+**New-screen checklist (front end).**
+1. Route: lazy, behind `authGuard`; add `permissionGuard(Permissions.X)` when it
+   needs a permission. Use `*cbCan` to hide controls (UX only: the API decides).
+2. Data: one method per endpoint in `src/api/`, types from `src/api/types.ts`
+   (`RequestBody`/`ResponseBody`) over `schema.d.ts`; never hand-write a model.
+   A new permission name goes into `core/auth/permissions.ts` (checked by
+   `check:permissions`).
+3. Errors: catch with `parseApiError`, show `ErrorMessageService.keyFor(error.key)`
+   through the `transloco` pipe (comment `i18n-keys: error.unexpected` on that
+   line); field errors from `error.fieldErrors`; never show server text or a raw key.
+4. Forms: Signal Forms (`@angular/forms/signals`), typed, validation messages as
+   keys; real `<label for>`, `autocomplete` where it applies, `aria-invalid`, an
+   `aria-live` error region, focus the first invalid field, disable and set
+   `aria-busy` while submitting.
+5. Strings: keys in a translation scope (`ar.json` and `en.json`); a new back-end
+   `error.*` key needs its translation in the same change or `check:i18n` fails.
+6. Layout: logical utilities only; mirror directional icons (`rtl:-scale-x-100`).
+7. Tests: logic with Vitest; HTTP with `HttpTestingController` and
+   `provideAuthTesting()` (`src/testing/auth-testing.ts`).
+
+**The back-end error-key check.** `check:i18n` scans `src/ClinicBooking.*/**/*.cs`
+(comments skipped) for `"error.<area>.<reason>"` literals and fails when one is
+missing from `ar.json` or `en.json`, naming the C# file and line. A key built at
+runtime (a `"error."` prefix) must be declared in
+`scripts/backend-error-keys.json` with the keys it can produce, or the check
+fails; a stale declaration fails too. It needs the C# sources: with `CI` set it
+fails without them, otherwise it warns and skips (the Docker `web` stage).
+
 ### TypeScript / Angular
 - Standalone components only (no NgModules). Selector prefix `cb`, OnPush,
   `templateUrl` (never an inline `template`), no zone.js.
@@ -228,11 +256,15 @@ curl -i -X POST http://localhost:8080/api/auth/login \
 # front end (Node 24: src/clinic-booking-web/.nvmrc; `npm ci` refuses another major)
 cd src/clinic-booking-web
 npm ci                 # exact install from the committed lock file
-npm start              # dev server on http://localhost:4200 (no API proxy yet)
+npm start              # dev server on http://localhost:4200; /api is proxied to
+                       # http://localhost:8080 (start the API first, e.g. `docker compose up`
+                       # from the repository root; proxy.conf.json, D52). Use :4200, not :8080
 npm run build          # runs check:logical and check:i18n first, then ng build
 npm run lint           # angular-eslint + the logical-properties check
 npm test               # Vitest unit tests + the Node tests of the check scripts
-npm run check:i18n     # ar.json/en.json parity, keys used exist, no literal text
+npm run check:i18n     # ar.json/en.json parity, keys used exist, no literal text,
+                       # every back-end error.* key (read from the C#) is translated
+npm run check:permissions # permission names in the UI exist in Permissions.cs
 npm run check:api      # schema.d.ts matches openapi.json (Node only)
 
 # tests (needs Docker running: Testcontainers starts SQL Server)
@@ -321,11 +353,12 @@ Anything beyond this list is out of scope until all eleven are true.
 Once the first run is green:
 
 - **Item 8, the parts CI can check.** `check:i18n`: `ar.json`/`en.json` parity,
-  every key used in a template or in code exists, no literal text in templates.
+  every key used in a template or in code exists, every back-end `error.*` key
+  (read from the C#, D52) is translated, no literal text in templates.
   `check:logical`: no physical direction classes or CSS properties (RTL at code
   level). **Not covered:** how RTL looks in a browser; literal strings in `.ts`
-  code; the Arabic messages for the API's `error.*` keys (that coverage check
-  comes with the first screens, D26).
+  code; the quality of the Arabic messages (the check proves they exist, not that they
+  read well).
 - **Item 9, fully.** `openapi.json` against the real API by
   `OpenApiDocumentTests` (the `test` job); `schema.d.ts` against `openapi.json`
   by `npm run check:api` (the `web` job, Node only).

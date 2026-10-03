@@ -451,10 +451,9 @@ interpolation with a literal string; a component uses an inline `template`.
 comment `i18n-keys: a.b, c.d` listing every key it can be (those are verified);
 literal strings in `.ts` code are not detected (review and lint); the text
 detection is a heuristic on the template source; unused keys are warnings. The
-API's `error.*` keys are not yet checked for coverage: **that check and the
-Arabic messages for every back-end key come with the first screens (login,
-Specialties) and must be complete before Phase 0 is done (Definition of Done
-#8).**
+API's `error.*` keys are checked since D52: the check reads them from the C#
+source and fails when one lacks an Arabic or English translation (D52 explains
+how false positives and negatives are handled, and the limits).
 
 ### D27 — Latin numerals and Gregorian dates in both languages
 `ACCEPTED`
@@ -898,6 +897,7 @@ check.
 `error.auth.invalid_credentials`. Locked out: 423 `error.auth.locked_out`
 with `Retry-After` (this reveals that the account exists once it is locked;
 accepted). Rate limited: 429 `error.auth.rate_limited` with `Retry-After`.
+(D52 adds the front-end side: session, refresh and the grace-window retry.)
 Refresh token missing, invalid, expired, revoked or reused: 401
 `error.auth.invalid_refresh_token`, and the cookie is cleared. No or invalid
 access token: 401 `error.auth.unauthorized`. Missing permission or foreign
@@ -1073,8 +1073,140 @@ the language.
 `npm run check:api`, and the .NET tests. The CI `web` job runs the front-end
 ones (D47); the `image` job builds the front end again through Docker.
 
-**Deferred.** A dev proxy for `ng serve` comes with the login step. The
-back-end `error.*` coverage check comes with the first screens (D26).
+**Deferred (done in D52).** The dev proxy for `ng serve` and the back-end
+`error.*` coverage check came with the login step.
+
+---
+
+### D52 — Front-end authentication
+`ACCEPTED` (implements D29 and D48 on the client; refines D26 and D51)
+
+**Session.** `SessionService` keeps the access token in a private field:
+**never** in `localStorage` or `sessionStorage` (a test checks both stay
+empty). State is `unknown` → `authenticated` | `anonymous` (Signals), plus the
+user and permission set from `GET /api/auth/me`. The refresh cookie is
+`HttpOnly`, so scripts never see it.
+
+**Startup.** An app initializer calls `POST /api/auth/refresh` then `/me` before
+the first render, so a signed-in user never sees a flash of the login page.
+It never rejects and gives up after 10 s; a 401, 429, 5xx, network failure or
+timeout all mean **anonymous at once, with no retry** (a logged-out visitor
+must not wait). `index.html` shows a text-free CSS spinner meanwhile (literal
+text there would break D26). No "was signed in" hint is stored: the one extra
+401 for a logged-out visitor is cheaper than a flag that can drift.
+*Known edge:* two tabs opened at the same moment both refresh at startup; the
+loser gets 401 and shows the login page although the other tab is signed in.
+Accepted: it is rare, and a reload fixes it (the cookie is then valid).
+
+**Interceptor.** The `Authorization` header goes **only** on same-origin
+`/api/` requests, and never on `login`, `refresh` or `logout`. Translation
+files, other origins and any other URL get no header and never trigger a
+refresh. On a 401 titled `error.auth.unauthorized` the request is refreshed
+once and retried once: concurrent 401s share **one** refresh; a request that
+carried an older token than the current one retries with the current token and
+no new refresh; a retry rejected again ends the session. A 403, or a 401 with
+another key, is passed through. A request sent without a token never
+refreshes. Refresh is **reactive only**: a 401 path must exist anyway, timers
+are throttled in hidden tabs, client and server clocks differ, and proactive
+refresh in several tabs would create the very collisions the grace window
+absorbs.
+
+**Grace window and two tabs.** Tabs share the cookie jar. Within
+`Auth:ReuseGraceSeconds` (10 s) a refresh that loses the race gets 401
+`invalid_refresh_token` without any revocation, while the winner's new cookie is
+already in the jar. During an **active session** the client therefore retries
+the refresh **once** after 1 s plus 0–500 ms of jitter (inside the shared
+single flight, so callers still see one logical refresh). A second 401 means the
+session really ended: state is cleared and the user goes to
+`/login?returnUrl=<current>` with a one-time "session expired" notice. 429, 5xx
+and network failures are **transient**: no logout, no retry, the request fails
+with a typed error. Tested with fake timers (exact delay, never a third refresh).
+
+**returnUrl.** `safeReturnUrl` accepts only a single leading `/`, no backslash,
+no control characters, not `/login`, at most 2048 characters, with the same
+checks again after one decode (`/%2F%2Fevil.com`). Anything else becomes `/`.
+It is used only with the router, never `window.location`.
+
+**Routes.** `/login` (guest guard: a signed-in user goes on to the returnUrl),
+`/forbidden`, `/` (auth guard), and a catch-all that runs the auth guard first,
+so a signed-out deep link goes to login and returns after sign-in, while a
+signed-in user lands on `/`. `permissionGuard(name)` sends a signed-in user
+without the permission to `/forbidden`.
+
+**Permissions** come from `/me` as strings. `permissions.ts` names the ones the
+UI asks about (`users.manage`, `specialties.manage`); `npm run check:permissions`
+(plain Node, part of `lint`) fails when one is not defined in `Permissions.cs`.
+`*cbCan` and `SessionService.can()` are **UX only**: the API enforces every
+permission.
+
+**API client and errors.** `src/api/auth-api.ts` has one method per auth
+endpoint; `src/api/types.ts` derives request and response types from
+`schema.d.ts` (no hand-written models). `parseApiError` is the only place a
+ProblemDetails is read; it returns `{kind, status, key, fieldErrors,
+correlationId, retryAfterSeconds}`. A title that is not a well-formed
+`error.…` key becomes `error.unexpected` (server text is never shown); status 0
+becomes `error.network`. `ErrorMessageService.keyFor` falls back to
+`error.unexpected` when the active language lacks the key. The correlation id
+is shown only for unexplained failures, so a user can quote it. `error.unexpected`
+tells the user to contact the system administrator (there is no support channel).
+
+**Login form.** Typed Signal Forms (`@angular/forms/signals`): the official docs
+mark `form()` "stable since v22.0" and the installed Angular is 22.2.1. Rules:
+required and at most 256 characters (as the API). Messages are the back-end
+keys. Labels, `autocomplete="username"`/`"current-password"`, `aria-invalid`, an
+`aria-live` alert region that receives focus on a server error, the first
+invalid field focused on submit, the button disabled with `aria-busy` while
+pending. Unknown user and wrong password show the same message. 423 and 429
+show their message plus "about N min" from `Retry-After`. The password is
+cleared after a failure.
+
+**Dev proxy.** `proxy.conf.json` forwards `/api` to `http://localhost:8080`
+(`changeOrigin: false`), wired in `angular.json`; `npm start` uses it. The
+browser sends `Origin: http://localhost:4200` and the proxy keeps
+`Host: localhost:4200`, so the Origin check (D48) passes **without any back-end
+change** (`appsettings.Development.json` also lists the origin). A foreign
+Origin still gets 403 through the proxy. The `Secure` cookie works on
+`http://localhost` in Chrome and Firefox; Safari and non-localhost HTTP hosts do
+not store it.
+
+**Back-end `error.*` keys (D26).** `scripts/backend-error-keys.mjs` reads the C#
+under `src/ClinicBooking.*` (not `tests/`, `bin`, `obj`, `Migrations`) with a
+small scanner that understands C# strings and skips comments, collects literals
+shaped `error.<reason>[.<reason>…]`, and `check:i18n` fails when one is missing
+in `ar.json` or `en.json`, naming the C# file and line. *False positives:*
+comments are skipped and the shape is strict. *False negatives:* a key built at
+runtime cannot be read, so any file with a prefix literal (`"error."`) must be
+declared in `scripts/backend-error-keys.json` with the keys it can produce (today
+`error.http.400/404/405/406/415` from `ProblemDetailsEnricher`, plus
+`ValidationFilter`, which only tests a prefix); an undeclared prefix literal or a
+stale declaration fails. Without the back-end sources (the Docker `web` stage)
+the scan warns and is skipped; **with `CI` set it fails**, so CI cannot skip it.
+*Limits:* keys assembled another way (resource files, a database) are invisible;
+a new dynamic family must be declared by hand. (While writing it, the first
+pattern wrongly required three segments and missed `error.unexpected`; the
+tests now pin the two-segment shape.)
+
+**API document fix (separate commit).** The committed `openapi.json` lacked every
+200 response schema (an action with any `ProducesResponseType` stops inferring
+`ActionResult<T>`) and leaked the test-only controllers. The 200 attributes are
+added, the document is generated from a host without test controllers
+(`PlainApiFactory`), and tests fail if any operation lacks a documented success
+schema (204 excepted), a test path appears, or the auth schemas are missing.
+
+**Deploy-step items (not done here).** The startup refresh counts against the
+refresh rate limit (30 per minute per client address), so correct
+forwarded-headers handling behind the Azure ingress matters even more: without
+it every visitor shares the ingress address and a busy minute can lock silent
+sign-in out for all. The Origin check compares the request host, which needs the
+same forwarded-headers setup, and the deployed host belongs in
+`Auth:AllowedOrigins` if it differs.
+
+**Not verified in a browser.** The credentialed checks (successful login shows
+the shell, reload keeps the session, logout returns to login, returnUrl after
+login) were not driven in the browser, because the pane could not take a pasted
+secret and typing it would expose it. They are covered by unit tests and by real
+requests against the running stack (login cookie flags, `/me`, rotation, logout,
+and the same through the dev proxy).
 
 ---
 
