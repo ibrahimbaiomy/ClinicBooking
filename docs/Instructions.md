@@ -133,12 +133,33 @@ Azure SQL, Key Vault, GitHub Actions (OIDC to Azure).
 4. Api: attribute-routed controller, `[Authorize]` / `[Authorize(Policy = ...)]`
    on every action, `[ProducesResponseType]` for the error responses. Add the
    permission constants.
-5. Regenerate `openapi.json` (below) and commit it. Tests: each endpoint with
-   and without the permission, validation keys, duplicates, search, paging,
-   audit with a real user.
+5. Regenerate `openapi.json` and `schema.d.ts` (`npm run gen:api`) and commit
+   both. Tests: each endpoint with and without the permission, validation keys,
+   duplicates, search, paging, audit with a real user.
+
+**Front end for an entity** (after the API above): one service method per
+endpoint in `src/api/`, typed from `schema.d.ts`; a lazy route with its own
+translation scope (`ar.json` and `en.json`, including the entity's `error.*`
+keys); screens with logical utilities only; `rowVersion` sent back on every edit
+and a 409 `error.concurrency.conflict` shown as "reload"; dates through the
+`intl` pipe; unit tests for the logic; then `npm run lint`, `npm test`,
+`npm run build`, `npm run check:i18n` and `npm run check:api`.
 
 ### TypeScript / Angular
-- Standalone components only (no NgModules).
+- Standalone components only (no NgModules). Selector prefix `cb`, OnPush,
+  `templateUrl` (never an inline `template`), no zone.js.
+- Every user-facing string is a translation key: `{{ 'area.key' | transloco }}`
+  in templates, `translate('area.key')` in code. A key built at runtime needs the
+  comment `i18n-keys: a.b, c.d` on its line listing every possible key. Add each
+  key to **both** `public/i18n/ar.json` and `en.json`; a feature's keys go in a
+  scope folder (`public/i18n/<scope>/`) loaded with `provideTranslocoScope`.
+  `npm run check:i18n` enforces this (also during `npm run build`).
+- Layout uses logical utilities only (`ms-` `me-` `ps-` `pe-` `start-` `end-`
+  `text-start` `text-end` `rounded-s/e` `border-s/e`). `check:logical` fails lint
+  and the build on `ml-`, `pr-`, `left-`, `text-left` and the like. Mirror a
+  directional icon with `rtl:-scale-x-100`.
+- Display dates and numbers with the `intl` pipe (`{{ v | intl: 'date' }}`), never
+  `DatePipe`; instants show in Cairo time.
 - Signals for local state; `HttpClient`-based services for server data
   (`httpResource` / `rxResource` where they fit); RxJS for streams and events.
 - No state library (no NgRx, no TanStack Query).
@@ -168,17 +189,16 @@ Azure SQL, Key Vault, GitHub Actions (OIDC to Azure).
 ## Workflow expectations
 
 - **Verify before claiming done.** `dotnet build`, `dotnet test`, and
-  `npm run build` must all pass, plus the translation-key check. State what
-  actually ran.
+  `npm run build` must all pass, plus `npm run lint`, `npm test`,
+  `npm run check:i18n` and `npm run check:api`. State what actually ran.
 - **Report what was decided that the instructions did not cover.** Every such
   decision either goes into `decisions.md` or gets raised.
 - **Prefer the smaller change.** If an existing pattern conflicts with a rule
   here, raise it rather than copying the pattern forward.
 - **Do not refactor unrelated code** while implementing a feature.
-- **Changed a DTO?** Run `npm run gen:api` and commit `openapi.json` and
-  `schema.d.ts`. CI fails on any diff. Until the Angular step exists, regenerate
-  only `openapi.json` with `UPDATE_OPENAPI=1 dotnet test --filter OpenApiDocumentTests`;
-  `dotnet test` (and so CI) fails when it is stale.
+- **Changed a DTO?** Run `npm run gen:api` (in `src/clinic-booking-web`) and
+  commit `openapi.json` and `schema.d.ts`. CI fails on any diff: `dotnet test`
+  fails when `openapi.json` is stale, and `npm run check:api` when `schema.d.ts` is.
 - **Open questions** (O-numbers in `decisions.md`) are not answered silently:
   raise them before building anything that depends on them.
 
@@ -205,8 +225,15 @@ curl -i -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"userName":"<SEED_ADMIN_USERNAME>","password":"<SEED_ADMIN_PASSWORD>"}'
 
-# front end dev server (Angular CLI)
-cd src/clinic-booking-web && ng serve
+# front end (Node 24; run in src/clinic-booking-web)
+cd src/clinic-booking-web
+npm ci                 # exact install from the committed lock file
+npm start              # dev server on http://localhost:4200 (no API proxy yet)
+npm run build          # runs check:logical and check:i18n first, then ng build
+npm run lint           # angular-eslint + the logical-properties check
+npm test               # Vitest unit tests + the Node tests of the check scripts
+npm run check:i18n     # ar.json/en.json parity, keys used exist, no literal text
+npm run check:api      # schema.d.ts matches openapi.json (Node only)
 
 # tests (needs Docker running: Testcontainers starts SQL Server)
 dotnet test
@@ -224,9 +251,10 @@ ConnectionStrings__Default="Server=design-time;Database=ClinicBooking;User Id=sa
 UPDATE_OPENAPI=1 dotnet test --filter OpenApiDocumentTests
 # (PowerShell: $env:UPDATE_OPENAPI=1; dotnet test --filter OpenApiDocumentTests)
 
-# regenerate API types after changing a DTO (Angular step: runs the line above, then
-# openapi-typescript into schema.d.ts)
-npm run gen:api
+# regenerate API types after changing a DTO: refreshes openapi.json (the line above;
+# needs the .NET SDK), then writes schema.d.ts. Commit both. Run it twice: the second
+# run must change nothing.
+cd src/clinic-booking-web && npm run gen:api
 ```
 
 ---

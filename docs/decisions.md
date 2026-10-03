@@ -245,6 +245,12 @@ fallback.
 **Why:** one image, one deployment, one cost. It also removes CORS from
 production entirely — the front end and API share an origin.
 
+**Implementation (D51).** The Node stage is `node:24-bookworm-slim`: `npm ci`
+from the committed lock file, then `npm run build` (which runs the prebuild
+checks, so `scripts/` and `public/i18n` are copied too). The final stage copies
+`dist/clinic-booking-web/browser` into `/app/wwwroot`. The .NET layers copy only
+the .NET projects, so a front-end change does not invalidate them.
+
 ### D16 — Dockerfile and compose written on day one
 `ACCEPTED`
 
@@ -322,6 +328,13 @@ injection and a TypeScript-first model without a separate meta-framework.
 less time — D24 recovers most of that benefit — but Angular is the more
 marketable skill, and employability is one of the two goals of this project.
 
+**Versions at creation (verified, Oct 2026).** Angular and CLI **22.2.1**; Node
+`^22.22.3 || ^24.15.0 || >=26` (the project and the image use Node 24); the
+CLI pins **TypeScript 6.0.x** (npm's "latest" 7.x is not supported by Angular
+22 and is not used); the CLI's default test runner is **Vitest 5 with jsdom**
+(`ng test`). Applications are **zoneless** by default (no zone.js), so state
+lives in Signals and templates update through them. See D51.
+
 ### D23 — TanStack Query for server state
 `SUPERSEDED` by D33
 
@@ -349,6 +362,17 @@ command, so `dotnet test` in CI already enforces "openapi.json is up to date".
 (LF endings). `npm run gen:api` must call that first, then `openapi-typescript`;
 the `schema.d.ts` diff check arrives with the Angular step.
 
+**Implemented (D51).** Both files live in `src/clinic-booking-web/src/api/` and
+are committed. `npm run gen:api` runs the regeneration test (it needs the .NET
+SDK) and then `openapi-typescript`; `npm run check:api` regenerates
+`schema.d.ts` in memory from the committed `openapi.json` and fails on any
+difference, needing only Node (for CI). Both are plain Node, so they behave the
+same in PowerShell, Git Bash and Linux. Output is LF and deterministic.
+`schema.d.ts` is excluded from lint. `openapi-typescript` declares a TypeScript
+5 peer, which clashes with the required TypeScript 6, so `package.json` carries
+an npm `overrides` entry making it use the project's TypeScript; remove it when
+the package supports TypeScript 6.
+
 **Why:** the Docker build compiles Angular before the API exists, so the
 OpenAPI document cannot be produced inside the same image build. Committing
 the outputs and verifying them in CI restores end-to-end type safety without
@@ -367,6 +391,17 @@ Use `ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`, `text-start`, `text-end`,
 **Why:** the layout must mirror correctly when direction flips to RTL.
 Physical properties silently break Arabic layout. Tailwind alone keeps RTL
 fully under our control.
+
+**Enforcement.** `scripts/check-logical-properties.mjs` (no dependencies) scans
+templates, components and stylesheets for physical utilities, also behind
+variants (`md:ml-2`, `rtl:pr-3`) and with arbitrary values, for physical corner
+and scroll utilities, and for physical CSS properties (`margin-left`, `left:`,
+`text-align: left`, ...). It names file, line and the replacement. It runs in
+`npm run lint` and as part of `prebuild`, so lint, `npm run build` and the Docker
+build fail on a violation. A line may carry the comment `logical-ok` with a
+reason. **Directional icons** (arrows, chevrons) are mirrored with
+`rtl:-scale-x-100`; no linter can see an icon's direction, so this stays a
+review rule.
 
 ### D26 — Bilingual UI with Transloco from the first component
 `ACCEPTED`
@@ -389,6 +424,38 @@ build per language), which does not fit. Transloco loads translations at
 runtime, supports lazy-loaded scoped translations, and keeps translation
 resources separate from code.
 
+**Implementation.**
+- **Files:** `public/i18n/ar.json` and `en.json`, served as `/i18n/<lang>.json`.
+  A feature scope lives in `public/i18n/<scope>/{ar,en}.json` and loads lazily
+  with `provideTranslocoScope`; its keys are `<scope>.<key>`. The package is
+  `@jsverse/transloco` (the renamed `@ngneat/transloco`).
+- **Language state:** `LanguageService` holds the language as a signal, saved in
+  `localStorage` (`clinicbooking.lang`, validated: anything but `ar`/`en`
+  falls back to Arabic; a failing storage never crashes the app), and mirrors it
+  to `document.documentElement` `lang` and `dir` and to Transloco.
+- **Before first paint:** `index.html` ships `lang="ar" dir="rtl"` plus a tiny
+  inline script that corrects both from the saved choice; an app initializer
+  loads the active language file before the first render, so raw keys never
+  flash. (A future CSP needs a hash for that script.)
+- **Missing keys:** there is no fallback language; the check below keeps a
+  missing key from reaching users.
+
+**The check (`npm run check:i18n`, part of `prebuild`).** It fails when: a folder
+under `public/i18n` lacks `ar.json` or `en.json`, the key sets differ, the
+`{{placeholders}}` of a key differ, or a value is empty or not a string; a key
+used in a template or in code (`'key' | transloco`, `t('key')`,
+`.translate/.selectTranslate('key')`) does not exist; a component template
+contains literal text, a literal `title`/`alt`/`placeholder`/`aria-label`, or an
+interpolation with a literal string; a component uses an inline `template`.
+**Limits:** a key built at runtime cannot be verified, so that line must carry a
+comment `i18n-keys: a.b, c.d` listing every key it can be (those are verified);
+literal strings in `.ts` code are not detected (review and lint); the text
+detection is a heuristic on the template source; unused keys are warnings. The
+API's `error.*` keys are not yet checked for coverage: **that check and the
+Arabic messages for every back-end key come with the first screens (login,
+Specialties) and must be complete before Phase 0 is done (Definition of Done
+#8).**
+
 ### D27 — Latin numerals and Gregorian dates in both languages
 `ACCEPTED`
 
@@ -399,6 +466,16 @@ used for display; a custom pipe over `Intl` is used instead.
 
 **Why:** Egyptian clinical and administrative practice uses Latin digits.
 Arabic-Indic numerals would look wrong to the intended user.
+
+**Implementation.** The `intl` pipe (`{{ value | intl: 'date' }}`; kinds `date`,
+`time`, `datetime`, `number`, `percent`; optional `Intl` options) over the pure
+function `formatIntl`. Locales: Arabic `ar-EG-u-nu-latn-ca-gregory`, English
+`en-GB-u-nu-latn-ca-gregory` (day first, 24-hour clock). Instants are shown in
+**Africa/Cairo** (D12); a date-only string such as `2026-10-04` is a calendar
+day, shown as such in UTC (never shifted) and valid only for the `date` kind.
+`null`, invalid or unsupported input renders as an empty string. The pipe is
+impure because its output depends on the active language. Tested for Latin
+digits, Cairo winter (UTC+2) and summer (UTC+3), calendar days and invalid input.
 
 ### D28 — Language of code vs. language of interface
 `ACCEPTED`
@@ -888,8 +965,8 @@ copy it.
   requests that match no endpoint**, so an anonymous call to an unknown route is
   401, not 404. Anonymous endpoints say so explicitly: `[AllowAnonymous]` on
   login, refresh and logout, `.AllowAnonymous()` on health and on OpenAPI.
-  **The Angular step must map static files and the SPA fallback anonymous.** A
-  test proves an action without attributes returns 401.
+  Static files and the SPA fallback are anonymous too (D51). A test proves an
+  action without attributes returns 401.
 - **Validation.** One FluentValidation validator per request DTO and per query
   object, in `Application/Validators`, found by assembly scanning. `ValidationFilter`
   (global action filter) runs them and returns 400 `error.validation.failed`
@@ -926,6 +1003,56 @@ copy it.
 - **Do not use `[Produces]`** on controllers: it overrides the
   `application/problem+json` type of model-binding failures. The OpenAPI
   transformer keeps the document clean instead.
+
+### D51 — Front-end foundation and hosting
+`ACCEPTED` (implements D15, D22, D24–D27)
+
+**Workspace.** `src/clinic-booking-web`, project `clinic-booking-web`, selector
+prefix `cb`, standalone components only, `strict` and `strictTemplates`,
+OnPush, no `any`, `inject()`, Signals, `templateUrl` only (the translation check
+needs to read templates), no zone.js. File names follow the CLI's current style
+(`app.ts`, `language-switcher.ts`; no `.component` suffix). The CLI's demo
+template, README and `.vscode` are not kept.
+
+**Packages beyond the CLI's** (rule 8, agreed): `tailwindcss`,
+`@tailwindcss/postcss` and `postcss` (Tailwind 4 is wired through
+`.postcssrc.json` and `@import "tailwindcss"`), `@jsverse/transloco`,
+`openapi-typescript`, `eslint`, `typescript-eslint` and `angular-eslint`. The
+checks and the `gen:api` script are plain Node with no dependency, and their
+own tests use Node's built-in `node --test`. `package-lock.json` is committed
+and the image uses `npm ci`; `engines` requires Node `^24.15.0`.
+
+**Scripts.** `build` (with a `prebuild` that runs `check:logical` and
+`check:i18n`), `lint` (angular-eslint, then `check:logical`), `test`
+(`ng test --no-watch`, then the Node script tests), `check:i18n`,
+`check:logical`, `gen:api`, `check:api`. Lint config: `eslint.config.mjs`.
+
+**Hosting.** The API serves the bundle from `wwwroot`. `UseStaticFiles` runs
+before logging, correlation and authorization, so the fallback authorization
+policy (D50) never sees static files; the SPA fallback endpoints are explicitly
+`AllowAnonymous`. The fallback catch-all excludes paths whose first segment is
+**exactly** `api`, `health` or `openapi` (`/apiary` is still a client route) and
+any path with a file extension (a missing `/x.js` is never HTML); the root `/`
+is mapped by its own fallback because a constrained catch-all does not match the
+empty path. Excluded paths keep today's behaviour: ProblemDetails 401
+(anonymous) or 404 (signed in), never `index.html`. `MapStaticAssets` is not
+used: it only knows files present at publish time, and the bundle is copied in
+afterwards. Cache headers: `index.html` and `/i18n/*` are `no-cache`;
+fingerprinted `*.js`/`*.css` are `public,max-age=31536000,immutable`. Tests use a
+temporary web root, so production code carries nothing test-only.
+
+**Shell.** A header (title, language switcher) and a router outlet with a
+placeholder; unknown client routes redirect to it. The document title follows
+the language.
+
+**Verification.** `npm ci`, `npm run build`, `npm run lint`, `npm test`,
+`npm run check:i18n`, `npm run check:api`, and the .NET tests. The CI workflow
+does not run the front-end scripts yet (the existing `image` job builds the front
+end through Docker); lint, unit tests, `check:i18n`, `check:api` and the
+`openapi.json` comparison are for the CI step.
+
+**Deferred.** A dev proxy for `ng serve` comes with the login step. The
+back-end `error.*` coverage check comes with the first screens (D26).
 
 ---
 

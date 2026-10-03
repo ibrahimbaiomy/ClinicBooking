@@ -16,7 +16,9 @@ tokens in an HttpOnly cookie) with permission-based authorization policies,
 structured JSON logging, error responses carrying error keys, health endpoints,
 a Docker image, and this CI workflow. The first feature API, Specialties (list,
 Arabic-aware search, create, edit, soft delete), is in place with a committed
-`openapi.json`; the other entities and the front end are not.
+`openapi.json`. The Angular front end is a foundation only: a strict, zoneless
+shell with Tailwind, an Arabic-default language switcher with RTL, and generated
+API types; there are no screens yet.
 
 ## Architecture
 
@@ -47,7 +49,8 @@ cp .env.example .env     # then replace the placeholder values (JWT key, SQL and
 docker compose up --build
 ```
 
-The API listens on <http://localhost:8080>. Check
+The API serves the Angular app and listens on <http://localhost:8080> (the shell page).
+Check
 <http://localhost:8080/health/ready>: it returns 200 once the database has been
 created by the migration. Compose applies migrations at startup because it runs
 the API in the Development environment; that is for local use only.
@@ -58,7 +61,9 @@ the API in the Development environment; that is for local use only.
 dotnet test
 ```
 
-Docker must be running: the tests start a throwaway SQL Server container.
+Docker must be running: the tests start a throwaway SQL Server container. Front-end checks
+(Node 24, in `src/clinic-booking-web`): `npm ci`, `npm run lint`, `npm test`, `npm run build`,
+`npm run check:i18n`.
 
 ## CI
 
