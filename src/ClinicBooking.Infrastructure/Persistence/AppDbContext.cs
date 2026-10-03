@@ -1,10 +1,12 @@
 using System.Linq.Expressions;
 using ClinicBooking.Application.Interfaces;
 using ClinicBooking.Domain.Entities;
+using ClinicBooking.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 namespace ClinicBooking.Infrastructure.Persistence;
 
-public class AppDbContext : DbContext, IAppDbContext
+public class AppDbContext : IdentityUserContext<ApplicationUser, long>, IAppDbContext
 {
     /// <summary>Name of the named query filter that hides soft-deleted rows.</summary>
     public const string SoftDeleteFilter = "SoftDelete";
@@ -16,8 +18,13 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<Specialty> Specialties => Set<Specialty>();
 
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Identity's own tables first (users and their claims; no roles, permissions are claims).
+        base.OnModelCreating(modelBuilder);
+
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

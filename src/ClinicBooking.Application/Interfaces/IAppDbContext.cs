@@ -7,5 +7,7 @@ public interface IAppDbContext
 {
     DbSet<Specialty> Specialties { get; }
 
+    DbSet<RefreshToken> RefreshTokens { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
