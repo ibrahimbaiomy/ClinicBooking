@@ -139,8 +139,9 @@ Azure SQL, Key Vault, GitHub Actions (OIDC to Azure).
 
 **Front end for an entity** (after the API above): one service method per
 endpoint in `src/api/`, typed from `schema.d.ts`; a lazy route with its own
-translation scope (`ar.json` and `en.json`, including the entity's `error.*`
-keys); screens with logical utilities only; `rowVersion` sent back on every edit
+translation scope (`ar.json` and `en.json` for the screen's strings; the entity's
+`error.*` keys stay in the **root** files, where the back-end key check reads
+them, D53); screens with logical utilities only; `rowVersion` sent back on every edit
 and a 409 `error.concurrency.conflict` shown as "reload"; dates through the
 `intl` pipe; unit tests for the logic; then `npm run lint`, `npm test`,
 `npm run build`, `npm run check:i18n` and `npm run check:api`.
@@ -164,6 +165,36 @@ and a 409 `error.concurrency.conflict` shown as "reload"; dates through the
 6. Layout: logical utilities only; mirror directional icons (`rtl:-scale-x-100`).
 7. Tests: logic with Vitest; HTTP with `HttpTestingController` and
    `provideAuthTesting()` (`src/testing/auth-testing.ts`).
+
+**New entity screen (copy the Specialties screens, D53).**
+1. `src/api/<entity>-api.ts`: one method per endpoint (list with its query, get,
+   create, update with `rowVersion`, delete), typed with `RequestBody`,
+   `ResponseBody` and `QueryParams`. The generated query names are PascalCase.
+2. `features/<entity>/`: lazy routes behind `authGuard` (`<entity>.routes.ts`),
+   `permissionGuard` on create and edit, a scope provider and the scope resolver,
+   `list/`, `form/` and the session service for the last list query and the
+   status message.
+3. List: the URL is the state (`q`, `page`, `size`, `sort`, `dir`; defaults in one
+   constant, omitted from the URL, invalid values clamped); `rxResource` so a
+   newer query cancels the older; 300 ms debounce with `replaceUrl`, Enter at
+   once, IME composition ignored; loading, empty, no-results and error states;
+   Retry re-issues the query; a page past the end steps back; table from md up,
+   cards below; both names with their own `lang`/`dir`, the UI language first.
+4. Form: a separate page; Signal Forms with the API's rules and keys; map a 400's
+   field errors and name-taken 409s onto fields from `submit()`; anything else
+   as a form-level message; 409 `error.concurrency.conflict` disables Save until
+   Reload and shows the earlier entries; 404 shows "not found".
+5. Delete: `confirm-dialog`, focus on Cancel, 404 = already deleted, other errors
+   stay in the dialog; reload the list and focus the heading afterwards.
+6. Strings: the screen's keys in `public/i18n/<entity>/{ar,en}.json`; the entity's
+   `error.*` keys in the **root** files; Arabic wording reviewed by the owner.
+7. Controls: `*cbCan` for create, edit and delete; add the permission to
+   `core/auth/permissions.ts`. A header navigation entry.
+8. Tests: the API service, URL parsing, search debounce, stale response, paging
+   and sorting, delete (confirm, cancel, Esc, 404, last row of the last page),
+   form errors and conflict, permission-aware rendering, a name containing HTML
+   shown as text. Then `npm run lint`, `npm test`, `npm run check:i18n`,
+   `npm run check:api` and `npm run build`.
 
 **The back-end error-key check.** `check:i18n` scans `src/ClinicBooking.*/**/*.cs`
 (comments skipped) for `"error.<area>.<reason>"` literals and fails when one is

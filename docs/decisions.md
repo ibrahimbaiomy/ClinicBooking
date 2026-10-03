@@ -977,7 +977,9 @@ copy it.
 - **Endpoints** (`/api/specialties`): `GET` (list), `GET {id}`, `POST`
   (201 + `Location`), `PUT {id}`, `DELETE {id}` (204). List query: `search`,
   `page` (1), `pageSize` (20, max 100), `sortBy` (`nameEn` default, `nameAr`,
-  `createdAt`), `sortDirection` (`asc` default, `desc`); response
+  `createdAt`), `sortDirection` (`asc` default, `desc`) (the query object binds
+  case-insensitively and the OpenAPI document names them `Search`, `Page`,
+  `PageSize`, `SortBy`, `SortDirection`, which the front end sends, D53); response
   `{ items, page, pageSize, totalCount }`. Ties are broken by `Id` (by `Id`
   descending for newest-first). DTOs only: responses carry id, both names,
   `createdAt`, `updatedAt` and `rowVersion`; never the normalised columns or
@@ -1207,6 +1209,119 @@ login) were not driven in the browser, because the pane could not take a pasted
 secret and typing it would expose it. They are covered by unit tests and by real
 requests against the running stack (login cookie flags, `/me`, rotation, logout,
 and the same through the dev proxy).
+
+---
+
+### D53 — Front-end feature pattern (Specialties screens)
+`ACCEPTED` (implements D50 on the client; the reference for Clinics, Doctors and Patients)
+
+**Layout.**
+```
+src/api/specialties-api.ts            one method per endpoint, types from schema.d.ts
+src/app/shared/ui/                    confirm-dialog, pager (no strings of their own)
+src/app/features/<entity>/
+  <entity>.routes.ts                  lazy routes; the parent route carries the Transloco scope
+  <entity>.scope.ts                   scope name + a resolver that preloads the scope file
+  list/<entity>-list.ts|html, list-query.ts    the screen; URL <-> query as pure functions
+  form/<entity>-form.ts|html          create and edit on one page
+  <entity>-session.ts                 last list query + a one-time status message
+public/i18n/<entity>/{ar,en}.json     the screen's own strings (keys <scope>.<key>)
+```
+`/specialties` is behind `authGuard` only (any signed-in user may read, D50);
+`/specialties/new` and `/specialties/:id/edit` add `permissionGuard`. The
+controls use `*cbCan`. Both are UX: the API enforces permissions.
+
+**Translations.** The screen's own strings live in the scope. **The entity's
+`error.*` keys stay in the root `ar.json`/`en.json`**: the back-end key check
+(D52) reads the root files, and the error handling that shows them is shared
+code. (Instructions.md used to say the keys go in the scope; corrected.) A
+resolver loads the scope for the active language before the page renders, so no
+raw key flashes; the pipe follows later language changes.
+
+**The list: the URL is the state.** `?q=&page=&size=&sort=&dir=`, defaults
+omitted. `parseListState` reads it with clamping (an invalid value becomes the
+default, so a bad link never breaks the page or reaches the API); `toQueryParams`
+writes it; `toApiQuery` builds the API query, always explicit. Reload and
+back/forward need no extra code because the component reads `queryParamMap`.
+- **Defaults live in one constant** (`DEFAULT_LIST_STATE`): Arabic name
+  ascending (Arabic-first UI), page 1, 20 per page; tests pin the default URL
+  and the default API query. Page sizes 10, 20, 50.
+- **Loading and stale responses:** an `rxResource` over the parsed query: a newer
+  query cancels the older request, so a late response is never shown. The
+  previous result stays on screen (`aria-busy`) while the next loads. Retry
+  calls `reload()`: the same query, the page is not rebuilt.
+- **Search:** a local signal, debounced **300 ms** (fast enough to feel live, slow
+  enough not to send a request per keystroke) into a `replaceUrl` navigation so
+  back is not polluted; Enter searches at once; input during IME composition is
+  ignored until it ends. The raw text is sent, trimmed (the API normalises
+  Arabic, D49); blank is omitted; `maxlength` 100. Any search, sort or size
+  change returns to page 1.
+- **A page past the end** (after a delete or a hand-edited URL) steps back to
+  the last page; with no rows at all the "no specialties" state shows.
+- **Query names.** The generated types name the list parameters in PascalCase
+  (`Search`, `Page`, `PageSize`, `SortBy`, `SortDirection`) because the query
+  object binds case-insensitively; the client sends the typed names. D50's
+  lowercase spelling was wording only and is updated. `SortBy`/`SortDirection`
+  are plain strings in the schema, so the allowed values are mirrored in
+  `list-query.ts`.
+- **Layout.** A real `<table>` (caption, `th scope`, `aria-sort`) from md up and a
+  card list below; both share the action template, and the hidden one is
+  `display:none`. One sort control (select + direction button) serves both. The
+  name in the UI language is shown first and prominent, the other secondary;
+  every name sits in a `<bdi>` with its own `lang`/`dir`. Names are interpolated
+  (never `innerHTML`), so stored HTML is shown as text (D28; tested). Pager is
+  text-only (no icon to mirror). Dates use the `intl` pipe.
+
+**Create and edit: separate pages, not a modal.** Deep-linkable, back works,
+focus is simple, no focus-trap code, and they behave on a phone and in RTL.
+Signal Forms; rules mirror the API (trimmed value required, at most 100) with
+the back-end keys; values are sent trimmed. Each field carries its own
+`lang`/`dir`. After a save the app navigates to the remembered list query
+(`<entity>-session`) and the list shows a one-time `role="status"` message and
+focuses its heading (every feature page focuses its `h2` on entry).
+
+**Server errors on a form.** A 400's `errors.<field>` keys and the key on a 409
+`name_ar_taken`/`name_en_taken` become server errors on the right field, returned
+from the `submit()` action, so they render like client errors and clear when the
+user edits that field. Anything else is a form-level `aria-live` message through
+`ErrorMessageService` (never server text or a raw key). A 404 on save shows
+"not found" with a way back.
+
+**Concurrency (409 `error.concurrency.conflict`).** The form keeps what the user
+typed and shows a banner (focused, `role=alert`); **Save stays disabled until
+the user presses Reload**, so nothing is overwritten silently. Reload fetches the
+latest record, puts its values and new `rowVersion` in the form, and lists the
+user's earlier entries in a panel they can dismiss, to re-apply by hand. If the
+fetch returns 404 the page says the record no longer exists.
+
+**Delete.** A reusable `confirm-dialog` on the native `<dialog>` (`showModal()`:
+focus trap, inert background, Esc, focus restoration), focus starting on Cancel,
+naming the record in both languages; Esc is ignored while the request runs. On
+success it reloads the list, shows a status message and focuses the heading. A
+404 means already deleted: the same outcome with its own message. Any other
+error stays inside the dialog, translated, so the later 409
+`error.specialty.in_use` needs only its translation (the back-end key check
+will demand it).
+
+**Shell.** A "Specialties" link in the header for signed-in users
+(`routerLinkActive`, `aria-current`).
+
+**Test notes.** jsdom lacks `<dialog>.showModal()`/`close()`: a stand-in lives in
+`src/testing/dialog-polyfill.ts`. `whenStable()` hangs while an HTTP request is
+pending (resources hold a pending task), so specs settle by hand. rxjs
+`debounceTime` reads `Date.now()`, so fake timers must fake `Date` too.
+
+**Known minor points.** The Specialties chunk (about 9 kB) is requested by a
+signed-out visitor following a deep link, because the router loads a lazy route
+before its guard runs; nothing sensitive is in it, and `canMatch` would avoid it
+at the cost of a different fallback. `check:i18n` now ignores the format name in
+`| intl: 'date'` (it is not user text).
+
+**Not verified in a browser.** Every signed-in flow (list, search, paging, sort,
+create, edit, conflict, delete, focus restoration after the dialog closes) was
+not driven in the browser, because that needs the seed password. They are covered
+by the component, route and logic specs; focus behaviour that depends on a real
+browser (native dialog focus restoration) is the part tests cannot prove.
 
 ---
 
