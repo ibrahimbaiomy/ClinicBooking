@@ -1,0 +1,7 @@
+# Local development only. `docker compose up` loads this file automatically;
+# CI and Azure deployments never do. Development makes the API apply EF Core
+# migrations at startup (D14).
+services:
+  api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development

@@ -24,9 +24,8 @@ services:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      # No database name yet: the persistence step adds it. TrustServerCertificate
-      # is for the local container's self-signed certificate only.
-      ConnectionStrings__Default: Server=sqlserver;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=True
+      # TrustServerCertificate is for the local container's self-signed certificate only.
+      ConnectionStrings__Default: Server=sqlserver;Database=${MSSQL_DATABASE:-ClinicBooking};User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=True
     ports:
       - "8080:8080"
 
