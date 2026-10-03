@@ -29,6 +29,7 @@ public sealed class SpecialtiesController : ControllerBase
 
     [HttpGet]
     [Authorize]
+    [ProducesResponseType(typeof(PagedResponse<SpecialtyResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResponse<SpecialtyResponse>>> List(
         [FromQuery] ListSpecialtiesQuery query,
         CancellationToken cancellationToken) =>
@@ -36,6 +37,7 @@ public sealed class SpecialtiesController : ControllerBase
 
     [HttpGet("{id:long}", Name = GetByIdRoute)]
     [Authorize]
+    [ProducesResponseType(typeof(SpecialtyResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, "application/problem+json")]
     public async Task<ActionResult<SpecialtyResponse>> GetById(long id, CancellationToken cancellationToken) =>
         Ok(await _specialties.GetAsync(id, cancellationToken));
@@ -55,6 +57,7 @@ public sealed class SpecialtiesController : ControllerBase
     }
 
     [HttpPut("{id:long}")]
+    [ProducesResponseType(typeof(SpecialtyResponse), StatusCodes.Status200OK)]
     [Authorize(Policy = Permissions.Specialties.Manage)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, "application/problem+json")]

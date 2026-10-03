@@ -11,13 +11,13 @@ namespace ClinicBooking.Tests;
 /// <c>UPDATE_OPENAPI=1 dotnet test --filter OpenApiDocumentTests</c> (Git Bash) or set the
 /// environment variable first (PowerShell: <c>$env:UPDATE_OPENAPI=1</c>), then commit the file.
 /// </summary>
-public class OpenApiDocumentTests : IClassFixture<ApiFactory>
+public class OpenApiDocumentTests : IClassFixture<PlainApiFactory>
 {
     private const string RelativePath = "src/clinic-booking-web/src/api/openapi.json";
 
-    private readonly ApiFactory _factory;
+    private readonly PlainApiFactory _factory;
 
-    public OpenApiDocumentTests(ApiFactory factory)
+    public OpenApiDocumentTests(PlainApiFactory factory)
     {
         _factory = factory;
     }
@@ -62,6 +62,67 @@ public class OpenApiDocumentTests : IClassFixture<ApiFactory>
         Assert.DoesNotContain("ApplicationUser", schemas);
 
         Assert.DoesNotContain("text/plain", root.GetRawText());
+    }
+
+    [Fact]
+    public async Task The_document_contains_no_test_only_endpoints_or_schemas()
+    {
+        using var document = JsonDocument.Parse(await GenerateAsync());
+        var root = document.RootElement;
+
+        var paths = root.GetProperty("paths").EnumerateObject().Select(p => p.Name).ToList();
+        Assert.All(paths, path => Assert.StartsWith("/api/", path));
+
+        var schemas = root.GetProperty("components").GetProperty("schemas").EnumerateObject().Select(p => p.Name).ToList();
+        Assert.DoesNotContain("BodyDto", schemas);
+        Assert.DoesNotContain("ValidatedBody", schemas);
+    }
+
+    [Fact]
+    public async Task Every_operation_documents_a_success_response_with_a_schema_except_204()
+    {
+        using var document = JsonDocument.Parse(await GenerateAsync());
+        var missing = new List<string>();
+
+        foreach (var path in document.RootElement.GetProperty("paths").EnumerateObject())
+        {
+            foreach (var operation in path.Value.EnumerateObject())
+            {
+                var responses = operation.Value.GetProperty("responses").EnumerateObject()
+                    .Where(r => r.Name.StartsWith('2'))
+                    .ToList();
+
+                var label = $"{operation.Name.ToUpperInvariant()} {path.Name}";
+                if (responses.Count == 0)
+                {
+                    missing.Add($"{label}: no 2xx response");
+                    continue;
+                }
+
+                foreach (var response in responses.Where(r => r.Name != "204"))
+                {
+                    var hasSchema = response.Value.TryGetProperty("content", out var content)
+                        && content.TryGetProperty("application/json", out var json)
+                        && json.TryGetProperty("schema", out _);
+                    if (!hasSchema)
+                    {
+                        missing.Add($"{label}: {response.Name} has no JSON schema");
+                    }
+                }
+            }
+        }
+
+        Assert.True(missing.Count == 0, "Undocumented success responses: " + string.Join("; ", missing));
+    }
+
+    [Fact]
+    public async Task The_auth_success_schemas_are_documented()
+    {
+        using var document = JsonDocument.Parse(await GenerateAsync());
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas").EnumerateObject().Select(p => p.Name).ToList();
+
+        Assert.Contains("AuthResponse", schemas);
+        Assert.Contains("CurrentUserResponse", schemas);
     }
 
     [Fact]
