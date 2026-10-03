@@ -14,8 +14,9 @@ layer (EF Core on SQL Server) with a first `Specialty` entity and migrations,
 authentication (ASP.NET Core Identity, JWT access tokens, rotating refresh
 tokens in an HttpOnly cookie) with permission-based authorization policies,
 structured JSON logging, error responses carrying error keys, health endpoints,
-a Docker image, and this CI workflow. There is no feature API (Specialties and
-the rest) and no front end yet.
+a Docker image, and this CI workflow. The first feature API, Specialties (list,
+Arabic-aware search, create, edit, soft delete), is in place with a committed
+`openapi.json`; the other entities and the front end are not.
 
 ## Architecture
 

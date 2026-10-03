@@ -100,14 +100,42 @@ Azure SQL, Key Vault, GitHub Actions (OIDC to Azure).
 - Never use `ExecuteUpdate` / `ExecuteDelete`: they bypass the audit and
   soft-delete interceptor. Load the entity and call `SaveChangesAsync`. A test
   fails the build if they appear in `src/`.
-- FluentValidation runs through an endpoint filter, not automatic MVC
-  validation. Validators check input only; business rules live in
-  Application/Domain.
+- FluentValidation runs through a global MVC action filter (`ValidationFilter`),
+  not automatic MVC validation (`IEndpointFilter` is minimal-API only, D4/D50).
+  Validators check input only; business rules live in Application/Domain.
+  Every validator message is an error key (`error.<area>.<reason>`).
+- Every request DTO and query object of an action needs a validator in
+  `Application/Validators`; a test fails if one is missing.
+- Never put `[Produces]` on a controller (it overrides `application/problem+json`).
 - Convert UTC ↔ Cairo time only inside Application, only to validate rules.
 - Permission names are constants in Domain (`patients.create`, ...). Protect an
   endpoint with `[Authorize(Policy = Permissions.X.Y)]`: there is one policy per
   permission, named after it. Never compare permission or role names as literals.
 - Errors from auth use the keys in D48 (`error.auth.*`).
+- Endpoints are secure by default: a fallback policy requires a signed-in user
+  where no attribute says otherwise. An anonymous endpoint must say so
+  (`[AllowAnonymous]` / `.AllowAnonymous()`), deliberately (D50).
+
+### Adding an entity (follow Specialties, D49/D50)
+1. Derive from `SoftDeletableEntity` (only Specialties, Clinics, Doctors,
+   Patients, D35). Private setters; a `Create`/`SetNames`-style method sets the
+   display text **and** its normalised copy (`SearchText.Normalize`).
+2. Configuration in `Infrastructure/EntityConfigurations`: `nvarchar` for text;
+   unique filtered indexes (`WHERE [IsDeleted] = 0`) over the **normalised**
+   column for reference data only (Patients: normalised column for search, no
+   unique constraint on names), each with the `ClinicBooking:ConflictKey`
+   annotation naming its 409 error key. Add a migration.
+3. Application: interface in `Interfaces`, implementation in `Features/<Name>`
+   (scoped), request/response DTOs, one validator per request DTO and query
+   object, a `Select` projection (never return an entity), error keys as
+   constants. Updates take a `rowVersion` and answer 409
+   `error.concurrency.conflict` when it is stale.
+4. Api: attribute-routed controller, `[Authorize]` / `[Authorize(Policy = ...)]`
+   on every action, `[ProducesResponseType]` for the error responses. Add the
+   permission constants.
+5. Regenerate `openapi.json` (below) and commit it. Tests: each endpoint with
+   and without the permission, validation keys, duplicates, search, paging,
+   audit with a real user.
 
 ### TypeScript / Angular
 - Standalone components only (no NgModules).
@@ -118,6 +146,11 @@ Azure SQL, Key Vault, GitHub Actions (OIDC to Azure).
   from the committed `openapi.json` — never hand-edited.
 - One dedicated service method per endpoint, kept in `src/api/`.
 - Strict mode: no `any`. Prefer `inject()` over constructor injection.
+- Every `PUT` sends back the `rowVersion` it received. A 409
+  `error.concurrency.conflict` means someone else changed the record: tell the
+  user to reload it, never retry silently or overwrite (D50).
+- Static files and the SPA fallback must be mapped anonymous (the API denies
+  anonymous requests by default, D50).
 - Token refresh is **single-flight**: at most one refresh request in flight;
   every caller that needs a new access token waits for and shares its result
   (the refresh token rotates on every use, D48).
@@ -143,7 +176,9 @@ Azure SQL, Key Vault, GitHub Actions (OIDC to Azure).
   here, raise it rather than copying the pattern forward.
 - **Do not refactor unrelated code** while implementing a feature.
 - **Changed a DTO?** Run `npm run gen:api` and commit `openapi.json` and
-  `schema.d.ts`. CI fails on any diff.
+  `schema.d.ts`. CI fails on any diff. Until the Angular step exists, regenerate
+  only `openapi.json` with `UPDATE_OPENAPI=1 dotnet test --filter OpenApiDocumentTests`;
+  `dotnet test` (and so CI) fails when it is stale.
 - **Open questions** (O-numbers in `decisions.md`) are not answered silently:
   raise them before building anything that depends on them.
 
@@ -183,7 +218,14 @@ ConnectionStrings__Default="Server=design-time;Database=ClinicBooking;User Id=sa
   --startup-project src/ClinicBooking.Api \
   --output-dir Persistence/Migrations
 
-# regenerate API types after changing a DTO
+# regenerate openapi.json after changing a controller or DTO (writes
+# src/clinic-booking-web/src/api/openapi.json with LF endings; commit the result).
+# Without the variable the same test only checks that the file is up to date.
+UPDATE_OPENAPI=1 dotnet test --filter OpenApiDocumentTests
+# (PowerShell: $env:UPDATE_OPENAPI=1; dotnet test --filter OpenApiDocumentTests)
+
+# regenerate API types after changing a DTO (Angular step: runs the line above, then
+# openapi-typescript into schema.d.ts)
 npm run gen:api
 ```
 

@@ -156,7 +156,9 @@ configuration it would replace, and `Select` projection produces better SQL.
 `ACCEPTED`
 
 Request DTOs are validated with FluentValidation at the API boundary, applied
-through an **endpoint filter**, not through automatic MVC validation.
+through a filter, not through automatic MVC validation. `IEndpointFilter`
+exists only for minimal APIs, and controllers were chosen (D4), so the filter
+is a global MVC **action filter** (`ValidationFilter`, D50).
 Validators own input and format checks: required fields, length limits, valid
 formats, acceptable ranges.
 
@@ -337,6 +339,16 @@ and are **committed**.
 - CI regenerates both files and **fails if there is any diff**.
 - Generated files are never hand-edited.
 
+**Refinement (D50).** `openapi.json` is generated from the API running inside
+the test host, not by the build: the build-time generator starts the application,
+which would need a valid JWT signing key for every `dotnet build`, including the
+Docker build. `OpenApiDocumentTests` compares the committed file with the
+generated document (line endings ignored) and fails with the regeneration
+command, so `dotnet test` in CI already enforces "openapi.json is up to date".
+`UPDATE_OPENAPI=1 dotnet test --filter OpenApiDocumentTests` rewrites the file
+(LF endings). `npm run gen:api` must call that first, then `openapi-typescript`;
+the `schema.d.ts` diff check arrives with the Angular step.
+
 **Why:** the Docker build compiles Angular before the API exists, so the
 OpenAPI document cannot be produced inside the same image build. Committing
 the outputs and verifying them in CI restores end-to-end type safety without
@@ -487,9 +499,8 @@ populated by a `SaveChanges` interceptor from Phase 0. The full audit trail
 `ACCEPTED`
 
 Reference data such as Specialties stores `NameAr` and `NameEn`. Search over
-Arabic text normalises أ/إ/ا, ة/ه and ى/ي, through a suitable collation or
-normalised search columns (mechanism decided when Phase 0 search is built and
-recorded here).
+Arabic text normalises أ/إ/ا, ة/ه and ى/ي. **Mechanism (D49): normalised
+columns computed in code**, not a collation (none folds these letters, D46).
 
 ### D38 — Patient data
 `ACCEPTED`
@@ -673,8 +684,9 @@ repository root tells AI assistants to read `docs/Instructions.md` and
   columns are `nvarchar`, never `varchar`. No SQL Server collation folds
   أ/إ/ا, ة/ه or ى/ي (checked on SQL Server 2022 against `Arabic_CI_AI`,
   `Arabic_100_CI_AI`, `Arabic_CI_AS`), so D37's normalisation will come from
-  normalised search data added with the search feature. Until then a unique
-  index on `NameAr` treats `أحمد` and `احمد` as different names.
+  normalised search data added with the search feature. (That gap, where a
+  unique index on `NameAr` treated `أحمد` and `احمد` as different names, is
+  closed by D49.)
 - **Soft delete filter:** a named EF query filter, `"SoftDelete"`, applied by
   `AppDbContext` to every `ISoftDeletable` entity.
 - **Save interceptor** (`AuditSaveChangesInterceptor`, uses `TimeProvider` and
@@ -820,6 +832,100 @@ public host. (2) Key Vault for `Jwt__SigningKey` and the seed values.
 
 **Front end.** The Angular step must call refresh **single-flight**: at most
 one refresh request in flight, all waiting callers share its result.
+
+### D49 — Arabic-aware search and uniqueness of names
+`ACCEPTED` (completes D37)
+
+**Mechanism.** `SearchText.Normalize` (Domain) is the one normalisation. It is
+computed in code and stored in plain `nvarchar(100)` columns next to the
+display text (`NameArNormalized`, `NameEnNormalized`); a SQL computed column
+would duplicate the logic and let stored value and query drift. The same
+function normalises the search term. The pipeline: Unicode NFKC; remove Arabic
+diacritics (U+064B–U+065F, U+0670), tatweel and invisible format characters
+(ZWJ, ZWNJ, LRM, RLM, BOM); fold `أ إ آ ٱ → ا`, `ة → ه`, `ى → ي`; fold
+Arabic-Indic and Persian digits to `0-9` (consistent with D27); lower-case;
+collapse whitespace; trim. `ؤ` and `ئ` are deliberately **not** folded (not in
+D37). English text goes through the same function: case-insensitive, whitespace
+collapsed, no accent folding.
+
+**Entity shape.** The display names and the normalised copies have private
+setters and are set together by `SetNames`, so a caller cannot forget one. The
+display name is stored as entered (trimmed, D28).
+
+**Search.** One `search` parameter matches either name. The normalised query is
+split on spaces and **every word** must match one of the two normalised
+columns (`Contains`, wildcard characters treated literally). A leading-wildcard
+scan is acceptable for reference data of a few dozen rows; Patients will need a
+prefix or full-text approach.
+
+**Uniqueness.** Reference data (Specialties, Clinics) is unique over the
+**normalised** text, per language, among live rows (`WHERE IsDeleted = 0`), so
+`أحمد`/`احمد` or `Cardiology`/` cardiology ` are the same name. **This applies
+to reference data only.** Patients (D44) get a normalised column for search
+only and **no unique constraint on names**: different people share names.
+
+**Sorting.** Arabic order is the normalised text (alphabetical, ignoring hamza
+forms and diacritics), so no collation function is needed.
+
+### D50 — Specialties API and the pattern for later entities
+`ACCEPTED`
+
+Specialties is the reference implementation; Clinics, Doctors and Patients
+copy it.
+
+- **Endpoints** (`/api/specialties`): `GET` (list), `GET {id}`, `POST`
+  (201 + `Location`), `PUT {id}`, `DELETE {id}` (204). List query: `search`,
+  `page` (1), `pageSize` (20, max 100), `sortBy` (`nameEn` default, `nameAr`,
+  `createdAt`), `sortDirection` (`asc` default, `desc`); response
+  `{ items, page, pageSize, totalCount }`. Ties are broken by `Id` (by `Id`
+  descending for newest-first). DTOs only: responses carry id, both names,
+  `createdAt`, `updatedAt` and `rowVersion`; never the normalised columns or
+  audit user ids.
+- **Permissions.** Any signed-in user may read (every staff member needs the
+  list); `specialties.manage` is required to create, edit and delete.
+- **Secure by default.** A **fallback authorization policy** requires an
+  authenticated user for any endpoint without authorization metadata, **also for
+  requests that match no endpoint**, so an anonymous call to an unknown route is
+  401, not 404. Anonymous endpoints say so explicitly: `[AllowAnonymous]` on
+  login, refresh and logout, `.AllowAnonymous()` on health and on OpenAPI.
+  **The Angular step must map static files and the SPA fallback anonymous.** A
+  test proves an action without attributes returns 401.
+- **Validation.** One FluentValidation validator per request DTO and per query
+  object, in `Application/Validators`, found by assembly scanning. `ValidationFilter`
+  (global action filter) runs them and returns 400 `error.validation.failed`
+  with camelCase field names and error-key messages; a message that is not an
+  `error.` key is replaced by `error.validation.invalid` (rule 4). A reflection
+  test fails if any request DTO of a production action has no validator.
+- **Concurrency.** `RowVersion` (SQL `rowversion`) on every auditable entity.
+  `PUT` must send it back; a stale value is 409 `error.concurrency.conflict`
+  (checked in the service and again by EF at save). `DELETE` needs no version.
+- **Duplicates.** The service pre-checks for a friendly 409
+  (`error.specialty.name_ar_taken` / `name_en_taken`, Arabic reported first if
+  both clash); the unique indexes are the real guard. A unique-index violation
+  becomes a 409 `ConflictException` **only** for indexes carrying the
+  `ClinicBooking:ConflictKey` annotation (the key to return); every other
+  unique violation (Identity, refresh tokens) is rethrown unchanged. Matching
+  uses the ASCII index name inside the SQL error text, not its language. D43's
+  `slot_taken` uses the same mechanism.
+- **Error keys.** `error.specialty.name_ar_required|too_long|invalid` (and
+  `name_en_*`), `error.specialty.not_found` (404), `error.paging.page_invalid`,
+  `error.paging.page_size_invalid`, `error.sort.invalid`,
+  `error.search.too_long`, `error.concurrency.row_version_required|invalid`,
+  `error.concurrency.conflict`. Login validation keys: `error.auth.user_name_required`,
+  `error.auth.password_required`, `error.auth.field_too_long`.
+- **Delete** is a soft delete through `Remove()` (D35); a second delete is 404
+  and the name can be re-created. **Later**, when a Doctor uses a Specialty,
+  deleting it returns 409 `error.specialty.in_use` (no cascade); soft-deleted
+  doctors keep their reference, which stays valid.
+- **Queries** project with `Select` into DTOs from one hand-written expression
+  (`SpecialtyMapping`); updates and deletes load the entity.
+- **OpenAPI.** `Microsoft.AspNetCore.OpenApi` generates the document;
+  `/openapi/v1.json` is served only when `OpenApi:Enabled=true` (Development,
+  tests). A transformer removes the machine-specific `servers` entry and
+  non-JSON media types. See D24 for the regeneration command.
+- **Do not use `[Produces]`** on controllers: it overrides the
+  `application/problem+json` type of model-binding failures. The OpenAPI
+  transformer keeps the document clean instead.
 
 ---
 
