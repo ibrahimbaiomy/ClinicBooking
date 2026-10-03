@@ -155,3 +155,14 @@ test('unused keys are warnings only, and error.* keys are exempt', () => {
   assert.ok(warnings.some((w) => w.includes('"hello"')));
   assert.ok(!warnings.some((w) => w.includes('error.')));
 });
+
+test('the intl pipe format name is not literal text, but a literal string next to it still fails', () => {
+  const ok = run({ 'src/app/a.html': "<p>{{ 'app.title' | transloco }}: {{ row.createdAt | intl: 'datetime' }} {{ n | intl: \"number\" }}</p>" });
+  assert.deepEqual(ok.errors, []);
+
+  const bad = run({ 'src/app/a.html': "<p>{{ 'Created' }} {{ row.createdAt | intl: 'date' }}</p>" });
+  assert.ok(bad.errors.some((e) => e.includes('literal string')), bad.errors.join('\n'));
+
+  const other = run({ 'src/app/a.html': "<p>{{ value | somepipe: 'Hello there' }}</p>" });
+  assert.ok(other.errors.some((e) => e.includes('literal string')), other.errors.join('\n'));
+});

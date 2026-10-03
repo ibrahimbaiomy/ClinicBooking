@@ -268,7 +268,9 @@ function findLiteralText(file, source, errors) {
 
   // interpolations
   for (const m of content.matchAll(/\{\{([\s\S]*?)\}\}/g)) {
-    if (/(['"])[^'"]*\p{L}[^'"]*\1/u.test(m[1]) && !/\|\s*transloco\b/.test(m[1])) {
+    // `| intl: 'date'` passes a format name, not text for the user (D27).
+    const expression = m[1].replace(/\|\s*intl\s*:\s*(['"])[A-Za-z]+\1/g, '');
+    if (/(['"])[^'"]*\p{L}[^'"]*\1/u.test(expression) && !/\|\s*transloco\b/.test(expression)) {
       errors.push(`${file}:${lineOf(content, m.index)}: interpolation contains a literal string; use a translation key`);
     }
   }
