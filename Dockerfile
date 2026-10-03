@@ -4,7 +4,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Shared build rules first, so the container build uses the same settings as local.
-COPY Directory.Build.props .editorconfig ./
+COPY global.json Directory.Build.props .editorconfig ./
 
 # Project files only, for a cacheable restore layer. The tests project is not
 # part of the image, so restore targets the Api project rather than the solution.

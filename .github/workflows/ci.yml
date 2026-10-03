@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Read-only token and no secrets: nothing here deploys or pushes anywhere.
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request cancels the older run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK (from global.json)
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      # Testcontainers starts SQL Server through the runner's Docker engine.
+      - name: Show Docker engine
+        run: |
+          docker version
+          docker info
+
+      - name: Restore
+        run: dotnet restore ClinicBooking.sln
+
+      # Warnings are errors through Directory.Build.props (D45), which also keeps
+      # the NU190x audit warnings non-fatal. No -warnaserror here on purpose.
+      - name: Build (Release)
+        run: dotnet build ClinicBooking.sln --configuration Release --no-restore
+
+      - name: Test (Release)
+        run: >
+          dotnet test ClinicBooking.sln
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --logger "console;verbosity=normal"
+          --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results
+          path: TestResults/*.trx
+          retention-days: 7
+          if-no-files-found: warn
+
+  image:
+    name: Docker image builds
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Build only: nothing is pushed to a registry in this workflow.
+      - name: Build image
+        run: docker build --pull --tag clinicbooking-api:ci .
