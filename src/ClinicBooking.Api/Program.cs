@@ -1,6 +1,7 @@
 using ClinicBooking.Api.Authentication;
 using ClinicBooking.Api.Filters;
 using ClinicBooking.Api.Middleware;
+using ClinicBooking.Api.OpenApi;
 using ClinicBooking.Api.Services;
 using ClinicBooking.Infrastructure.Identity;
 using ClinicBooking.Infrastructure.Persistence;
@@ -25,6 +26,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddControllers(options => options.Filters.Add<ValidationFilter>());
 builder.Services.AddErrorHandling();
 builder.Services.AddApiAuth(builder.Configuration);
+builder.Services.AddApiOpenApi();
 
 var app = builder.Build();
 
@@ -47,6 +49,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapApiOpenApi();
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
     Predicate = _ => false,

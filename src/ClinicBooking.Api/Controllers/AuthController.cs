@@ -6,6 +6,7 @@ using ClinicBooking.Application.Features.Auth;
 using ClinicBooking.Application.Interfaces;
 using ClinicBooking.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -32,6 +33,10 @@ public sealed class AuthController : ControllerBase
     [HttpPost("login")]
     [AllowAnonymous]
     [EnableRateLimiting(AuthExtensions.LoginRateLimitPolicy)]
+    [ProducesResponseType(typeof(HttpValidationProblemDetails), StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status423Locked, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests, "application/problem+json")]
     public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var result = await _auth.LoginAsync(request, cancellationToken);
@@ -43,6 +48,9 @@ public sealed class AuthController : ControllerBase
     [HttpPost("refresh")]
     [AllowAnonymous]
     [EnableRateLimiting(AuthExtensions.RefreshRateLimitPolicy)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests, "application/problem+json")]
     [ServiceFilter(typeof(SameOriginFilter))]
     public async Task<ActionResult<AuthResponse>> Refresh(CancellationToken cancellationToken)
     {
@@ -67,6 +75,8 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpPost("logout")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden, "application/problem+json")]
     [AllowAnonymous]
     [ServiceFilter(typeof(SameOriginFilter))]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
@@ -78,6 +88,7 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpGet("me")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized, "application/problem+json")]
     [Authorize]
     public async Task<ActionResult<CurrentUserResponse>> Me(CancellationToken cancellationToken)
     {
