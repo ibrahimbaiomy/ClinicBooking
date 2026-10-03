@@ -6,19 +6,24 @@
 //      {{placeholders}} per key, and non-empty string values;
 //   2. every translation key used in templates and code exists (root files or a scope folder);
 //   3. component templates contain no literal user-facing text (heuristic, see limits);
-//   4. components use templateUrl, so no template can hide from (3).
+//   4. components use templateUrl, so no template can hide from (3);
+//   5. every `error.*` key in the back-end C# source has a translation in both languages.
 //
 // Limits (also in Instructions.md)
 //   - A key built at runtime cannot be verified. Such a line must carry the comment
 //     `i18n-keys: a.b, c.d` (same or previous line) listing every key it can produce; those are verified.
 //   - Literal strings inside .ts code are not detected (review and lint cover them).
 //   - Text detection is a heuristic on the template source, not a parse of the compiled template.
-//   - Keys that only the API sends (`error.*`) are not checked for coverage here (planned with the screens).
+//   - Back-end `error.*` keys are read from the C# source (backend-error-keys.mjs): a key built at runtime
+//     must be declared in scripts/backend-error-keys.json. Keys assembled any other way (a resource file,
+//     a database) would be invisible. Without the back-end sources the scan is skipped with a warning,
+//     unless CI is set, where it fails.
 //   - Unused keys are reported as warnings only.
 
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { join, relative, extname } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { scanBackendErrorKeys } from './backend-error-keys.mjs';
 
 const LANGS = ['ar', 'en'];
 const IGNORED_UNUSED_PREFIXES = ['error.'];
@@ -282,7 +287,7 @@ function findLiteralText(file, source, errors) {
 // ---- main check --------------------------------------------------------------------------
 
 /** @returns {{ errors: string[], warnings: string[] }} */
-export function checkI18n(root) {
+export function checkI18n(root, options = {}) {
   const errors = [];
   const warnings = [];
   const scopes = loadTranslations(join(root, 'public', 'i18n'), errors);
@@ -317,6 +322,19 @@ export function checkI18n(root) {
     }
   }
 
+  if (options.backend) {
+    const backend = scanBackendErrorKeys(options.backend);
+    errors.push(...backend.errors);
+    warnings.push(...backend.warnings);
+    for (const { key, where } of backend.keys) {
+      for (const language of LANGS) {
+        if (!keyExists(scopes, language, key)) {
+          errors.push(`${where}: back-end key "${key}" is missing from ${language}.json`);
+        }
+      }
+    }
+  }
+
   const usedKeys = new Set(used.map((u) => u.key));
   for (const { prefix, ar } of scopes) {
     for (const key of ar.keys()) {
@@ -332,12 +350,16 @@ export function checkI18n(root) {
 
 function main() {
   const root = process.argv[2] ?? process.cwd();
-  const { errors, warnings } = checkI18n(root);
+  const repositoryRoot = join(root, '..', '..');
+  const config = JSON.parse(readFileSync(join(fileURLToPath(new URL('.', import.meta.url)), 'backend-error-keys.json'), 'utf8'));
+  const { errors, warnings } = checkI18n(root, {
+    backend: { sourceDirectory: join(repositoryRoot, 'src'), repositoryRoot, config, requireSources: Boolean(process.env.CI) },
+  });
 
   warnings.forEach((w) => console.warn(`  warning: ${w}`));
 
   if (errors.length === 0) {
-    console.log('check:i18n OK: ar.json and en.json match, every used key exists, no literal text in templates.');
+    console.log('check:i18n OK: ar.json and en.json match, every used key and back-end error key exists, no literal text in templates.');
     return;
   }
 

@@ -8,6 +8,78 @@
     "switch": "Change language"
   },
   "shell": {
-    "placeholder": "Content will appear here soon."
+    "placeholder": "Content will appear here soon.",
+    "signed_in_as": "Signed in as",
+    "sign_out": "Sign out"
+  },
+  "login": {
+    "title": "Sign in",
+    "user_name": "User name",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "expired": "Your session has ended. Please sign in again.",
+    "retry_after": "You can try again in about {{ minutes }} min.",
+    "correlation": "Reference for support: {{ id }}"
+  },
+  "forbidden": {
+    "title": "Not allowed",
+    "message": "You do not have permission to open this page.",
+    "home": "Back to the home page"
+  },
+  "error": {
+    "network": "Could not reach the server. Check your connection and try again.",
+    "unexpected": "An unexpected error occurred. Please try again; if it continues, contact your system administrator.",
+    "auth": {
+      "invalid_credentials": "The user name or password is incorrect.",
+      "locked_out": "The account is temporarily locked after repeated failed sign-in attempts. Please try again later.",
+      "rate_limited": "Too many attempts. Please wait a moment and try again.",
+      "unauthorized": "Your session has ended or you are not signed in. Please sign in.",
+      "forbidden": "You do not have permission to do this.",
+      "invalid_refresh_token": "Your session has expired. Please sign in again.",
+      "user_name_required": "Enter your user name.",
+      "password_required": "Enter your password.",
+      "field_too_long": "The value is longer than allowed."
+    },
+    "concurrency": {
+      "conflict": "Someone else has changed this record. Reload it and try again.",
+      "row_version_required": "The record version is missing. Reload the record.",
+      "row_version_invalid": "The record version is not valid. Reload the record."
+    },
+    "health": {
+      "not_ready": "The service is not ready yet. Please try again shortly."
+    },
+    "paging": {
+      "page_invalid": "The page number is not valid.",
+      "page_size_invalid": "The page size is not valid."
+    },
+    "search": {
+      "too_long": "The search text is too long."
+    },
+    "sort": {
+      "invalid": "The sort option is not valid."
+    },
+    "specialty": {
+      "name_ar_required": "Enter the Arabic name.",
+      "name_ar_too_long": "The Arabic name is too long (100 characters at most).",
+      "name_ar_invalid": "The Arabic name is not valid.",
+      "name_ar_taken": "Another specialty already has this Arabic name.",
+      "name_en_required": "Enter the English name.",
+      "name_en_too_long": "The English name is too long (100 characters at most).",
+      "name_en_invalid": "The English name is not valid.",
+      "name_en_taken": "Another specialty already has this English name.",
+      "not_found": "The specialty was not found."
+    },
+    "validation": {
+      "failed": "Some of the information entered is not valid. Please check it.",
+      "invalid": "The value is not valid."
+    },
+    "http": {
+      "400": "The request is not valid.",
+      "404": "The requested item was not found.",
+      "405": "This action is not allowed.",
+      "406": "The requested response format is not supported.",
+      "415": "The data format sent is not supported."
+    }
   }
 }

@@ -1,0 +1,14 @@
+{
+  "dynamicSources": [
+    {
+      "file": "src/ClinicBooking.Api/Middleware/ProblemDetailsEnricher.cs",
+      "reason": "Replaces framework English titles with error.http.<status> for these statuses.",
+      "keys": ["error.http.400", "error.http.404", "error.http.405", "error.http.406", "error.http.415"]
+    },
+    {
+      "file": "src/ClinicBooking.Api/Filters/ValidationFilter.cs",
+      "reason": "Only tests whether a validator message already starts with error.; it produces no key.",
+      "keys": []
+    }
+  ]
+}
