@@ -1,7 +1,10 @@
+using ClinicBooking.Api.Authentication;
 using ClinicBooking.Api.Middleware;
 using ClinicBooking.Api.Services;
+using ClinicBooking.Infrastructure.Identity;
 using ClinicBooking.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
@@ -20,6 +23,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddErrorHandling();
+builder.Services.AddApiAuth(builder.Configuration);
 
 var app = builder.Build();
 
@@ -28,6 +32,8 @@ if (app.Environment.IsDevelopment())
     await app.Services.ApplyMigrationsAsync();
 }
 
+await app.Services.SeedInitialUserAsync();
+
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging(options => options.GetLevel = (context, _, exception) =>
     context.Request.Path.StartsWithSegments("/health") ? LogEventLevel.Debug
@@ -35,6 +41,9 @@ app.UseSerilogRequestLogging(options => options.GetLevel = (context, _, exceptio
     : LogEventLevel.Information);
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 app.MapHealthChecks("/health/live", new HealthCheckOptions

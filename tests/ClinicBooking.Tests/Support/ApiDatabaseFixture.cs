@@ -74,7 +74,8 @@ public sealed class ApiDatabaseFixture : IAsyncLifetime
             builder.ConfigureAppConfiguration((_, configuration) =>
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["ConnectionStrings:Default"] = _connectionString
+                    ["ConnectionStrings:Default"] = _connectionString,
+                    ["Jwt:SigningKey"] = TestJwt.SigningKey
                 }));
 
             builder.ConfigureServices(services =>

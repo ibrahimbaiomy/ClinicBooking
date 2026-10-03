@@ -19,7 +19,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 // Ensures the readiness check has no database, whatever the machine defines.
-                ["ConnectionStrings:Default"] = ""
+                ["ConnectionStrings:Default"] = "",
+                ["Jwt:SigningKey"] = TestJwt.SigningKey
             }));
 
         builder.ConfigureServices(services =>

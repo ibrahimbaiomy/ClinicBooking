@@ -1,11 +1,12 @@
-using System.Security.Claims;
+using System.Globalization;
 using ClinicBooking.Application.Interfaces;
+using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace ClinicBooking.Api.Services;
 
 /// <summary>
-/// Reads the caller from the JWT claims. There is no authentication yet, so until the
-/// auth step <see cref="Id"/> is always null (system or anonymous).
+/// Reads the caller from the access token's <c>sub</c> claim (inbound claim mapping is off, so
+/// the name is the raw JWT one). Null means anonymous: the audit fields then record the system.
 /// </summary>
 public sealed class CurrentUser : IUser
 {
@@ -17,7 +18,11 @@ public sealed class CurrentUser : IUser
     }
 
     public long? Id =>
-        long.TryParse(_httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
+        long.TryParse(
+            _httpContextAccessor.HttpContext?.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value,
+            NumberStyles.None,
+            CultureInfo.InvariantCulture,
+            out var id)
             ? id
             : null;
 }

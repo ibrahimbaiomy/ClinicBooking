@@ -20,16 +20,17 @@ public static class IdentitySeeder
         var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-        if (await users.Users.AnyAsync(cancellationToken))
-        {
-            return;
-        }
-
+        // Configuration is checked first so nothing touches the database when seeding is off.
         var userName = configuration["Seed:AdminUserName"];
         var password = configuration["Seed:AdminPassword"];
         if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrEmpty(password))
         {
-            logger.LogInformation("No users exist and no seed credentials are configured; nothing seeded");
+            logger.LogInformation("No seed credentials are configured; nothing seeded");
+            return;
+        }
+
+        if (await users.Users.AnyAsync(cancellationToken))
+        {
             return;
         }
 

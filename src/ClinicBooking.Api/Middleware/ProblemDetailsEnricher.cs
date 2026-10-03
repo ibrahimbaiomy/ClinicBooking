@@ -16,7 +16,13 @@ internal static class ProblemDetailsEnricher
     {
         if (problem.Title is null || !problem.Title.StartsWith(KeyPrefix, StringComparison.Ordinal))
         {
-            problem.Title = $"{KeyPrefix}http.{problem.Status ?? httpContext.Response.StatusCode}";
+            var status = problem.Status ?? httpContext.Response.StatusCode;
+            problem.Title = status switch
+            {
+                StatusCodes.Status401Unauthorized => "error.auth.unauthorized",
+                StatusCodes.Status403Forbidden => "error.auth.forbidden",
+                _ => $"{KeyPrefix}http.{status}"
+            };
             problem.Detail = null;
         }
 

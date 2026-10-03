@@ -24,5 +24,6 @@ public sealed class JwtOptions
         && !string.IsNullOrWhiteSpace(options.Audience)
         && options.AccessTokenMinutes > 0
         && options.ClockSkewSeconds >= 0
-        && Encoding.UTF8.GetByteCount(options.SigningKey) >= MinimumKeyBytes;
+        && options.SigningKey is { } key
+        && Encoding.UTF8.GetByteCount(key) >= MinimumKeyBytes;
 }

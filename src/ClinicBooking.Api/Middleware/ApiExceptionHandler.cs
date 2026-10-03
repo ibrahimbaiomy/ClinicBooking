@@ -39,6 +39,12 @@ public sealed class ApiExceptionHandler : IExceptionHandler
 
         httpContext.Response.StatusCode = problem.Status!.Value;
 
+        if (exception is AccountLockedException { RetryAfter: { } retryAfter } && retryAfter > TimeSpan.Zero)
+        {
+            httpContext.Response.Headers.RetryAfter =
+                ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
         return await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,
@@ -57,6 +63,9 @@ public sealed class ApiExceptionHandler : IExceptionHandler
                 Status = StatusCodes.Status400BadRequest,
                 Title = e.ErrorKey
             },
+            UnauthorizedException e => Create(StatusCodes.Status401Unauthorized, e.ErrorKey),
+            ForbiddenException e => Create(StatusCodes.Status403Forbidden, e.ErrorKey),
+            AccountLockedException e => Create(StatusCodes.Status423Locked, e.ErrorKey),
             NotFoundException e => Create(StatusCodes.Status404NotFound, e.ErrorKey),
             ConflictException e => Create(StatusCodes.Status409Conflict, e.ErrorKey),
             BusinessRuleException e => Create(StatusCodes.Status422UnprocessableEntity, e.ErrorKey),
