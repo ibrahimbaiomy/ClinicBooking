@@ -12,6 +12,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Not Development: Development applies migrations at startup, which needs a database.
+        builder.UseEnvironment("Testing");
+
         builder.ConfigureAppConfiguration((_, configuration) =>
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {

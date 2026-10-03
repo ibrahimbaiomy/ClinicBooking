@@ -1,10 +1,12 @@
+using ClinicBooking.Tests.Support;
+
 namespace ClinicBooking.Tests;
 
-public class SmokeTests : IClassFixture<WebApplicationFactory<Program>>
+public class SmokeTests : IClassFixture<ApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly ApiFactory _factory;
 
-    public SmokeTests(WebApplicationFactory<Program> factory)
+    public SmokeTests(ApiFactory factory)
     {
         _factory = factory;
     }
