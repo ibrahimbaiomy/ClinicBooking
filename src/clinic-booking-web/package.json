@@ -7,10 +7,11 @@
     "prebuild": "npm run check:logical && npm run check:i18n",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "lint": "ng lint && npm run check:logical",
+    "lint": "ng lint && npm run check:logical && npm run check:permissions",
     "test": "ng test --no-watch && node --test scripts/*.test.mjs",
     "check:logical": "node scripts/check-logical-properties.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
+    "check:permissions": "node scripts/check-permissions.mjs",
     "gen:api": "node scripts/gen-api.mjs",
     "check:api": "node scripts/gen-api.mjs --check"
   },

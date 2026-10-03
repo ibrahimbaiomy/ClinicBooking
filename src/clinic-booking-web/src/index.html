@@ -17,8 +17,15 @@
       }
     } catch (e) { /* storage unavailable: keep the default */ }
   </script>
+  <style>
+    /* Shown only until the app starts (silent sign-in); text-free so nothing needs translating. */
+    .cb-boot { width: 2rem; height: 2rem; margin: 30vh auto 0; border: 3px solid #cbd5e1;
+      border-top-color: #1d4ed8; border-radius: 50%; animation: cb-spin 0.8s linear infinite; }
+    @keyframes cb-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .cb-boot { animation: none; } }
+  </style>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900">
-  <cb-root></cb-root>
+  <cb-root><div class="cb-boot" role="presentation"></div></cb-root>
 </body>
 </html>

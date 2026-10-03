@@ -1,0 +1,87 @@
+<section class="mx-auto mt-8 max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+  <h2 class="mb-4 text-xl font-semibold">{{ 'login.title' | transloco }}</h2>
+
+  @if (session.expired()) {
+    <p role="status" class="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+      {{ 'login.expired' | transloco }}
+    </p>
+  }
+
+  <div #errorBox tabindex="-1" role="alert" aria-live="assertive" class="outline-none">
+    @if (errorKey(); as key) {
+      <div class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">
+        <!-- i18n-keys: error.unexpected -->
+        <p>{{ key | transloco }}</p>
+        @if (retryMinutes(); as minutes) {
+          <p class="mt-1">{{ 'login.retry_after' | transloco: { minutes: minutes } }}</p>
+        }
+        @if (correlationId(); as id) {
+          <p class="mt-1 text-xs" dir="ltr">{{ 'login.correlation' | transloco: { id: id } }}</p>
+        }
+      </div>
+    }
+  </div>
+
+  <form (submit)="onSubmit($event)" novalidate class="space-y-4">
+    <div>
+      <label for="login-user-name" class="mb-1 block text-sm font-medium">
+        {{ 'login.user_name' | transloco }}
+      </label>
+      <input
+        id="login-user-name"
+        type="text"
+        autocomplete="username"
+        autocapitalize="none"
+        spellcheck="false"
+        class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [formField]="loginForm.userName"
+        [attr.aria-invalid]="loginForm.userName().touched() && loginForm.userName().invalid()"
+        aria-describedby="login-user-name-error"
+      />
+      <div id="login-user-name-error" aria-live="polite">
+        @if (loginForm.userName().touched()) {
+          @for (error of loginForm.userName().errors(); track error.kind) {
+            <!-- i18n-keys: error.auth.user_name_required, error.auth.field_too_long -->
+            <p class="mt-1 text-sm text-red-700">{{ error.message | transloco }}</p>
+          }
+        }
+      </div>
+    </div>
+
+    <div>
+      <label for="login-password" class="mb-1 block text-sm font-medium">
+        {{ 'login.password' | transloco }}
+      </label>
+      <input
+        id="login-password"
+        type="password"
+        autocomplete="current-password"
+        class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [formField]="loginForm.password"
+        [attr.aria-invalid]="loginForm.password().touched() && loginForm.password().invalid()"
+        aria-describedby="login-password-error"
+      />
+      <div id="login-password-error" aria-live="polite">
+        @if (loginForm.password().touched()) {
+          @for (error of loginForm.password().errors(); track error.kind) {
+            <!-- i18n-keys: error.auth.password_required, error.auth.field_too_long -->
+            <p class="mt-1 text-sm text-red-700">{{ error.message | transloco }}</p>
+          }
+        }
+      </div>
+    </div>
+
+    <button
+      type="submit"
+      class="w-full rounded-lg bg-blue-700 px-4 py-2 font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      [disabled]="loginForm().submitting()"
+      [attr.aria-busy]="loginForm().submitting()"
+    >
+      @if (loginForm().submitting()) {
+        {{ 'login.submitting' | transloco }}
+      } @else {
+        {{ 'login.submit' | transloco }}
+      }
+    </button>
+  </form>
+</section>

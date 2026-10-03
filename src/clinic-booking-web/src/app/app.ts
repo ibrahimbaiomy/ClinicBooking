@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Title } from '@angular/platform-browser';
-import { RouterOutlet } from '@angular/router';
+import { Router, RouterOutlet } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { SessionService } from './core/auth/session.service';
 import { LanguageSwitcher } from './shell/language-switcher';
 
 @Component({
@@ -12,6 +13,14 @@ import { LanguageSwitcher } from './shell/language-switcher';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class App {
+  protected readonly session = inject(SessionService);
+  private readonly router = inject(Router);
+
+  protected async signOut(): Promise<void> {
+    await this.session.logout();
+    await this.router.navigateByUrl('/login');
+  }
+
   constructor() {
     const title = inject(Title);
 
