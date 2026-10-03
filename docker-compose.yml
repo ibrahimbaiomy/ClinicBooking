@@ -26,6 +26,11 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       # TrustServerCertificate is for the local container's self-signed certificate only.
       ConnectionStrings__Default: Server=sqlserver;Database=${MSSQL_DATABASE:-ClinicBooking};User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=True
+      # The API refuses to start without a signing key of at least 32 bytes.
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?set JWT_SIGNING_KEY in .env}
+      # First user, created only when no user exists yet. Remove after the first deploy.
+      Seed__AdminUserName: ${SEED_ADMIN_USERNAME:-}
+      Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
     ports:
       - "8080:8080"
 
