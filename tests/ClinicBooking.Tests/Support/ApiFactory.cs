@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +25,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             }));
 
         builder.ConfigureServices(services =>
-            services.AddControllers().AddApplicationPart(typeof(ApiFactory).Assembly));
+        {
+            services.AddControllers().AddApplicationPart(typeof(ApiFactory).Assembly);
+            services.AddScoped<IValidator<ValidatedController.ValidatedBody>, ValidatedController.ValidatedBodyValidator>();
+        });
     }
 }

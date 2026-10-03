@@ -1,4 +1,5 @@
 using ClinicBooking.Api.Authentication;
+using ClinicBooking.Api.Filters;
 using ClinicBooking.Api.Middleware;
 using ClinicBooking.Api.Services;
 using ClinicBooking.Infrastructure.Identity;
@@ -21,7 +22,7 @@ builder.Host.UseSerilog((_, logger) => logger
 builder.Services.AddCurrentUser();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddControllers();
+builder.Services.AddControllers(options => options.Filters.Add<ValidationFilter>());
 builder.Services.AddErrorHandling();
 builder.Services.AddApiAuth(builder.Configuration);
 
@@ -50,12 +51,12 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
     Predicate = _ => false,
     ResponseWriter = HealthResponseWriter.WriteAsync
-});
+}).AllowAnonymous();
 app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains(ClinicBooking.Infrastructure.DependencyInjection.ReadyTag),
     ResponseWriter = HealthResponseWriter.WriteAsync
-});
+}).AllowAnonymous();
 
 app.Run();
 

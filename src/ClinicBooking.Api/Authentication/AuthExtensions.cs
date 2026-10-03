@@ -73,6 +73,11 @@ public static class AuthExtensions
 
         services.AddAuthorization(options =>
         {
+            // Secure by default: an endpoint with no authorization metadata needs a signed-in
+            // user. Anonymous endpoints must say [AllowAnonymous] (login, refresh, logout) or
+            // be mapped with .AllowAnonymous() (health, OpenAPI).
+            options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+
             foreach (var permission in Permissions.All)
             {
                 options.AddPolicy(permission, policy => policy

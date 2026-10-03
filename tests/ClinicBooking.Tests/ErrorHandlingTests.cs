@@ -60,13 +60,13 @@ public class ErrorHandlingTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task Unknown_route_returns_problem_details_with_key_title()
+    public async Task Unknown_route_is_401_for_an_anonymous_caller_so_routes_are_not_revealed()
     {
         var response = await _client.GetAsync("/does-not-exist");
         var problem = await ReadProblemAsync(response);
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.Equal("error.http.404", problem.GetProperty("title").GetString());
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("error.auth.unauthorized", problem.GetProperty("title").GetString());
     }
 
     [Fact]

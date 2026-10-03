@@ -1,9 +1,11 @@
 using ClinicBooking.Domain.Exceptions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ClinicBooking.Tests.Support;
 
 [ApiController]
+[AllowAnonymous]
 [Route("test")]
 public sealed class ThrowingController : ControllerBase
 {

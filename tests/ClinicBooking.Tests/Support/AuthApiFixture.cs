@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -88,6 +89,7 @@ public class AuthApiFixture : IAsyncLifetime
                 services.AddSingleton<TimeProvider>(_clock);
 
                 services.AddControllers().AddApplicationPart(typeof(AuthApiFixture).Assembly);
+                services.AddScoped<IValidator<ValidatedController.ValidatedBody>, ValidatedController.ValidatedBodyValidator>();
             });
         }
     }
