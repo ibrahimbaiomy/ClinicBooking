@@ -14,7 +14,8 @@ layer (EF Core on SQL Server) with a first `Specialty` entity and migrations,
 authentication (ASP.NET Core Identity, JWT access tokens, rotating refresh
 tokens in an HttpOnly cookie) with permission-based authorization policies,
 structured JSON logging, error responses carrying error keys, health endpoints,
-a Docker image, and this CI workflow. The first feature API, Specialties (list,
+a Docker image, and a CI workflow with three jobs (back-end build and tests, front-end
+checks, Docker image). The first feature API, Specialties (list,
 Arabic-aware search, create, edit, soft delete), is in place with a committed
 `openapi.json`. The Angular front end is a foundation only: a strict, zoneless
 shell with Tailwind, an Arabic-default language switcher with RTL, and generated
@@ -68,6 +69,13 @@ Docker must be running: the tests start a throwaway SQL Server container. Front-
 ## CI
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to
-`main` and on pull requests. It builds the solution in Release (warnings are
-errors), runs all tests including the Testcontainers ones, and checks that the
-Docker image builds. Nothing is pushed to a registry or deployed yet.
+`main` and on pull requests. Three jobs run in parallel:
+
+- **test**: builds the solution in Release (warnings are errors) and runs all tests,
+  including the Testcontainers ones and the check that `openapi.json` is up to date.
+- **web**: on Node 24, `npm ci`, lint (with the logical-properties check), unit tests,
+  the translation-key check, the API-types check (`schema.d.ts` matches `openapi.json`)
+  and the production build.
+- **image**: checks that the Docker image builds.
+
+Nothing is pushed to a registry or deployed yet.

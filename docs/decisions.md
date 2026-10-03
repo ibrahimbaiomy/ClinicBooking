@@ -807,8 +807,32 @@ repository root tells AI assistants to read `docs/Instructions.md` and
   `persist-credentials: false`.
 - CI relies on `Directory.Build.props` (D45) for warnings as errors and does
   not pass `-warnaserror`, so NU1901–NU1904 audit warnings stay non-fatal.
-- Two parallel jobs, `test` and `image`; a later push job will `needs` both.
-  The test job uploads a TRX artifact (7 days). No test-logger package.
+- Three parallel jobs, `test`, `web` and `image`; a later push job will `needs`
+  all three. The test job uploads a TRX artifact (7 days). No test-logger package.
+- **`web` job (front end).** Ordered steps: Node-version guard, `setup-node`,
+  `npm ci`, `npm run lint` (angular-eslint and the logical-properties check),
+  `npm test` (Vitest and the Node script tests), `npm run check:i18n`,
+  `npm run check:api`, `npm run build`. After a failed step the later ones still
+  run, so one run shows every problem, **but only if `npm ci` succeeded**; the job
+  still fails. `check:api` needs only Node; on failure it adds a GitHub annotation
+  telling the developer to run `npm run gen:api` and commit `openapi.json` and
+  `schema.d.ts`. `npm run build` repeats the two prebuild checks (a second);
+  `image` repeats `npm ci` and the build inside Docker (about a minute): accepted,
+  because `image` proves the packaging (copy paths, Node base image, bundle into
+  `wwwroot`) and the two jobs run in parallel.
+- **One Node major.** `actions/setup-node` v7.0.0
+  (`820762786026740c76f36085b0efc47a31fe5020`) is used because the runner image
+  ships Node 22.23.3, which the project (`engines` `^24.15.0`) rejects.
+  `src/clinic-booking-web/.nvmrc` (`24`) feeds `setup-node` and local version
+  managers; `src/clinic-booking-web/.npmrc` sets `engine-strict=true`, so `npm ci`
+  fails on a Node outside `engines` (locally, in CI and in the image build, where
+  the Dockerfile copies `.npmrc` with the package files).
+  `.github/scripts/check-node-version.sh` fails the build when the major in
+  `.nvmrc`, the Dockerfile's `FROM node:<major>` and `engines` differ, **and also
+  when any of the three cannot be parsed** (alias such as `lts/*`, no `FROM node`
+  line, no or ambiguous `engines`); it takes paths as arguments so it can be tested.
+- npm is not cached (`package-manager-cache: false`): a cold `npm ci` takes about
+  25 seconds. Revisit with the 5-minute rule above.
 - Concurrency: group is workflow + ref with `cancel-in-progress: true`. Must
   be revisited when a deploy workflow exists, because an in-flight deploy
   must not be cancelled.
@@ -1046,10 +1070,8 @@ placeholder; unknown client routes redirect to it. The document title follows
 the language.
 
 **Verification.** `npm ci`, `npm run build`, `npm run lint`, `npm test`,
-`npm run check:i18n`, `npm run check:api`, and the .NET tests. The CI workflow
-does not run the front-end scripts yet (the existing `image` job builds the front
-end through Docker); lint, unit tests, `check:i18n`, `check:api` and the
-`openapi.json` comparison are for the CI step.
+`npm run check:api`, and the .NET tests. The CI `web` job runs the front-end
+ones (D47); the `image` job builds the front end again through Docker.
 
 **Deferred.** A dev proxy for `ng serve` comes with the login step. The
 back-end `error.*` coverage check comes with the first screens (D26).

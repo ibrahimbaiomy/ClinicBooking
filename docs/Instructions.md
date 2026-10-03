@@ -225,7 +225,7 @@ curl -i -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"userName":"<SEED_ADMIN_USERNAME>","password":"<SEED_ADMIN_PASSWORD>"}'
 
-# front end (Node 24; run in src/clinic-booking-web)
+# front end (Node 24: src/clinic-booking-web/.nvmrc; `npm ci` refuses another major)
 cd src/clinic-booking-web
 npm ci                 # exact install from the committed lock file
 npm start              # dev server on http://localhost:4200 (no API proxy yet)
@@ -316,3 +316,21 @@ cd src/clinic-booking-web && npm run gen:api
 11. `README.md` explains the architecture and shows the pipeline badge.
 
 Anything beyond this list is out of scope until all eleven are true.
+
+### What CI covers today (the `test`, `web` and `image` jobs, D47)
+Once the first run is green:
+
+- **Item 8, the parts CI can check.** `check:i18n`: `ar.json`/`en.json` parity,
+  every key used in a template or in code exists, no literal text in templates.
+  `check:logical`: no physical direction classes or CSS properties (RTL at code
+  level). **Not covered:** how RTL looks in a browser; literal strings in `.ts`
+  code; the Arabic messages for the API's `error.*` keys (that coverage check
+  comes with the first screens, D26).
+- **Item 9, fully.** `openapi.json` against the real API by
+  `OpenApiDocumentTests` (the `test` job); `schema.d.ts` against `openapi.json`
+  by `npm run check:api` (the `web` job, Node only).
+- **Item 10, fully for what exists.** `npm run lint` and `npm test` (Vitest and
+  the Node script tests), plus the production build. There are no end-to-end or
+  browser tests.
+- Item 7 (integration tests against a real database) is the `test` job. Items
+  2–6 need the Azure steps.
