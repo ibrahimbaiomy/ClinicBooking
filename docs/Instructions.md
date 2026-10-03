@@ -80,7 +80,7 @@ ClinicBooking/
 **Back end** — .NET 10, ASP.NET Core Web API, attribute-routed controllers,
 EF Core + SQL Server, FluentValidation, Serilog (JSON), JWT bearer, ASP.NET
 Core Identity.
-
+  
 **Front end** — Angular (latest stable), TypeScript strict, Tailwind alone
 (no component library), Transloco.
 
@@ -97,6 +97,9 @@ Azure SQL, Key Vault, GitHub Actions (OIDC to Azure).
 - Services: interface + implementation, scoped registration.
 - Queries: project with `Select` into DTOs rather than loading entities.
 - No `.Result`, no `.Wait()`, no `async void`.
+- Never use `ExecuteUpdate` / `ExecuteDelete`: they bypass the audit and
+  soft-delete interceptor. Load the entity and call `SaveChangesAsync`. A test
+  fails the build if they appear in `src/`.
 - FluentValidation runs through an endpoint filter, not automatic MVC
   validation. Validators check input only; business rules live in
   Application/Domain.
@@ -155,8 +158,15 @@ dotnet run --project src/ClinicBooking.Api
 # front end dev server (Angular CLI)
 cd src/clinic-booking-web && ng serve
 
-# tests
+# tests (needs Docker running: Testcontainers starts SQL Server)
 dotnet test
+
+# add an EF Core migration (the connection string is a dummy: nothing connects)
+ConnectionStrings__Default="Server=design-time;Database=ClinicBooking;User Id=sa;Password=x;TrustServerCertificate=True" \
+  dotnet dotnet-ef migrations add <Name> \
+  --project src/ClinicBooking.Infrastructure \
+  --startup-project src/ClinicBooking.Api \
+  --output-dir Persistence/Migrations
 
 # regenerate API types after changing a DTO
 npm run gen:api
@@ -182,7 +192,7 @@ npm run gen:api
 - **Booking references are unique and collision-checked on insert.**
 - **Concurrent bookings** must be stopped by the database, not only by an
   application-level check (D31): a unique filtered index on
-  `(DoctorId, StartUtc) WHERE Status <> Cancelled AND IsDeleted = 0`.
+  `(DoctorId, StartUtc) WHERE Status <> Cancelled`.
 - **One slot duration per doctor**, the same in every clinic. An appointment
   occupies exactly one slot and starts on the grid
   (`period start + n × duration`). A duration change takes effect only on a
@@ -191,9 +201,11 @@ npm run gen:api
   on the same day.
 - **Patients are shared across clinics** and store only a name and a phone.
   A matching phone shows a duplicate warning, never a hard error (D44).
-- **Soft delete everywhere.** Unique indexes are filtered on `IsDeleted = 0`.
-  Deleting a doctor with upcoming appointments needs confirmation and cancels
-  those appointments in the same transaction.
+- **Soft delete applies to Specialties, Clinics, Doctors and Patients only**
+  (D35). Their unique indexes are filtered on `IsDeleted = 0`. Appointments are
+  cancelled by status; join tables, slot-duration history and refresh tokens
+  are hard-deleted. Deleting a doctor with upcoming appointments needs
+  confirmation and cancels those appointments in the same transaction.
 - **Permissions are per clinic**, except global ones (`users.*`,
   `specialties.*`, `patients.*`). A user with `appointments.create` at clinic
   A has no access to clinic B's data. An inaccessible resource returns 404.

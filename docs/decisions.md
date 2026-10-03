@@ -452,9 +452,21 @@ must not act on another. Coarse roles cannot express that.
 ### D35 — Soft delete
 `ACCEPTED`
 
-Every entity has `IsDeleted`, `DeletedAt`, `DeletedBy`, applied through a
-global EF query filter. Unique indexes are filtered with `WHERE IsDeleted = 0`
-so a deleted record does not block re-creation.
+Soft delete applies to an explicit list of entities: **Specialties, Clinics,
+Doctors, Patients**. They carry `IsDeleted`, `DeletedAt`, `DeletedBy`, hidden
+by a global EF query filter. Their unique indexes are filtered with
+`WHERE IsDeleted = 0` so a deleted record does not block re-creation.
+
+Appointments are never deleted: they are cancelled by status. Join tables,
+slot-duration history and refresh tokens are hard-deleted. Identity tables
+follow Identity's own rules.
+
+Three tiers in Domain, so an entity carries only what it needs:
+
+- `BaseEntity`: `long Id`.
+- `AuditableEntity : BaseEntity`: adds the audit fields (D36), via `IAuditable`.
+- `SoftDeletableEntity : AuditableEntity`: adds the soft-delete fields, via
+  `ISoftDeletable`.
 
 Deleting a doctor who has upcoming appointments requires explicit
 confirmation in the UI stating that those appointments will be cancelled; on
@@ -579,7 +591,8 @@ doctor, not to the (doctor, clinic) pair (D43).
 - A change to working hours that would leave an active future appointment
   outside the period or off the grid is rejected.
 - **Database enforcement:** a unique filtered index on
-  `(DoctorId, StartUtc) WHERE Status <> Cancelled AND IsDeleted = 0`. It is
+  `(DoctorId, StartUtc) WHERE Status <> Cancelled`. Appointments have no
+  `IsDeleted` (D35). It is
   per doctor, not per clinic, so it also stops a doctor being booked in two
   clinics at the same time. A unique-violation error on booking or
   reschedule is translated to 409 `error.appointment.slot_taken`.
@@ -621,6 +634,72 @@ All documentation lives in `ClinicBooking/docs`. A short `CLAUDE.md` in the
 repository root tells AI assistants to read `docs/Instructions.md` and
 `docs/decisions.md` before writing code.
 
+---
+### D45 — Build, logging and runtime conventions
+`ACCEPTED`
+
+- `TreatWarningsAsErrors` is on; implicit usings are off (`GlobalUsings.cs`
+  is the only source of usings); tests use xunit v2. Migrations are excluded
+  from analyzer rules in `.editorconfig`; NU190x audit warnings are not fatal.
+- Serilog writes compact JSON (`RenderedCompactJsonFormatter`) to the console,
+  configured in code. Each request carries a correlation ID: an incoming
+  `X-Correlation-Id` is accepted only if it matches `[A-Za-z0-9_-]{1,64}`,
+  otherwise a GUID is generated; it is returned in the response header.
+  Request logs contain method, path, status and elapsed time only.
+  `/health` requests log at Debug.
+- ProblemDetails carries both `traceId` and `correlationId`. Framework
+  responses use keys: `error.http.<status>`, `error.validation.failed`,
+  `error.validation.invalid`, `error.unexpected`, `error.health.not_ready`.
+- Domain exceptions: `InvalidRequestException` (400), `NotFoundException`
+  (404), `ConflictException` (409), `BusinessRuleException` (422); each
+  carries an error key.
+- Exception messages must never contain patient data, and
+  `EnableSensitiveDataLogging` stays off (rule 10).
+- Local SQL Server image is pinned (`2022-CU27-ubuntu-22.04`), published on
+  127.0.0.1 only. `TrustServerCertificate=True` is for the local container
+  only. The runtime image is the standard Debian one (tzdata, D12).
+- `/health/ready` uses a custom check (`SELECT 1`, 3 s timeout) and logs only
+  the exception type on failure.
+
+### D46 — Persistence choices
+`ACCEPTED`
+
+- **Collation:** the database keeps the server default
+  (`SQL_Latin1_General_CP1_CI_AS`, also Azure SQL's default). Arabic text
+  columns are `nvarchar`, never `varchar`. No SQL Server collation folds
+  أ/إ/ا, ة/ه or ى/ي (checked on SQL Server 2022 against `Arabic_CI_AI`,
+  `Arabic_100_CI_AI`, `Arabic_CI_AS`), so D37's normalisation will come from
+  normalised search data added with the search feature. Until then a unique
+  index on `NameAr` treats `أحمد` and `احمد` as different names.
+- **Soft delete filter:** a named EF query filter, `"SoftDelete"`, applied by
+  `AppDbContext` to every `ISoftDeletable` entity.
+- **Save interceptor** (`AuditSaveChangesInterceptor`, uses `TimeProvider` and
+  `IUser`): on create sets `CreatedAt`/`CreatedBy` (`UpdatedAt` stays null); on
+  update sets `UpdatedAt`/`UpdatedBy` and never touches `Created*`; `Remove()`
+  of a soft-deletable entity becomes an update that sets `IsDeleted`,
+  `DeletedAt`, `DeletedBy` and `UpdatedAt`/`UpdatedBy`. Soft-deleting a parent
+  does not cascade; services do that.
+- **`ExecuteUpdate` / `ExecuteDelete` are banned** in `src/`: they bypass the
+  interceptor. A test scans the sources and reports file and line.
+- **`IUser`** (Application) exposes `long? Id`; null means system or
+  anonymous. Api implements it from the JWT claims. Until the auth step there
+  are no claims, so it is always null. `*By` columns are nullable `bigint`.
+- **Migrations:** applied at startup in Development only. `docker-compose.yml`
+  is production-shaped; `docker-compose.override.yml` (loaded automatically by
+  `docker compose up`, never by CI or Azure) sets `ASPNETCORE_ENVIRONMENT=
+  Development`. Tests that use a database run in Development so the real
+  migrations are applied.
+- **No retry strategy** (`EnableRetryOnFailure`) yet. It must be reconsidered
+  before deployment, for Azure SQL transient faults, together with the
+  transaction wrapper D31 requires.
+- **Local tool:** `dotnet-ef` is pinned in `.config/dotnet-tools.json`
+  (10.0.x, matching EF Core). `Microsoft.EntityFrameworkCore.Design` lives in
+  Api, the startup project.
+- **Tests (D30):** one SQL Server Testcontainers container per test run, one
+  fresh database per test class (dropped afterwards), `TimeProvider` and
+  `IUser` replaced in tests. `dotnet test` needs Docker running.
+- EF's SQL command logging is raised to Warning; migration messages stay at
+  Information.
 ---
 
 ## Open questions
