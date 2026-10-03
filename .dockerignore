@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+**/node_modules/
+.git/
+.vs/
+.vscode/
+.idea/
+.env
+.env.*
+tests/
+docs/
+*.md
+Dockerfile
+docker-compose*.yml
+.dockerignore
