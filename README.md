@@ -1,6 +1,6 @@
 # ClinicBooking
 
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+[![CI](https://github.com/ibrahimbaiomy/ClinicBooking/actions/workflows/ci.yml/badge.svg)](https://github.com/ibrahimbaiomy/ClinicBooking/actions/workflows/ci.yml)
 
 ClinicBooking is an outpatient appointment booking system for multiple clinics.
 It has two goals: a real, usable product, and a complete deployment pipeline
