@@ -104,7 +104,10 @@ Azure SQL, Key Vault, GitHub Actions (OIDC to Azure).
   validation. Validators check input only; business rules live in
   Application/Domain.
 - Convert UTC ↔ Cairo time only inside Application, only to validate rules.
-- Permission names are constants in Domain (`patients.create`, ...).
+- Permission names are constants in Domain (`patients.create`, ...). Protect an
+  endpoint with `[Authorize(Policy = Permissions.X.Y)]`: there is one policy per
+  permission, named after it. Never compare permission or role names as literals.
+- Errors from auth use the keys in D48 (`error.auth.*`).
 
 ### TypeScript / Angular
 - Standalone components only (no NgModules).
@@ -115,6 +118,9 @@ Azure SQL, Key Vault, GitHub Actions (OIDC to Azure).
   from the committed `openapi.json` — never hand-edited.
 - One dedicated service method per endpoint, kept in `src/api/`.
 - Strict mode: no `any`. Prefer `inject()` over constructor injection.
+- Token refresh is **single-flight**: at most one refresh request in flight;
+  every caller that needs a new access token waits for and shares its result
+  (the refresh token rotates on every use, D48).
 - Dates and numbers are formatted through the custom `Intl` pipe with
   `ar-EG-u-nu-latn-ca-gregory`, never Angular's `DatePipe`.
 
@@ -148,12 +154,21 @@ Azure SQL, Key Vault, GitHub Actions (OIDC to Azure).
 ```bash
 # one-time: copy and fill local secrets
 cp .env.example .env
+# .env must contain a JWT_SIGNING_KEY of at least 32 characters (the API refuses to
+# start without it) and, to get a first user, SEED_ADMIN_USERNAME / SEED_ADMIN_PASSWORD
+# (password: 12+ chars with upper, lower and a digit). Never commit .env.
 
 # full stack, local
 docker compose up --build
 
-# API alone (SQL Server must already be running; uses User Secrets)
+# API alone (SQL Server must already be running; uses User Secrets, which must
+# provide ConnectionStrings:Default and Jwt:SigningKey, plus Seed:* for a first user)
 dotnet run --project src/ClinicBooking.Api
+
+# log in locally (the refresh token comes back only as an HttpOnly cookie)
+curl -i -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"userName":"<SEED_ADMIN_USERNAME>","password":"<SEED_ADMIN_PASSWORD>"}'
 
 # front end dev server (Angular CLI)
 cd src/clinic-booking-web && ng serve

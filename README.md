@@ -10,10 +10,12 @@ application is small on purpose, and the pipeline is built first.
 ## Status
 
 Early skeleton. What exists today: the four back-end layers, a persistence
-layer (EF Core on SQL Server) with a first `Specialty` entity and migration,
+layer (EF Core on SQL Server) with a first `Specialty` entity and migrations,
+authentication (ASP.NET Core Identity, JWT access tokens, rotating refresh
+tokens in an HttpOnly cookie) with permission-based authorization policies,
 structured JSON logging, error responses carrying error keys, health endpoints,
-a Docker image, and this CI workflow. There is no authentication and no front
-end yet.
+a Docker image, and this CI workflow. There is no feature API (Specialties and
+the rest) and no front end yet.
 
 ## Architecture
 
@@ -40,7 +42,7 @@ checks the database. The reasoning behind each choice is in
 Requires Docker.
 
 ```bash
-cp .env.example .env     # then replace the placeholder values
+cp .env.example .env     # then replace the placeholder values (JWT key, SQL and first-user passwords)
 docker compose up --build
 ```
 

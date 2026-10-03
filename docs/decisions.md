@@ -416,11 +416,12 @@ JWT bearer authentication with multiple users stored in ASP.NET Core
 Identity, passwords hashed by the framework. Access tokens are short-lived.
 Refresh tokens obtain new access tokens without re-login, are rotated on
 every use, are invalidated on logout or revocation, and reuse of an already
-rotated token revokes that token family.
+rotated token revokes that token family. A short grace window tolerates
+concurrent refreshes (D48).
 
 The refresh token is delivered in an `HttpOnly`, `Secure`, `SameSite=Strict`
 cookie (front end and API share an origin, D15). It is never placed in
-`localStorage`. Login has lockout and rate limiting.
+`localStorage`. Login has lockout and rate limiting. Concrete values: D48.
 
 Authentication establishes identity; authorization (D34) controls access.
 
@@ -436,10 +437,13 @@ Authorization is claim-based, using fine-grained permission names such as
 
 - A user is granted permissions **per clinic**. Assignments are stored in the
   database (user, clinic, permission), not packed into the JWT, so the token
-  stays small and revocation takes effect immediately.
+  stays small and revocation takes effect immediately. The per-clinic table
+  arrives with Clinics (Phase 1).
 - Permissions that are not clinic-specific are global: for example
   `users.manage`, `specialties.manage`, and all `patients.*`, because
-  patients are shared across clinics (D44).
+  patients are shared across clinics (D44). Global permissions are stored as
+  Identity user claims of type `permission` (D48), also read from the database
+  on every check.
 - Each permission is enforced by an authorization policy and handler. The
   handler resolves the target clinic from the resource and checks the
   assignment.
@@ -722,8 +726,102 @@ repository root tells AI assistants to read `docs/Instructions.md` and
 - No caching (NuGet or Docker layers) until a run exceeds about 5 minutes.
 - The SQL Server image tag is declared in both `docker-compose.yml` and the
   Testcontainers fixture; keep them in sync.
-  
-  ---
+
+### D48 — Authentication and authorization specifics
+`ACCEPTED` (refines D29 and D34)
+
+**Layers.** `AuthService` (Application) holds the rules: login, rotation,
+reuse detection, logout. It depends on `IAppDbContext`, `TimeProvider` and
+three interfaces implemented in Infrastructure: `IIdentityService`
+(credentials, lockout; wraps `UserManager`), `IAccessTokenService` (JWT) and
+`IPermissionChecker`. `SignInManager` is not used (it is cookie-oriented).
+
+**Identity.** `ApplicationUser : IdentityUser<long>` in Infrastructure,
+audited (`IAuditable`) but not soft-deletable. `AppDbContext` is an
+`IdentityUserContext`: users and their claims only, **no role tables**
+(permissions are claims; roles are never checked, rule 9). Failed-login
+bookkeeping updates `UpdatedAt`, accepted until the Phase 2 audit trail.
+
+**Access token.** HS256 JWT, 15 minutes, claims `sub` and `jti` only (plus
+iat/nbf/exp). Issuer and audience are non-secret settings. The signing key is
+`Jwt:SigningKey` (compose maps `JWT_SIGNING_KEY`), at least 32 bytes; the host
+**fails at startup** if it is missing or short, in every environment. Tests
+supply a throwaway key; there is no Testing exemption. Clock skew 30 s.
+Inbound claim mapping is off; `CurrentUser` reads `sub`, so `CreatedBy` holds
+the real user id. Lifetime is validated against `TimeProvider` through a
+custom `LifetimeValidator` (IdentityModel has no clock hook). IdentityModel's
+token API takes `DateTime`; instants are converted at that boundary only.
+
+**Refresh token.** 32 random bytes, stored only as a SHA-256 hash. Valid 7
+days, sliding on each rotation, with a 30-day absolute cap per session
+(family). Every use consumes the token and issues a new one in the same
+family. A consumed token presented again **within 10 seconds**
+(`Auth:ReuseGraceSeconds`) is rejected with 401 without revoking anything
+(concurrent refreshes); **after** the window the whole family is revoked. A
+rowversion makes simultaneous rotations fail cleanly (treated like the grace
+case). On refresh the user must still exist and not be locked out, otherwise
+the family is revoked. Logout revokes the family and is idempotent. A user's
+long-expired rows are removed when that user logs in (no purge job until
+Phase 5).
+
+**Cookie.** `refresh_token`, `HttpOnly`, `Secure` (always set, also over
+`http://localhost`, which Chrome and Firefox accept), `SameSite=Strict`,
+`Path=/api/auth`, no Domain. The `__Host-` prefix is not used because it needs
+`Path=/`. CSRF defence in depth: refresh and logout are POST-only and reject a
+request whose `Origin` is neither this host (compared without scheme, so it
+works behind a TLS-terminating proxy) nor in `Auth:AllowedOrigins` (the
+Development file allows the Angular dev server).
+
+**Lockout, rate limit, passwords.** 5 failed attempts lock the account for 15
+minutes. The lockout is checked **before** the password, so the answer never
+depends on whether the password was right; an unknown user is verified against
+a dummy hash. The built-in rate limiter (per client address, fixed one-minute
+window) allows 10 logins and 30 refreshes per minute, configurable under
+`RateLimiting`. Password policy: at least 12 characters, one upper-case, one
+lower-case, one digit, at least 4 distinct characters; no breached-password
+check.
+
+**Error keys.** Wrong password or unknown user: 401
+`error.auth.invalid_credentials`. Locked out: 423 `error.auth.locked_out`
+with `Retry-After` (this reveals that the account exists once it is locked;
+accepted). Rate limited: 429 `error.auth.rate_limited` with `Retry-After`.
+Refresh token missing, invalid, expired, revoked or reused: 401
+`error.auth.invalid_refresh_token`, and the cookie is cleared. No or invalid
+access token: 401 `error.auth.unauthorized`. Missing permission or foreign
+origin: 403 `error.auth.forbidden`. Domain exceptions added: `Unauthorized`
+(401), `Forbidden` (403), `AccountLocked` (423).
+
+**Permissions.** Constants in one place (`Domain/Permissions/Permissions.cs`),
+`Global` and `All` lists. One authorization policy per permission, named after
+it, with a single `PermissionAuthorizationHandler`. Global grants are Identity
+user claims (`permission`); the handler reads the database per check, so a
+revoked permission applies at once (a locked-out user keeps an issued access
+token until it expires). When Clinics arrive, the handler resolves the clinic
+from `context.Resource` for non-global permissions and a clinic-scoped
+checker reads the (user, clinic, permission) table; nothing of that exists yet.
+
+**Seeding.** `Seed:AdminUserName` / `Seed:AdminPassword` (compose maps
+`SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD`). Runs at startup in every
+environment, only when both are set and no user exists, and grants every
+global permission. The password is never logged. **The seed variables must be
+removed from configuration after the first successful deploy**, and a
+change-password flow (Phase 1 user management) **must exist before any real
+data** is stored.
+
+**Endpoints.** `POST /api/auth/login`, `POST /api/auth/refresh`,
+`POST /api/auth/logout`, `GET /api/auth/me` (id, user name, permissions: the
+token carries none, so a front end needs this). Until the FluentValidation
+endpoint filter (D9) exists, login checks only that both fields are present
+and at most 256 characters.
+
+**Deploy-step items.** (1) Forwarded-headers handling behind the Azure
+ingress, so rate limiting sees the client address and `Request.Host` is the
+public host. (2) Key Vault for `Jwt__SigningKey` and the seed values.
+
+**Front end.** The Angular step must call refresh **single-flight**: at most
+one refresh request in flight, all waiting callers share its result.
+
+---
 
 
 ## Open questions
