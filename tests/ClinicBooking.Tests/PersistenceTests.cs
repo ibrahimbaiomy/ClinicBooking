@@ -1,6 +1,9 @@
 using System.Net;
 using ClinicBooking.Application.Interfaces;
 using ClinicBooking.Domain.Entities;
+using ClinicBooking.Domain.Exceptions;
+using ClinicBooking.Infrastructure.Identity;
+using ClinicBooking.Infrastructure.Persistence;
 using ClinicBooking.Tests.Support;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -38,7 +41,7 @@ public class PersistenceTests : IClassFixture<ApiDatabaseFixture>
         {
             var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
             var specialty = await db.Specialties.SingleAsync(s => s.Id == id);
-            specialty.NameEn = UniqueName();
+            specialty.SetNames(specialty.NameAr, UniqueName());
             await db.SaveChangesAsync();
         }
 
@@ -80,8 +83,10 @@ public class PersistenceTests : IClassFixture<ApiDatabaseFixture>
         var nameEn = UniqueName();
 
         var first = await AddSpecialtyAsync(nameAr, nameEn);
-        await Assert.ThrowsAsync<DbUpdateException>(() => AddSpecialtyAsync(nameAr, UniqueName()));
-        await Assert.ThrowsAsync<DbUpdateException>(() => AddSpecialtyAsync(UniqueName(), nameEn));
+        var arTaken = await Assert.ThrowsAsync<ConflictException>(() => AddSpecialtyAsync(nameAr, UniqueName()));
+        Assert.Equal("error.specialty.name_ar_taken", arTaken.ErrorKey);
+        var enTaken = await Assert.ThrowsAsync<ConflictException>(() => AddSpecialtyAsync(UniqueName(), nameEn));
+        Assert.Equal("error.specialty.name_en_taken", enTaken.ErrorKey);
 
         await RemoveSpecialtyAsync(first);
 
@@ -110,13 +115,62 @@ public class PersistenceTests : IClassFixture<ApiDatabaseFixture>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Unique_violations_on_indexes_without_a_conflict_key_are_rethrown_unchanged()
+    {
+        // Identity's unique user name index carries no conflict-key annotation.
+        var normalized = $"DUP_{Guid.NewGuid():N}";
+        using (var scope = _fixture.Factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Users.Add(new ApplicationUser { UserName = normalized, NormalizedUserName = normalized, SecurityStamp = "a" });
+            await db.SaveChangesAsync();
+        }
+
+        using var second = _fixture.Factory.Services.CreateScope();
+        var context = second.ServiceProvider.GetRequiredService<AppDbContext>();
+        context.Users.Add(new ApplicationUser { UserName = normalized + "x", NormalizedUserName = normalized, SecurityStamp = "b" });
+
+        var failure = await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
+        Assert.IsNotType<ConflictException>(failure);
+    }
+
+    [Fact]
+    public async Task A_duplicate_refresh_token_hash_is_rethrown_unchanged()
+    {
+        using var scope = _fixture.Factory.Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<ApplicationUser>>();
+        var user = new ApplicationUser { UserName = $"rt_{Guid.NewGuid():N}" };
+        Assert.True((await users.CreateAsync(user, "Correct-Horse-9-Battery")).Succeeded);
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hash = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+        var now = DateTimeOffset.UtcNow;
+        RefreshToken Token() => new()
+        {
+            UserId = user.Id,
+            TokenHash = hash,
+            FamilyId = Guid.NewGuid(),
+            CreatedAt = now,
+            FamilyCreatedAt = now,
+            ExpiresAt = now.AddDays(1)
+        };
+
+        db.RefreshTokens.Add(Token());
+        await db.SaveChangesAsync();
+        db.RefreshTokens.Add(Token());
+
+        var failure = await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+        Assert.IsNotType<ConflictException>(failure);
+    }
+
     private static string UniqueName() => Guid.NewGuid().ToString("N");
 
     private async Task<long> AddSpecialtyAsync(string nameAr, string nameEn)
     {
         using var scope = _fixture.Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
-        var specialty = new Specialty { NameAr = nameAr, NameEn = nameEn };
+        var specialty = Specialty.Create(nameAr, nameEn);
         db.Specialties.Add(specialty);
         await db.SaveChangesAsync();
         return specialty.Id;

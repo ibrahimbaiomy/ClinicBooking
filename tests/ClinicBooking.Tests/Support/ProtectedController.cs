@@ -23,7 +23,7 @@ public sealed class ProtectedController : ControllerBase
     [Authorize]
     public async Task<IActionResult> CreateSpecialty([FromServices] IAppDbContext db, CancellationToken cancellationToken)
     {
-        var specialty = new Specialty { NameAr = Guid.NewGuid().ToString("N"), NameEn = Guid.NewGuid().ToString("N") };
+        var specialty = Specialty.Create(Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"));
         db.Specialties.Add(specialty);
         await db.SaveChangesAsync(cancellationToken);
 

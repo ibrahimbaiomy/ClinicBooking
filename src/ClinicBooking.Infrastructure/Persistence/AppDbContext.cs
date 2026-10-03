@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using ClinicBooking.Application.Interfaces;
 using ClinicBooking.Domain.Entities;
+using ClinicBooking.Domain.Exceptions;
 using ClinicBooking.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
@@ -33,6 +34,38 @@ public class AppDbContext : IdentityUserContext<ApplicationUser, long>, IAppDbCo
             {
                 entityType.SetQueryFilter(SoftDeleteFilter, NotDeleted(entityType.ClrType));
             }
+
+            // Every auditable entity carries the optimistic concurrency token (D50).
+            if (entityType.BaseType is null && typeof(AuditableEntity).IsAssignableFrom(entityType.ClrType))
+            {
+                modelBuilder.Entity(entityType.ClrType).Property(nameof(AuditableEntity.RowVersion)).IsRowVersion();
+            }
+        }
+    }
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+        catch (DbUpdateException exception) when (UniqueViolationTranslation.TryGetConflictKey(Model, exception, out _))
+        {
+            UniqueViolationTranslation.TryGetConflictKey(Model, exception, out var key);
+            throw new ConflictException(key);
+        }
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        try
+        {
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+        catch (DbUpdateException exception) when (UniqueViolationTranslation.TryGetConflictKey(Model, exception, out _))
+        {
+            UniqueViolationTranslation.TryGetConflictKey(Model, exception, out var key);
+            throw new ConflictException(key);
         }
     }
 
