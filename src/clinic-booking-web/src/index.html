@@ -1,0 +1,24 @@
+<!doctype html>
+<!-- Arabic is the default language (D26). The inline script below corrects lang and dir from the
+     saved choice before anything is painted; the app then keeps them in sync (LanguageService). -->
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>ClinicBooking</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script>
+    try {
+      var saved = localStorage.getItem('clinicbooking.lang');
+      if (saved === 'ar' || saved === 'en') {
+        document.documentElement.lang = saved;
+        document.documentElement.dir = saved === 'ar' ? 'rtl' : 'ltr';
+      }
+    } catch (e) { /* storage unavailable: keep the default */ }
+  </script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+  <cb-root></cb-root>
+</body>
+</html>

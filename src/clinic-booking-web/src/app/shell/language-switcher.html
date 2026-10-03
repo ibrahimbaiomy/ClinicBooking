@@ -1,0 +1,13 @@
+<button
+  type="button"
+  class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+  [attr.aria-label]="'language.switch' | transloco"
+  [attr.lang]="languages.language() === 'ar' ? 'en' : 'ar'"
+  (click)="languages.toggle()"
+>
+  @if (languages.language() === 'ar') {
+    {{ 'language.en' | transloco }}
+  } @else {
+    {{ 'language.ar' | transloco }}
+  }
+</button>

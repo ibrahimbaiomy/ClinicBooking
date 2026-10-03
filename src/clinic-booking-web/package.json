@@ -1,0 +1,53 @@
+{
+  "name": "clinic-booking-web",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "prebuild": "npm run check:logical && npm run check:i18n",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "lint": "ng lint && npm run check:logical",
+    "test": "ng test --no-watch && node --test scripts/*.test.mjs",
+    "check:logical": "node scripts/check-logical-properties.mjs",
+    "check:i18n": "node scripts/check-i18n.mjs",
+    "gen:api": "node scripts/gen-api.mjs",
+    "check:api": "node scripts/gen-api.mjs --check"
+  },
+  "private": true,
+  "dependencies": {
+    "@angular/common": "^22.2.0",
+    "@angular/compiler": "^22.2.0",
+    "@angular/core": "^22.2.0",
+    "@angular/forms": "^22.2.0",
+    "@angular/platform-browser": "^22.2.0",
+    "@angular/router": "^22.2.0",
+    "@jsverse/transloco": "^8.4.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "postcss": "^8.5.28",
+    "rxjs": "~7.8.0",
+    "tailwindcss": "^4.3.3",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.2.1",
+    "@angular/cli": "^22.2.1",
+    "@angular/compiler-cli": "^22.2.0",
+    "angular-eslint": "^22.5.0",
+    "eslint": "^10.12.0",
+    "jsdom": "^30.0.0",
+    "openapi-typescript": "^7.13.0",
+    "prettier": "^3.8.1",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.0"
+  },
+  "engines": {
+    "node": "^24.15.0"
+  },
+  "overrides": {
+    "openapi-typescript": {
+      "typescript": "$typescript"
+    }
+  }
+}
