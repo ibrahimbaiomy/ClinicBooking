@@ -1,0 +1,24 @@
+<nav
+  class="flex items-center justify-between gap-3"
+  [attr.aria-label]="'pager.label' | transloco"
+>
+  <button
+    type="button"
+    class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+    [disabled]="page() <= 1"
+    (click)="pageChange.emit(page() - 1)"
+  >
+    {{ 'pager.previous' | transloco }}
+  </button>
+  <span class="text-sm text-slate-600">
+    {{ 'pager.page_of' | transloco: { page: page(), total: totalPages() } }}
+  </span>
+  <button
+    type="button"
+    class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+    [disabled]="totalPages() <= page()"
+    (click)="pageChange.emit(page() + 1)"
+  >
+    {{ 'pager.next' | transloco }}
+  </button>
+</nav>

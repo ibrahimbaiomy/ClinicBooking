@@ -16,5 +16,11 @@ export const routes: Routes = [
   { path: 'login', canActivate: [guestGuard], component: Login },
   { path: 'forbidden', canActivate: [authGuard], component: Forbidden },
   { path: '', pathMatch: 'full', canActivate: [authGuard], component: Home },
+  {
+    path: 'specialties',
+    canActivate: [authGuard],
+    loadChildren: () =>
+      import('./features/specialties/specialties.routes').then((m) => m.SPECIALTIES_ROUTES),
+  },
   { path: '**', canActivate: [authGuard, unknownRoute], component: Home },
 ];

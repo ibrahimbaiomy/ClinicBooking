@@ -3,9 +3,16 @@ import { Translation, TranslocoLoader, provideTransloco } from '@jsverse/translo
 import { of } from 'rxjs';
 import ar from '../../public/i18n/ar.json';
 import en from '../../public/i18n/en.json';
+import specialtiesAr from '../../public/i18n/specialties/ar.json';
+import specialtiesEn from '../../public/i18n/specialties/en.json';
 import { DEFAULT_LANGUAGE, LANGUAGES } from '../app/core/i18n/language';
 
-const TRANSLATIONS: Record<string, Translation> = { ar, en };
+const TRANSLATIONS: Record<string, Translation> = {
+  ar,
+  en,
+  'specialties/ar': specialtiesAr,
+  'specialties/en': specialtiesEn,
+};
 
 /** Serves the real translation files from memory, so specs run against what ships. */
 @Injectable()
@@ -27,4 +34,9 @@ export function provideTestTransloco() {
   });
 }
 
-export { ar as arabicTranslations, en as englishTranslations };
+export {
+  ar as arabicTranslations,
+  en as englishTranslations,
+  specialtiesAr as specialtiesArabic,
+  specialtiesEn as specialtiesEnglish,
+};

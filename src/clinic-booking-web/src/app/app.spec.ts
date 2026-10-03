@@ -87,11 +87,36 @@ describe('App shell', () => {
     expect(document.documentElement.dir).toBe('ltr');
   });
 
-  it('signed in, an unknown deep link goes to the shell (the API serves index.html for it)', async () => {
-    const fixture = await render('/specialties');
+  it('signed in, an unknown link goes to the shell (the API serves index.html for it)', async () => {
+    const fixture = await render('/nothing-here');
 
     expect(TestBed.inject(Router).url).toBe('/');
     expect(text(fixture, 'main p')).toBe(arabicTranslations.shell.placeholder);
+  });
+
+  it('signed in, the shell has a navigation entry to Specialties that marks the current page', async () => {
+    const fixture = await render('/');
+    await TestBed.inject(Router).navigateByUrl('/specialties');
+    fixture.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    http.expectOne((r) => r.url === '/api/specialties').flush({ items: [], page: 1, pageSize: 20, totalCount: 0 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector('nav a') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/specialties');
+    expect(link.textContent?.trim()).toBe(arabicTranslations.shell.nav.specialties);
+    expect(link.getAttribute('aria-current')).toBe('page');
+    expect((fixture.nativeElement as HTMLElement).querySelector('nav')?.getAttribute('aria-label')).toBe(
+      arabicTranslations.shell.nav.label,
+    );
+  });
+
+  it('signed out, there is no navigation', async () => {
+    const fixture = await render('/login', false);
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('nav')).toBeNull();
   });
 
   it('signed out, the shell has no user name or sign-out button but keeps the language switcher', async () => {

@@ -21,3 +21,10 @@ export type ResponseBody<
     ? JsonContent<Responses[Status]>
     : never
   : never;
+
+/** The query-string parameters of an operation, as the schema declares them. */
+export type QueryParams<P extends keyof paths, M extends keyof paths[P]> = paths[P][M] extends {
+  parameters: { query?: infer Query };
+}
+  ? NonNullable<Query>
+  : never;

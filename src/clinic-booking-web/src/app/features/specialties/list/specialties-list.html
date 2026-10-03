@@ -1,0 +1,230 @@
+<section class="space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">
+      {{ 'specialties.title' | transloco }}
+    </h2>
+    <a
+      *cbCan="permissions.SpecialtiesManage"
+      routerLink="/specialties/new"
+      class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+    >
+      {{ 'specialties.new' | transloco }}
+    </a>
+  </div>
+
+  <div role="status" aria-live="polite">
+    @if (status(); as key) {
+      <!-- i18n-keys: specialties.flash.saved_created, specialties.flash.saved_updated, specialties.flash.deleted, specialties.flash.already_deleted -->
+      <p class="rounded-lg bg-green-50 p-3 text-sm text-green-900">{{ key | transloco }}</p>
+    }
+  </div>
+
+  <form role="search" class="flex flex-wrap items-end gap-3" (submit)="onSearchSubmit($event)">
+    <div class="grow basis-64">
+      <label for="specialties-search" class="mb-1 block text-sm font-medium">
+        {{ 'specialties.search.label' | transloco }}
+      </label>
+      <input
+        id="specialties-search"
+        type="search"
+        autocomplete="off"
+        class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [attr.maxlength]="maxSearchLength"
+        [placeholder]="'specialties.search.placeholder' | transloco"
+        [value]="searchText()"
+        (input)="onSearchInput($event)"
+        (compositionend)="onCompositionEnd($event)"
+      />
+    </div>
+
+    <div>
+      <label for="specialties-sort" class="mb-1 block text-sm font-medium">
+        {{ 'specialties.sort.label' | transloco }}
+      </label>
+      <select
+        id="specialties-sort"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [value]="state().sortBy"
+        (change)="onSort($event)"
+      >
+        <option value="nameAr">{{ 'specialties.sort.name_ar' | transloco }}</option>
+        <option value="nameEn">{{ 'specialties.sort.name_en' | transloco }}</option>
+        <option value="createdAt">{{ 'specialties.sort.created_at' | transloco }}</option>
+      </select>
+    </div>
+
+    <button
+      type="button"
+      class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      (click)="toggleDirection()"
+    >
+      @if (state().sortDirection === 'asc') {
+        {{ 'specialties.sort.asc' | transloco }}
+      } @else {
+        {{ 'specialties.sort.desc' | transloco }}
+      }
+    </button>
+
+    <div>
+      <label for="specialties-size" class="mb-1 block text-sm font-medium">
+        {{ 'specialties.page_size' | transloco }}
+      </label>
+      <select
+        id="specialties-size"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        (change)="onPageSize($event)"
+      >
+        @for (size of pageSizes; track size) {
+          <option [value]="size" [selected]="size === state().pageSize">{{ size | intl: 'number' }}</option>
+        }
+      </select>
+    </div>
+  </form>
+
+  <div [attr.aria-busy]="loading()">
+    @switch (view()) {
+      @case ('loading') {
+        <p class="text-slate-600">{{ 'specialties.loading' | transloco }}</p>
+      }
+      @case ('error') {
+        <div role="alert" class="space-y-3 rounded-lg bg-red-50 p-4 text-red-800">
+          <!-- i18n-keys: error.unexpected -->
+          <p>{{ errorKey() | transloco }}</p>
+          @if (correlationId(); as id) {
+            <p class="text-xs" dir="ltr">{{ 'specialties.correlation' | transloco: { id: id } }}</p>
+          }
+          <button
+            type="button"
+            class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+            (click)="retry()"
+          >
+            {{ 'specialties.retry' | transloco }}
+          </button>
+        </div>
+      }
+      @case ('none') {
+        <div class="rounded-lg border border-dashed border-slate-300 p-6 text-center text-slate-600">
+          <p>{{ 'specialties.empty.none' | transloco }}</p>
+        </div>
+      }
+      @case ('no-results') {
+        <div class="space-y-3 rounded-lg border border-dashed border-slate-300 p-6 text-center text-slate-600">
+          <p>{{ 'specialties.empty.no_results' | transloco }}</p>
+          <button
+            type="button"
+            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            (click)="clearSearch()"
+          >
+            {{ 'specialties.search.clear' | transloco }}
+          </button>
+        </div>
+      }
+      @default {
+        <p role="status" aria-live="polite" class="mb-2 text-sm text-slate-600">
+          {{ 'specialties.results' | transloco: { from: from(), to: to(), total: total() } }}
+        </p>
+
+        <table class="hidden w-full border-collapse overflow-hidden rounded-lg border border-slate-200 bg-white md:table">
+          <caption class="sr-only">{{ 'specialties.table.caption' | transloco }}</caption>
+          <thead class="bg-slate-100 text-sm text-slate-700">
+            <tr>
+              <th
+                scope="col"
+                class="px-4 py-3 text-start font-semibold"
+                [attr.aria-sort]="state().sortBy !== 'createdAt' ? (state().sortDirection === 'asc' ? 'ascending' : 'descending') : null"
+              >
+                {{ 'specialties.table.specialty' | transloco }}
+              </th>
+              <th
+                scope="col"
+                class="px-4 py-3 text-start font-semibold"
+                [attr.aria-sort]="state().sortBy === 'createdAt' ? (state().sortDirection === 'asc' ? 'ascending' : 'descending') : null"
+              >
+                {{ 'specialties.table.created' | transloco }}
+              </th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">
+                {{ 'specialties.table.actions' | transloco }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.id) {
+              <tr class="border-t border-slate-200">
+                <th scope="row" class="px-4 py-3 text-start font-normal">
+                  <div class="font-medium"><bdi [attr.lang]="row.primary.lang" [attr.dir]="row.primary.dir">{{ row.primary.text }}</bdi></div>
+                  <div class="text-sm text-slate-500"><bdi [attr.lang]="row.secondary.lang" [attr.dir]="row.secondary.dir">{{ row.secondary.text }}</bdi></div>
+                </th>
+                <td class="px-4 py-3 text-start text-sm">{{ row.createdAt | intl: 'date' }}</td>
+                <td class="px-4 py-3 text-start">
+                  <ng-container *ngTemplateOutlet="actions; context: { $implicit: row }" />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+
+        <ul class="space-y-3 md:hidden">
+          @for (row of rows(); track row.id) {
+            <li class="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
+              <div class="font-medium"><bdi [attr.lang]="row.primary.lang" [attr.dir]="row.primary.dir">{{ row.primary.text }}</bdi></div>
+              <div class="text-sm text-slate-500"><bdi [attr.lang]="row.secondary.lang" [attr.dir]="row.secondary.dir">{{ row.secondary.text }}</bdi></div>
+              <div class="text-xs text-slate-500">
+                {{ 'specialties.table.created' | transloco }}: {{ row.createdAt | intl: 'date' }}
+              </div>
+              <ng-container *ngTemplateOutlet="actions; context: { $implicit: row }" />
+            </li>
+          }
+        </ul>
+
+        <div class="mt-4">
+          <cb-pager [page]="state().page" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
+        </div>
+      }
+    }
+  </div>
+</section>
+
+<ng-template #actions let-row>
+  <div class="flex flex-wrap gap-2">
+    <a
+      *cbCan="permissions.SpecialtiesManage"
+      [routerLink]="['/specialties', row.id, 'edit']"
+      class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      [attr.aria-label]="'specialties.edit_named' | transloco: { name: row.primary.text }"
+    >
+      {{ 'specialties.edit' | transloco }}
+    </a>
+    <button
+      *cbCan="permissions.SpecialtiesManage"
+      type="button"
+      class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+      [attr.aria-label]="'specialties.delete.named' | transloco: { name: row.primary.text }"
+      (click)="askDelete(row)"
+    >
+      {{ 'specialties.delete.action' | transloco }}
+    </button>
+  </div>
+</ng-template>
+
+<cb-confirm-dialog
+  [open]="pendingDelete() !== null"
+  [busy]="deleting()"
+  [errorKey]="deleteErrorKey()"
+  (confirmed)="confirmDelete()"
+  (cancelled)="cancelDelete()"
+>
+  <span cbDialogTitle>{{ 'specialties.delete.title' | transloco }}</span>
+  <p>{{ 'specialties.delete.message' | transloco }}</p>
+  @if (pendingDelete(); as row) {
+    <p class="font-medium"><bdi lang="ar" dir="rtl">{{ row.nameAr }}</bdi></p>
+    <p class="font-medium"><bdi lang="en" dir="ltr">{{ row.nameEn }}</bdi></p>
+  }
+  <span cbDialogCancel>{{ 'specialties.delete.cancel' | transloco }}</span>
+  <span cbDialogConfirm>
+    @if (deleting()) {
+      {{ 'specialties.delete.deleting' | transloco }}
+    } @else {
+      {{ 'specialties.delete.confirm' | transloco }}
+    }
+  </span>
+</cb-confirm-dialog>

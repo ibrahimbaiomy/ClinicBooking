@@ -1,7 +1,21 @@
 <header
   class="flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-6 py-3"
 >
-  <h1 class="text-lg font-semibold">{{ 'app.title' | transloco }}</h1>
+  <div class="flex flex-wrap items-center gap-6">
+    <h1 class="text-lg font-semibold">{{ 'app.title' | transloco }}</h1>
+    @if (session.isAuthenticated()) {
+      <nav [attr.aria-label]="'shell.nav.label' | transloco">
+        <a
+          routerLink="/specialties"
+          routerLinkActive="font-semibold text-blue-700"
+          ariaCurrentWhenActive="page"
+          class="rounded text-sm text-slate-700 hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        >
+          {{ 'shell.nav.specialties' | transloco }}
+        </a>
+      </nav>
+    }
+  </div>
   <div class="flex items-center gap-3">
     @if (session.user(); as user) {
       <span class="text-sm text-slate-600">

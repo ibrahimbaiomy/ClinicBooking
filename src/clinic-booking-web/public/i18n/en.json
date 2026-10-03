@@ -10,7 +10,17 @@
   "shell": {
     "placeholder": "Content will appear here soon.",
     "signed_in_as": "Signed in as",
-    "sign_out": "Sign out"
+    "sign_out": "Sign out",
+    "nav": {
+      "label": "Main navigation",
+      "specialties": "Specialties"
+    }
+  },
+  "pager": {
+    "label": "Pagination",
+    "previous": "Previous",
+    "next": "Next",
+    "page_of": "Page {{ page }} of {{ total }}"
   },
   "login": {
     "title": "Sign in",

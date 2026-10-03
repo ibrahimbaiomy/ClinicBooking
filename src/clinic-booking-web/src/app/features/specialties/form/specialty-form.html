@@ -1,0 +1,172 @@
+<section class="mx-auto max-w-xl space-y-4">
+  <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">
+    @if (isNew) {
+      {{ 'specialties.form.title_new' | transloco }}
+    } @else {
+      {{ 'specialties.form.title_edit' | transloco }}
+    }
+  </h2>
+
+  @switch (loadState()) {
+    @case ('loading') {
+      <p class="text-slate-600" aria-busy="true">{{ 'specialties.loading' | transloco }}</p>
+    }
+    @case ('notFound') {
+      <div role="alert" class="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-900">
+        <p class="font-medium">{{ 'specialties.not_found.title' | transloco }}</p>
+        <p>{{ 'specialties.not_found.message' | transloco }}</p>
+        <a routerLink="/specialties" class="inline-block text-blue-700 underline">
+          {{ 'specialties.not_found.back' | transloco }}
+        </a>
+      </div>
+    }
+    @case ('error') {
+      <div role="alert" class="space-y-3 rounded-lg bg-red-50 p-4 text-red-800">
+        <!-- i18n-keys: error.unexpected -->
+        <p>{{ loadErrorKey() | transloco }}</p>
+        <button
+          type="button"
+          class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+          (click)="load()"
+        >
+          {{ 'specialties.retry' | transloco }}
+        </button>
+      </div>
+    }
+    @default {
+      @if (record(); as saved) {
+        <p class="text-sm text-slate-600">
+          {{ 'specialties.form.created_at' | transloco }}: {{ saved.createdAt | intl: 'datetime' }}
+          <br />
+          {{ 'specialties.form.updated_at' | transloco }}:
+          @if (saved.updatedAt) {
+            {{ saved.updatedAt | intl: 'datetime' }}
+          } @else {
+            {{ 'specialties.form.never_updated' | transloco }}
+          }
+        </p>
+      }
+
+      <div #banner tabindex="-1" role="alert" aria-live="assertive" class="outline-none">
+        @if (conflict()) {
+          <div class="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-900">
+            <p class="font-medium">{{ 'specialties.conflict.title' | transloco }}</p>
+            <p>{{ 'specialties.conflict.message' | transloco }}</p>
+            <button
+              type="button"
+              class="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+              [disabled]="reloading()"
+              [attr.aria-busy]="reloading()"
+              (click)="reload()"
+            >
+              @if (reloading()) {
+                {{ 'specialties.conflict.reloading' | transloco }}
+              } @else {
+                {{ 'specialties.conflict.reload' | transloco }}
+              }
+            </button>
+          </div>
+        }
+        @if (formErrorKey(); as key) {
+          <div class="rounded-lg bg-red-50 p-3 text-sm text-red-800">
+            <!-- i18n-keys: error.unexpected -->
+            <p>{{ key | transloco }}</p>
+            @if (correlationId(); as id) {
+              <p class="mt-1 text-xs" dir="ltr">{{ 'specialties.correlation' | transloco: { id: id } }}</p>
+            }
+          </div>
+        }
+      </div>
+
+      @if (earlier(); as mine) {
+        <div class="space-y-2 rounded-lg border border-slate-300 bg-slate-50 p-4 text-sm">
+          <p class="font-medium">{{ 'specialties.conflict.earlier_title' | transloco }}</p>
+          <p class="text-slate-600">{{ 'specialties.conflict.earlier_hint' | transloco }}</p>
+          <p><bdi lang="ar" dir="rtl">{{ mine.nameAr }}</bdi></p>
+          <p><bdi lang="en" dir="ltr">{{ mine.nameEn }}</bdi></p>
+          <button
+            type="button"
+            class="text-blue-700 underline"
+            (click)="dismissEarlier()"
+          >
+            {{ 'specialties.conflict.dismiss' | transloco }}
+          </button>
+        </div>
+      }
+
+      <form novalidate class="space-y-4" (submit)="onSubmit($event)">
+        <div>
+          <label for="specialty-name-ar" class="mb-1 block text-sm font-medium">
+            {{ 'specialties.form.name_ar' | transloco }}
+          </label>
+          <input
+            id="specialty-name-ar"
+            type="text"
+            lang="ar"
+            dir="rtl"
+            autocomplete="off"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            [formField]="specialtyForm.nameAr"
+            [attr.aria-invalid]="specialtyForm.nameAr().touched() && specialtyForm.nameAr().invalid()"
+            aria-describedby="specialty-name-ar-error"
+          />
+          <div id="specialty-name-ar-error" aria-live="polite">
+            @if (specialtyForm.nameAr().touched()) {
+              @for (error of specialtyForm.nameAr().errors(); track $index) {
+                <!-- i18n-keys: error.specialty.name_ar_required, error.specialty.name_ar_too_long, error.specialty.name_ar_invalid, error.specialty.name_ar_taken, error.validation.invalid, error.unexpected -->
+                <p class="mt-1 text-sm text-red-700">{{ messageKey(error.message) | transloco }}</p>
+              }
+            }
+          </div>
+        </div>
+
+        <div>
+          <label for="specialty-name-en" class="mb-1 block text-sm font-medium">
+            {{ 'specialties.form.name_en' | transloco }}
+          </label>
+          <input
+            id="specialty-name-en"
+            type="text"
+            lang="en"
+            dir="ltr"
+            autocomplete="off"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            [formField]="specialtyForm.nameEn"
+            [attr.aria-invalid]="specialtyForm.nameEn().touched() && specialtyForm.nameEn().invalid()"
+            aria-describedby="specialty-name-en-error"
+          />
+          <div id="specialty-name-en-error" aria-live="polite">
+            @if (specialtyForm.nameEn().touched()) {
+              @for (error of specialtyForm.nameEn().errors(); track $index) {
+                <!-- i18n-keys: error.specialty.name_en_required, error.specialty.name_en_too_long, error.specialty.name_en_invalid, error.specialty.name_en_taken, error.validation.invalid, error.unexpected -->
+                <p class="mt-1 text-sm text-red-700">{{ messageKey(error.message) | transloco }}</p>
+              }
+            }
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3">
+          <button
+            type="submit"
+            class="rounded-lg bg-blue-700 px-4 py-2 font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            [disabled]="specialtyForm().submitting() || conflict()"
+            [attr.aria-busy]="specialtyForm().submitting()"
+          >
+            @if (specialtyForm().submitting()) {
+              {{ 'specialties.form.saving' | transloco }}
+            } @else {
+              {{ 'specialties.form.save' | transloco }}
+            }
+          </button>
+          <a
+            routerLink="/specialties"
+            [queryParams]="listQuery()"
+            class="rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          >
+            {{ 'specialties.form.cancel' | transloco }}
+          </a>
+        </div>
+      </form>
+    }
+  }
+</section>

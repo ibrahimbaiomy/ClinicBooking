@@ -1,0 +1,75 @@
+{
+  "title": "Specialties",
+  "new": "New specialty",
+  "edit": "Edit",
+  "edit_named": "Edit {{ name }}",
+  "loading": "Loading…",
+  "retry": "Try again",
+  "correlation": "Reference for support: {{ id }}",
+  "page_size": "Per page",
+  "results": "Showing {{ from }}–{{ to }} of {{ total }}",
+  "search": {
+    "label": "Search",
+    "placeholder": "Search by Arabic or English name",
+    "clear": "Clear search"
+  },
+  "sort": {
+    "label": "Sort by",
+    "name_ar": "Arabic name",
+    "name_en": "English name",
+    "created_at": "Date created",
+    "asc": "Ascending",
+    "desc": "Descending"
+  },
+  "table": {
+    "caption": "List of specialties",
+    "specialty": "Specialty",
+    "created": "Created",
+    "actions": "Actions"
+  },
+  "empty": {
+    "none": "There are no specialties yet.",
+    "no_results": "No specialties match your search."
+  },
+  "delete": {
+    "action": "Delete",
+    "named": "Delete {{ name }}",
+    "title": "Delete this specialty?",
+    "message": "This will delete the specialty:",
+    "confirm": "Delete",
+    "deleting": "Deleting…",
+    "cancel": "Cancel"
+  },
+  "flash": {
+    "saved_created": "The specialty was created.",
+    "saved_updated": "The changes were saved.",
+    "deleted": "The specialty was deleted.",
+    "already_deleted": "This specialty had already been deleted."
+  },
+  "form": {
+    "title_new": "New specialty",
+    "title_edit": "Edit specialty",
+    "name_ar": "Name in Arabic",
+    "name_en": "Name in English",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "created_at": "Created",
+    "updated_at": "Last changed",
+    "never_updated": "Not changed since it was created"
+  },
+  "conflict": {
+    "title": "This specialty was changed by someone else",
+    "message": "Your changes were not saved. Reload the latest version, then re-apply your changes.",
+    "reload": "Reload the latest version",
+    "reloading": "Reloading…",
+    "earlier_title": "Your earlier entries",
+    "earlier_hint": "These are the values you typed before reloading. Copy them into the form if you still need them.",
+    "dismiss": "Hide"
+  },
+  "not_found": {
+    "title": "Specialty not found",
+    "message": "This specialty does not exist or has been deleted.",
+    "back": "Back to the list of specialties"
+  }
+}

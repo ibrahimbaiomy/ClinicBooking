@@ -1,14 +1,14 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Title } from '@angular/platform-browser';
-import { Router, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { SessionService } from './core/auth/session.service';
 import { LanguageSwitcher } from './shell/language-switcher';
 
 @Component({
   selector: 'cb-root',
-  imports: [RouterOutlet, TranslocoPipe, LanguageSwitcher],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslocoPipe, LanguageSwitcher],
   templateUrl: './app.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

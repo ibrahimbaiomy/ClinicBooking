@@ -1,0 +1,43 @@
+<dialog
+  #dialog
+  aria-labelledby="cb-dialog-title"
+  aria-describedby="cb-dialog-body"
+  class="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-slate-200 bg-white p-6 text-slate-900 shadow-lg backdrop:bg-slate-900/40"
+  (cancel)="onNativeCancel($event)"
+  (close)="onNativeClose()"
+>
+  <h2 id="cb-dialog-title" class="mb-3 text-lg font-semibold">
+    <ng-content select="[cbDialogTitle]" />
+  </h2>
+  <div id="cb-dialog-body" class="space-y-2 text-slate-700">
+    <ng-content />
+  </div>
+
+  <div role="alert" aria-live="assertive">
+    @if (errorKey(); as key) {
+      <!-- i18n-keys: error.unexpected -->
+      <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ key | transloco }}</p>
+    }
+  </div>
+
+  <div class="mt-6 flex flex-wrap justify-end gap-3">
+    <button
+      #cancelButton
+      type="button"
+      class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      [disabled]="busy()"
+      (click)="cancelled.emit()"
+    >
+      <ng-content select="[cbDialogCancel]" />
+    </button>
+    <button
+      type="button"
+      class="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+      [disabled]="busy()"
+      [attr.aria-busy]="busy()"
+      (click)="confirmed.emit()"
+    >
+      <ng-content select="[cbDialogConfirm]" />
+    </button>
+  </div>
+</dialog>
