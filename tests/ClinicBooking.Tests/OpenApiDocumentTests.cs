@@ -64,6 +64,16 @@ public class OpenApiDocumentTests : IClassFixture<ApiFactory>
         Assert.DoesNotContain("text/plain", root.GetRawText());
     }
 
+    [Fact]
+    public async Task The_document_is_not_served_unless_OpenApi_Enabled_is_true()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/openapi/v1.json");
+
+        Assert.NotEqual(System.Net.HttpStatusCode.OK, response.StatusCode);
+    }
+
     private async Task<string> GenerateAsync()
     {
         using var factory = _factory.WithWebHostBuilder(builder =>
