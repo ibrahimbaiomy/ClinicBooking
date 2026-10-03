@@ -1,1 +1,2 @@
-// Namespaces common to the whole project. Intentionally empty for now.
+global using System;
+global using System.Collections.Generic;

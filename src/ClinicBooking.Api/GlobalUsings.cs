@@ -1,4 +1,9 @@
+global using System;
+global using System.Linq;
+global using System.Threading;
+global using System.Threading.Tasks;
 global using ClinicBooking.Application;
 global using ClinicBooking.Infrastructure;
 global using Microsoft.AspNetCore.Builder;
+global using Microsoft.AspNetCore.Http;
 global using Microsoft.Extensions.DependencyInjection;
