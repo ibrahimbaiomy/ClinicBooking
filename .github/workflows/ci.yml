@@ -79,3 +79,71 @@ jobs:
       # Build only: nothing is pushed to a registry in this workflow.
       - name: Build image
         run: docker build --pull --tag clinicbooking-api:ci .
+
+  web:
+    name: Front end checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NG_CLI_ANALYTICS: "false"
+    defaults:
+      run:
+        working-directory: src/clinic-booking-web
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # .nvmrc, the Dockerfile and package.json must name the same Node major (D47).
+      - name: Node versions agree
+        working-directory: .
+        run: .github/scripts/check-node-version.sh
+
+      # The runner image ships Node 22; the project and the image use Node 24 (.nvmrc).
+      - name: Set up Node (from .nvmrc)
+        if: ${{ !cancelled() }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: src/clinic-booking-web/.nvmrc
+          # No npm cache: npm ci takes seconds here (D47).
+          package-manager-cache: false
+
+      - name: Node and npm versions
+        if: ${{ !cancelled() }}
+        run: |
+          node --version
+          npm --version
+
+      # engine-strict (.npmrc) makes this fail on a Node outside package.json "engines".
+      - name: Install (npm ci)
+        id: install
+        if: ${{ !cancelled() }}
+        run: npm ci
+
+      # From here on every step runs even if an earlier one failed, so one run shows all the
+      # problems, but only when the install worked: nothing below can run without it.
+      - name: Lint (angular-eslint and the logical-properties check)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run lint
+
+      - name: Unit tests (Vitest and the Node script tests)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm test
+
+      - name: Translation keys
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run check:i18n
+
+      # Needs only Node: schema.d.ts is regenerated in memory from the committed openapi.json.
+      - name: API types are up to date
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          npm run check:api || {
+            echo "::error title=API types are out of date::schema.d.ts does not match openapi.json. Run 'npm run gen:api' in src/clinic-booking-web and commit openapi.json and schema.d.ts."
+            exit 1
+          }
+
+      - name: Production build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run build

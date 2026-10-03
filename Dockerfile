@@ -5,7 +5,7 @@
 # runs the prebuild checks, which need scripts/, public/i18n and src/.
 FROM node:24-bookworm-slim AS web
 WORKDIR /web
-COPY src/clinic-booking-web/package.json src/clinic-booking-web/package-lock.json ./
+COPY src/clinic-booking-web/package.json src/clinic-booking-web/package-lock.json src/clinic-booking-web/.npmrc ./
 RUN npm ci
 COPY src/clinic-booking-web/ ./
 RUN npm run build
