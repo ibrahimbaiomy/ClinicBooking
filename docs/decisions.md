@@ -702,6 +702,30 @@ repository root tells AI assistants to read `docs/Instructions.md` and
   Information.
 ---
 
+### D47 — CI conventions
+`ACCEPTED`
+
+- `global.json` pins the SDK to at least 10.0.100 with
+  `rollForward: latestFeature`. The CI setup step and the Dockerfile both use
+  it, so local, CI and the image follow one rule.
+- Every GitHub Action is pinned to a full commit SHA with a version comment.
+  Only GitHub-owned actions (`actions/*`) are used; no `docker/*` actions.
+  Runner is `ubuntu-24.04`, not `ubuntu-latest`. Checkout uses
+  `persist-credentials: false`.
+- CI relies on `Directory.Build.props` (D45) for warnings as errors and does
+  not pass `-warnaserror`, so NU1901–NU1904 audit warnings stay non-fatal.
+- Two parallel jobs, `test` and `image`; a later push job will `needs` both.
+  The test job uploads a TRX artifact (7 days). No test-logger package.
+- Concurrency: group is workflow + ref with `cancel-in-progress: true`. Must
+  be revisited when a deploy workflow exists, because an in-flight deploy
+  must not be cancelled.
+- No caching (NuGet or Docker layers) until a run exceeds about 5 minutes.
+- The SQL Server image tag is declared in both `docker-compose.yml` and the
+  Testcontainers fixture; keep them in sync.
+  
+  ---
+
+
 ## Open questions
 
 O3, O4 and O5 are closed: see D44 and D43.
