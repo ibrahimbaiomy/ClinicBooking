@@ -7,6 +7,83 @@ Rejected alternatives are recorded too — the reasoning is the point, not the o
 
 ---
 
+## Index
+
+One line per decision, in numeric order (the headings below are not in numeric
+order). Format: `D<number> | <status> | <title> | <keywords>`. A `*` after the
+number marks a **cross-cutting** decision: read it in full for every task. Open
+questions are listed last. This index is a map, not a summary: the decision text
+is the authority.
+
+```
+D1* | ACCEPTED | Clean Architecture, four back-end projects | layering, projects, Domain, Application, Infrastructure, Api, DependencyInjection, project references
+D2 | ACCEPTED | No repository pattern; IAppDbContext abstraction | repository, IAppDbContext, DbSet, EF Core, data access
+D3 | ACCEPTED | Services, not CQRS / MediatR | services, feature folders, CQRS, MediatR
+D4 | ACCEPTED | Attribute-routed controllers, not minimal APIs | controllers, routing, filters, minimal APIs
+D5 | ACCEPTED | SOLID applied at service granularity | SOLID, dependency injection, one service per aggregate
+D6 | ACCEPTED | long keys; protection through authorization | long id, 404 vs 403, existence leak, BookingReference, clinic-scoped, IClinicAccess
+D7* | ACCEPTED | DTOs at every API boundary | DTO, entity, over-posting, controller, request, response
+D8 | ACCEPTED | Manual mapping, no AutoMapper | mapping, Select, projection
+D9* | ACCEPTED | Input validation and business rules | validation, FluentValidation, ValidationFilter, business rules, invariants
+D10* | ACCEPTED | Errors: ProblemDetails carrying keys, never sentences | error keys, ProblemDetails, 400, 409, 422, 500, status codes, translation
+D11 | SUPERSEDED | (merged into D10) | error keys
+D12* | ACCEPTED | Time: UTC for storage, Cairo for rules and display | time, DateTimeOffset, UTC, Cairo, DST, TimeOnly, working hours, tzdata
+D13 | ACCEPTED | SQL Server in Docker locally, Azure SQL in the cloud | SQL Server, Azure SQL, database, Docker
+D14 | ACCEPTED | EF Core Migrations from the first commit | migrations, EF Core, schema
+D15 | ACCEPTED | One container: API serves the built front end | Docker, Dockerfile, wwwroot, SPA, static files, CORS, image
+D16 | ACCEPTED | Dockerfile and compose written on day one | Docker, Dockerfile, docker compose
+D17 | ACCEPTED | Azure Container Apps, not App Service | Azure, Container Apps, ACR, scale to zero, deployment
+D18 | ACCEPTED | GitHub Actions, not Azure DevOps Pipelines | CI, GitHub Actions
+D19 | ACCEPTED | Secrets: .env locally, Key Vault in Azure | secrets, .env, User Secrets, Key Vault, appsettings
+D20 | ACCEPTED | Two health endpoints | health, /health/live, /health/ready, probes
+D21 | ACCEPTED | Serilog with structured JSON output | logging, Serilog, JSON, correlation id, PII
+D22 | ACCEPTED | Angular + TypeScript | Angular, TypeScript, Vitest, zoneless, Node, versions
+D23 | SUPERSEDED by D33 | TanStack Query for server state | server state, TanStack
+D24 | ACCEPTED | TypeScript types generated from OpenAPI, committed | OpenAPI, openapi.json, schema.d.ts, gen:api, check:api, DTO change, generated types
+D25* | ACCEPTED | Tailwind alone, logical properties only | Tailwind, RTL, logical properties, CSS, check:logical, icons, layout
+D26* | ACCEPTED | Bilingual UI with Transloco from the first component | i18n, Transloco, translation keys, ar.json, en.json, RTL, check:i18n, language
+D27 | ACCEPTED | Latin numerals and Gregorian dates in both languages | dates, numbers, Intl, intl pipe, Latin digits, formatting
+D28 | ACCEPTED | Language of code vs. language of interface | English code, commit messages, documentation language
+D29 | ACCEPTED | JWT authentication and refresh tokens | authentication, JWT, refresh token, cookie, login, lockout, rate limit
+D30 | ACCEPTED | Integration tests with Testcontainers; no unit tests for CRUD | tests, Testcontainers, xunit, integration tests, WebApplicationFactory
+D31 | ACCEPTED | Appointment concurrency and double-booking protection | concurrency, double booking, transaction, appointments, unique index
+D32 | ACCEPTED | Multi-clinic model | doctor, DoctorClinic, working hours, multi-clinic, clinics
+D33 | ACCEPTED | Front-end state: Signals + services, no state library | state, Signals, services, HttpClient, NgRx
+D34* | ACCEPTED | Fine-grained, clinic-scoped permissions | permissions, clinic-scoped, authorization, policy, claims, global permissions, Permissions.cs
+D35* | ACCEPTED | Soft delete | soft delete, IsDeleted, query filter, filtered unique index, hard delete, join tables
+D36* | ACCEPTED | Auditing fields on the base entity | audit, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy, interceptor
+D37 | ACCEPTED | Bilingual data and Arabic search | Arabic, search, normalisation, NameAr, NameEn
+D38 | ACCEPTED | Patient data | patient, PII, phone, E.164, national ID, privacy
+D39 | ACCEPTED | Migrations in production | migrations bundle, Azure, deployment
+D40 | ACCEPTED | CI to Azure without stored secrets | OIDC, Azure, CI, managed identity, secrets
+D41 | ACCEPTED | Booking rules | appointment, status machine, past booking, overlap warning, breaks, leave, booking reference
+D42 | ACCEPTED | Documentation location and AI entry point | CLAUDE.md, docs, instructions, decisions log
+D43 | ACCEPTED | Fixed slots per doctor | slot, duration, appointment, unique index, slot_taken, working hours
+D44 | ACCEPTED | Patients are shared across clinics | patient, phone, duplicate warning, patients.* permissions, global
+D45 | ACCEPTED | Build, logging and runtime conventions | warnings as errors, GlobalUsings, Serilog, correlation id, domain exceptions, health ready, SQL image
+D46* | ACCEPTED | Persistence choices | EF Core, collation, nvarchar, soft delete filter, SaveChanges interceptor, ExecuteUpdate ban, IUser, migrations, Testcontainers, retry
+D47 | ACCEPTED | CI conventions | CI, GitHub Actions, web job, image job, Node version, check scripts, pinned actions, concurrency
+D48 | ACCEPTED | Authentication and authorization specifics | password, lockout, refresh token, access token, cookie, seed, auth error keys, rate limit, Identity, permission handler
+D49 | ACCEPTED | Arabic-aware search and uniqueness of names | Arabic, search, normalisation, unique names, sorting, SearchText, hamza
+D50* | ACCEPTED | Specialties API and the pattern for later entities | secure by default, fallback policy, validation, concurrency, rowVersion, OpenAPI, paging, sort, conflict key, entity pattern, 409, Produces
+D51 | ACCEPTED | Front-end foundation and hosting | Angular workspace, packages, scripts, static files, SPA fallback, cache headers, lint
+D52 | ACCEPTED | Front-end authentication | session, interceptor, refresh, login form, returnUrl, guards, permissions.ts, parseApiError, error keys check, dev proxy
+D53 | ACCEPTED | Front-end feature pattern (Specialties screens) | screens, list, URL state, form, Signal Forms, delete dialog, conflict, search debounce, translation scope
+D54 | ACCEPTED | Azure deployment is postponed until the build is complete | Azure, deployment, deferred, CI, checklist, risk
+D55 | ACCEPTED | Clinics back end | clinic, phone, PhoneNumber, address, E.164, seeder top-up, search, error keys, clinics.manage
+D56 | ACCEPTED | Clinics screens (front end) | clinic screens, phone display, untouched guard, header, optional fields, Not set
+D57 | ACCEPTED | User management and clinic-scoped permissions (back end) | users, clinic-scoped, UserClinicPermissions, doctors.manage, IClinicAccess, IClinicResolver, 404 vs 403, last administrator, seed at most once
+D58 | ACCEPTED | Account state, change-password and admin reset (back end) | IsActive, MustChangePassword, disable, change-password, reset password, password, account gate, sessions, lockout, rate limit, front-end hand-off
+O1 | OPEN | Azure region: West Europe vs UAE North | Azure, region, Container Apps, ACR, Key Vault, Azure SQL, price
+O2 | OPEN | Custom domain and TLS, or the default Container Apps hostname | domain, TLS, hostname, Azure
+```
+
+Other sections of this file: **Scope** (phases 0 to 5), **Open questions** (O3 to O5
+are closed, see D43 and D44), **Deferred until deployment** (the checklist),
+**Scope discipline**, **Later**.
+
+---
+
 ## Purpose of this project
 
 ClinicBooking is an outpatient appointment booking system for multiple

@@ -1,7 +1,8 @@
 # Instructions.md — ClinicBooking
 
 Instructions for any AI assistant working in this repository.
-Read this file and `docs/decisions.md` before writing code.
+Read this file in full, then read `docs/decisions.md` as `CLAUDE.md` says (its index
+first, then the decisions that apply).
 
 ---
 
@@ -307,6 +308,14 @@ current) is never returned, logged or put in an error; keep it out of exception 
 - **Verify before claiming done.** `dotnet build`, `dotnet test`, and
   `npm run build` must all pass, plus `npm run lint`, `npm test`,
   `npm run check:i18n` and `npm run check:api`. State what actually ran.
+- **Never run `docker` or `docker compose`.** No `up`, `down`, `build`, volume or
+  `prune` command, never `-v`. The project owner runs Docker. Verification that
+  needs Docker (running the stack, `curl` against the running containers, the Docker
+  image build) is listed in the report as **"by-hand checks for the owner"**, with
+  the exact commands to run. The one exception: `dotnet test` starts SQL Server
+  containers through Testcontainers, which is expected; if Docker is not running,
+  say so instead of starting it. The Docker image build is also proven by the CI
+  `image` job.
 - **Report what was decided that the instructions did not cover.** Every such
   decision either goes into `decisions.md` or gets raised.
 - **Prefer the smaller change.** If an existing pattern conflicts with a rule
