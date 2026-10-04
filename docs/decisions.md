@@ -136,6 +136,15 @@ as one. Protection comes from:
 read a record by incrementing a number. Authorization is the real control;
 hiding IDs is a secondary layer.
 
+**The precise rule (D57).** An endpoint that addresses a clinic directly (the
+clinic is in the route) answers 403 when the permission is missing there. An
+endpoint that addresses a resource by its own id answers **404 with the entity's
+not-found key**, identical to a non-existent id, when the caller holds no
+clinic-scoped permission in any of the resource's clinics; it answers 403 when the
+caller holds some other clinic-scoped permission there (the resource is then
+already visible to them). A soft-deleted clinic grants nothing. Implemented by
+`IClinicAccess`; the table is in D57.
+
 ### D7 — DTOs at every API boundary
 `ACCEPTED`
 
@@ -527,8 +536,9 @@ Authorization is claim-based, using fine-grained permission names such as
 
 - A user is granted permissions **per clinic**. Assignments are stored in the
   database (user, clinic, permission), not packed into the JWT, so the token
-  stays small and revocation takes effect immediately. The per-clinic table
-  arrives with user management (Phase 1), before Doctors (D55).
+  stays small and revocation takes effect immediately. The table
+  `UserClinicPermissions` exists since D57; the first clinic-scoped permission
+  is `doctors.manage`.
 - Permissions that are not clinic-specific are global: for example
   `users.manage`, `specialties.manage`, `clinics.manage` (managing the clinic
   list itself cannot be scoped to a clinic that does not exist yet, D55), and all
@@ -537,8 +547,9 @@ Authorization is claim-based, using fine-grained permission names such as
   Identity user claims of type `permission` (D48), also read from the database
   on every check.
 - Each permission is enforced by an authorization policy and handler. The
-  handler resolves the target clinic from the resource and checks the
-  assignment.
+  handler resolves the target clinic (an `IClinicResolver`, by default the
+  `clinicId` route value) and checks the assignment; a resource addressed by its
+  own id is checked by `IClinicAccess` in the service (D57).
 - Permission names are constants defined in one place in Domain; no magic
   strings elsewhere.
 
@@ -875,8 +886,8 @@ family. A consumed token presented again **within 10 seconds**
 (`Auth:ReuseGraceSeconds`) is rejected with 401 without revoking anything
 (concurrent refreshes); **after** the window the whole family is revoked. A
 rowversion makes simultaneous rotations fail cleanly (treated like the grace
-case). On refresh the user must still exist and not be locked out, otherwise
-the family is revoked. Logout revokes the family and is idempotent. A user's
+case). On refresh the user must still exist, be active and not be locked out,
+otherwise the family is revoked (D58). Logout revokes the family and is idempotent. A user's
 long-expired rows are removed when that user logs in (no purge job until
 Phase 5).
 
@@ -913,9 +924,9 @@ origin: 403 `error.auth.forbidden`. Domain exceptions added: `Unauthorized`
 it, with a single `PermissionAuthorizationHandler`. Global grants are Identity
 user claims (`permission`); the handler reads the database per check, so a
 revoked permission applies at once (a locked-out user keeps an issued access
-token until it expires). When Clinics arrive, the handler resolves the clinic
-from `context.Resource` for non-global permissions and a clinic-scoped
-checker reads the (user, clinic, permission) table; nothing of that exists yet.
+token until it expires). Clinic-scoped permissions and their handler exist
+since D57 (a second requirement and handler, an `IClinicResolver`, the
+(user, clinic, permission) table); a disabled user is denied by every check.
 
 **Seeding.** `Seed:AdminUserName` / `Seed:AdminPassword` (compose maps
 `SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD`). Runs at startup in every
@@ -924,15 +935,23 @@ grants every global permission. When users already exist it only **tops up** the
 user named by `Seed:AdminUserName`: it adds the permissions of
 `Permissions.Global` that user lacks, so a permission added to the code later
 reaches the seeded admin (D55). It never creates a user, never touches a password
-or another user, never removes a permission, and logs only a count. The password
+or another user, never removes a permission, and logs only a count. **D57
+refines this: each permission is granted at most once** (a `seeded_permission`
+marker claim), so one an administrator removed on purpose stays removed. The password
 is never logged. **The seed variables must be removed from configuration after
 the first successful deploy**, which also stops the top-up: from then on new
-global permissions are granted through user management. A change-password flow
-(Phase 1 user management) **must exist before any real data** is stored.
+global permissions are granted through user management (the API exists, D57). A
+change-password flow **must exist before any real data** is stored: the API exists
+(D58); its screen is still to come.
 
 **Endpoints.** `POST /api/auth/login`, `POST /api/auth/refresh`,
 `POST /api/auth/logout`, `GET /api/auth/me` (id, user name, permissions: the
-token carries none, so a front end needs this). Until the FluentValidation
+token carries none, so a front end needs this; D58 adds `mustChangePassword` and
+`clinicPermissions`) and, since D58, `POST /api/auth/change-password`. D58 also
+adds `error.auth.password_change_required` (403), `current_password_required`,
+`current_password_incorrect` and `password_unchanged`, an account gate that reads
+`IsActive` and `MustChangePassword` on every request, and the change-password rate
+limiter (per user). Until the FluentValidation
 endpoint filter (D9) exists, login checks only that both fields are present
 and at most 256 characters.
 
@@ -1403,7 +1422,8 @@ addresses are not normalised, and street names would give surprising matches;
 phone search belongs to a digit-prefix match, later.
 
 **Permission.** A new **global** permission, `clinics.manage` (create, edit,
-delete). It is global because it cannot be scoped to a clinic that does not exist
+delete). *(D57: the seeded admin has no clinic-scoped permission in any clinic,
+`doctors.manage` included; it grants it to itself through the user API.)* It is global because it cannot be scoped to a clinic that does not exist
 yet; it is in `Permissions.Global`, so the policy and the handler needed no
 change. **Reading (list and get) is allowed for any signed-in user**, like
 Specialties. *Revisit:* when per-clinic permission assignments arrive (with user
@@ -1436,7 +1456,8 @@ phone. Later entities follow this: a Domain method that normalises or limits a
 value reports the failure with an `InvalidRequestException`, not a generic
 exception.
 
-**Seeder top-up (refines D48).** `IdentitySeeder` used to act only when no user
+**Seeder top-up (refines D48; D57 makes it "at most once per permission").**
+`IdentitySeeder` used to act only when no user
 existed, so a permission added to the code later never reached the seeded admin
 on an existing database. Now, when users already exist and the seed credentials
 are configured, it adds the permissions of `Permissions.Global` that the user
@@ -1590,6 +1611,274 @@ are served.
 
 ---
 
+### D57 — User management and clinic-scoped permissions (back end)
+`ACCEPTED` (refines D6, D34, D48 and D55; the front-end screens are the next step)
+
+An administrator holding the global `users.manage` can create users, disable and
+re-enable them, grant **global** permissions, and grant **clinic-scoped**
+permissions per clinic. The authorization layer now supports clinic-scoped checks
+end to end (table, checker, handler), so Doctors can use it. Users are **never
+deleted**, only disabled. There are no roles (D34, rule 9) and the JWT still
+carries no permission.
+
+**Layers.** `UserService` (Application) holds the rules. It depends on
+`IUserAccounts` (Infrastructure, wraps `UserManager`: create, list, find, state,
+set active, reset password, the administrator counts, replace global claims),
+`IPermissionChecker`, `IAppDbContext` and `TimeProvider`. `UserManager` is used
+only in Infrastructure. `IAppDbContext.InSerializableTransactionAsync` runs a
+read-then-write rule in one serializable transaction; a deadlock victim (SQL
+error 1205) becomes 409 `error.concurrency.conflict`.
+
+**Data.** `AspNetUsers` gains `IsActive` (the entity default is `true`; the
+migration sets `true` for existing rows, because EF scaffolds `false`) and
+`MustChangePassword` (default `false`). There is no database default: every
+insert sends an explicit value. New table **`UserClinicPermissions`**
+(`UserClinicPermission : AuditableEntity`): `Id`, `UserId`, `ClinicId`,
+`Permission` (`varchar(64)`, an ASCII identifier), the audit fields and the row
+version. Unique index `UX_UserClinicPermissions_User_Clinic_Permission` over
+`(UserId, ClinicId, Permission)` with the conflict key
+`error.concurrency.conflict` (two administrators granting the same thing at once
+is a 409, not a 500); an index on `ClinicId`. Foreign keys: user **cascade**
+(users are never deleted, so it only keeps the table consistent), clinic
+**restrict** (clinics are only soft-deleted). **Revoking deletes the row** (a join
+table, D35); `CreatedBy`/`CreatedAt` say who granted it, and who revoked is left
+to the Phase 2 audit trail. A **soft-deleted clinic** keeps its rows but grants
+nothing and is not listed (the checker joins the filtered `Clinics` set). A
+**disabled user** keeps everything but every `Has*` check is false. Global
+permissions stay Identity claims of type `permission`. The unique index Identity
+creates over the normalised user name carries the conflict key
+`error.user.user_name_taken`.
+
+**Permission model.** `Permissions.Global` (`users.manage`, `specialties.manage`,
+`clinics.manage`; later `patients.*`) and `Permissions.ClinicScoped`
+(**`doctors.manage` only**: manage the doctors of one clinic). `All` is both
+lists; a policy exists for each. No `doctors.read`: reading doctors stays open to
+any signed-in user, like Specialties and Clinics (names are not sensitive and
+booking staff must see doctors across clinics); add a scoped read only if D6's
+"inaccessible means 404" is wanted for lists. Nothing for Appointments yet.
+`GET /api/permissions` (needs `users.manage`) returns `{ global, clinicScoped }`
+from the same constants, so the assignment screens never copy the names. **To add
+a clinic-scoped permission** see Instructions.md.
+
+**The seeded admin has no `doctors.manage` in any clinic** (the seeder grants only
+global permissions). It must grant it to itself through the API
+(`PUT /api/users/{id}/clinics/{clinicId}/permissions`) like any other user.
+
+**Authorization design.**
+- `IPermissionChecker` gains `HasClinicPermissionAsync`,
+  `HasClinicPermissionInAnyAsync`, `HasAnyClinicPermissionInAnyAsync`,
+  `GetClinicIdsWithPermissionAsync` (for lists and creation) and
+  `GetClinicPermissionsAsync`. Every check reads the database. A global
+  permission never satisfies a clinic-scoped one and the reverse. The `Get*`
+  methods list what is stored, so an administrator can see a disabled user's grants;
+  clinic grants with a name no longer in the code are never listed.
+- A clinic-scoped permission gets the same `[Authorize(Policy = Permissions.X.Y)]`
+  as a global one; the policy builder picks `ClinicPermissionRequirement` for the
+  `ClinicScoped` list. `ClinicPermissionAuthorizationHandler` asks the registered
+  `IClinicResolver`s in order (first non-null clinic id wins). The default
+  `RouteClinicResolver` reads the route value `clinicId` (for example
+  `/api/clinics/{clinicId}/doctors`). **No resolver answering, a missing or deleted
+  clinic, a disabled user, or the permission held only in another clinic: the
+  policy fails (403).** Doctors add a resolver for `/api/doctors/{id}` if they need one.
+- For an endpoint addressed by a resource's **own id**, the service loads the
+  resource and calls `IClinicAccess.RequireAsync(clinicIds, permission,
+  notFoundKey)`, which passes when the caller holds the permission in any of the
+  resource's clinics.
+
+**The 404-versus-403 rule (refines D6).**
+
+| Case | Status |
+|---|---|
+| No or invalid token | 401 `error.auth.unauthorized` |
+| Global permission missing | 403 `error.auth.forbidden` |
+| Endpoint addresses a clinic directly (the clinic is in the route); permission missing there | 403 |
+| Resource addressed by its own id; the caller holds **no** clinic-scoped permission in any of its clinics | **404** with the entity's not-found key, identical to a non-existent id |
+| Same, but the caller holds some other clinic-scoped permission in one of those clinics | 403 (they can already see it exists) |
+| The resource's clinic is soft-deleted | the caller holds nothing there: 404 |
+
+A global administrator is **not** a clinic member: a global permission does not
+open clinic-scoped resources.
+
+**Endpoints** (all need the global `users.manage`; every `PUT` is a full replace):
+
+| Route | Notes |
+|---|---|
+| `GET /api/users` | `Search` (part of the user name, case-insensitive), `IsActive`, `Page`, `PageSize` (max 100), `SortBy` (`userName` default, `createdAt`), `SortDirection`; summaries only |
+| `GET /api/users/{id}` | summary plus `globalPermissions` and `clinicPermissions` (clinic id, both names, permission names; deleted clinics omitted) |
+| `POST /api/users` | `userName`, `temporaryPassword`; 201 + `Location`; the user starts with `MustChangePassword = true` and no permission |
+| `POST /api/users/{id}/disable`, `/enable` | idempotent; 200 with the detail |
+| `PUT /api/users/{id}/global-permissions` | `permissions[]` |
+| `PUT /api/users/{id}/clinics/{clinicId}/permissions` | `permissions[]`; an empty list removes every grant in that clinic; unknown or soft-deleted clinic: 404 `error.clinic.not_found`; unknown user: 404 `error.user.not_found` (checked first) |
+| `POST /api/users/{id}/reset-password` | D58 |
+| `GET /api/permissions` | the assignable names |
+
+**Lock-out safety.** An administrator cannot disable their own account: 422
+`error.user.cannot_disable_self`. **The last active holder of `users.manage`
+cannot be disabled and cannot lose `users.manage` through a global replace**:
+422 `error.user.last_administrator` (a disabled administrator does not count).
+Both checks run inside the serializable transaction together with the write, so
+two administrators disabling each other at the same moment cannot leave nobody
+(one succeeds; the other gets 422, 401 or 409). Through the API the actor of a
+disable is always another active administrator, so for a disable this rule only
+bites in a race; for the replace it bites when the last administrator edits
+themselves.
+
+**Seeder (refines D48 and D55).** The top-up now grants each global permission
+**at most once**. When the seeder grants a permission it also adds a marker claim
+of type `seeded_permission` with the same value; it only grants a permission that
+has no marker. So a permission added to the code later still reaches the seeded
+admin, while one an administrator removed on purpose **stays removed** after a
+restart. The first run after this step adds markers for what the admin already
+holds, without duplicating anything. Removing the `Seed__*` variables still stops
+the top-up (D48). The seeded user is created active, without a forced change.
+
+**Validation (FluentValidation, error keys only).** User name: required, 3 to 64
+characters, ASCII letters, digits, `.`, `_`, `-` only
+(`error.user.user_name_required|too_short|too_long|invalid`), unique ignoring case
+(409 `error.user.user_name_taken`, also for a racing duplicate). Passwords: the
+validator only checks required and at most 128 characters
+(`error.password.required|too_long`); the **policy is defined once, in the Identity
+options (D48)**, and its refusals come back as `error.password.too_short|
+requires_digit|requires_lowercase|requires_uppercase|requires_unique_chars` on the
+password field, so create, reset and change-password agree. Permission names must
+belong to the right list (`error.user.permission_unknown`). Paging, sort and search
+keys are reused.
+
+**Concurrency.** `ApplicationUser` has no row version, so the permission
+replacements are **last-write-wins**; D50's "every `PUT` carries a `rowVersion`"
+does not apply to these endpoints. With a handful of administrators this is
+accepted. A concurrent change to the same user that Identity detects becomes 409.
+
+**Audit and logs (D36).** A created user stamps `CreatedBy` with the administrator,
+an update (enable, disable, password) stamps `UpdatedBy`, a grant stamps the row's
+`CreatedBy`. Until the Phase 2 trail, each create, grant, revoke, disable, enable,
+reset and password change writes one Information line. **Authorization-related
+log lines contain ids and permission names only: never a password, a user name or
+patient data**; a test scans the host's real console output.
+
+**Error keys** (21 new, in the root `ar.json`/`en.json`): `error.user.not_found`,
+`user_name_required|too_short|too_long|invalid|taken`, `permission_unknown`,
+`cannot_disable_self`, `last_administrator`, `cannot_reset_own_password`;
+`error.password.required|too_long|too_short|requires_digit|requires_lowercase|
+requires_uppercase|requires_unique_chars`; `error.auth.current_password_required|
+current_password_incorrect|password_unchanged|password_change_required` (D58).
+
+**Tests.** `UsersAuthorizationTests` (401, 403 and "no other permission unlocks
+it" for every endpoint), `UserManagementTests`, `ClinicScopedAuthorizationTests`
+(clinic A versus B, a deleted clinic, a disabled user, no clinic in the route,
+the 404/403 rule through test-only endpoints in the test assembly, the checker's
+list methods), `LockoutSafetyTests` (including the parallel race), seeder tests
+(removal sticks, first run after the upgrade), and OpenAPI assertions (the test
+endpoints and the test-only permission name `test.other` never reach
+`openapi.json`).
+
+**Not built / later.** An audit trail of who revoked what (Phase 2); renaming a
+user; email, SMS or invitation links; two-factor; roles; `doctors.read`; filtering
+the Clinics list by the caller's clinics (D55 revisit: reading stays open to any
+signed-in user for now).
+
+---
+
+### D58 — Account state, change-password and admin reset (back end)
+`ACCEPTED` (refines D48 and D57)
+
+**One gate for two flags.** `AccountStateMiddleware` runs after authentication
+and before authorization. For every authenticated request to an endpoint that is
+not anonymous it reads `IsActive` and `MustChangePassword` from the database
+(one primary-key lookup, **never a token claim, never cached**), so the cut-off is
+immediate and a request to a future endpoint that forgets a policy is still
+covered. It throws the usual domain exceptions, so the error handler formats the
+problem.
+- A **missing or disabled** user: 401 `error.auth.unauthorized`, the same as an
+  invalid token. The front end then tries refresh, refresh fails (the sessions were
+  revoked) and the user is signed out.
+- A user with **`MustChangePassword`**: 403 `error.auth.password_change_required` on
+  every endpoint except those marked `[AllowWhilePasswordChangeRequired]`:
+  **`GET /api/auth/me` and `POST /api/auth/change-password` only**. Login, refresh
+  and logout are anonymous endpoints and unaffected. The attribute is valid on
+  methods only, and a reflection test fails if it appears on any other endpoint.
+- The rate limiter now runs **after** authentication (the change-password limiter
+  is partitioned by user id). Login and refresh stay partitioned by client address.
+- **Cost:** one indexed lookup per authenticated request, the same order as the
+  permission check that already reads the database. If it ever matters, a short
+  cache would trade away the immediate cut-off; not done.
+- A **locked-out** user keeps an issued access token until it expires (D48 note);
+  the gate does not look at the lockout.
+
+**Disabling.** Login treats a disabled account **exactly like a wrong password**
+(same 401, same dummy-hash timing, and the disabled check runs before the lockout
+check, so nothing reveals the account or that it is disabled). Refresh fails and
+revokes the family (`GetActiveUserAsync` returns null). Disabling also **revokes
+every refresh token of the user** in the same transaction. Re-enabling does not
+bring old sessions back; an access token that has not yet expired works again
+(at most 15 minutes), which is accepted.
+
+**Change-password.** `POST /api/auth/change-password`, signed in, body
+`{ currentPassword, newPassword }`, 204. Allowed while `MustChangePassword`.
+- The current password is verified through `UserManager`. **A wrong one calls
+  `AccessFailedAsync` explicitly**, so repeated guesses lock the account exactly as
+  at login (423 `error.auth.locked_out`); **a right one resets the counter**.
+- Own rate-limit policy `change-password`, **partitioned by user id**
+  (`RateLimiting:ChangePasswordPerMinute`, default 10), not the login limiter.
+- Failures: 400 `error.auth.current_password_incorrect` (also under
+  `errors.currentPassword`); 400 `error.auth.password_unchanged` when the new
+  password equals the current one (under `errors.newPassword`); 400
+  `error.validation.failed` with the policy keys on `newPassword` (D57).
+- **Other sessions end, the current one survives.** The refresh cookie
+  (`Path=/api/auth`) is sent to this route, so the endpoint also runs the
+  `SameOriginFilter`. The server hashes the cookie, finds its family, and revokes
+  every other family of the user. A cookie that is missing, unknown, revoked,
+  expired or **owned by another user** cannot name a session, so **all** of the
+  user's sessions are revoked and the user signs in again (the access token in hand
+  lives on for its 15 minutes). No session-id claim was added to the JWT (D48 keeps
+  `sub` and `jti`).
+- Success clears `MustChangePassword`; the same access token then works everywhere
+  on the next request.
+
+**Admin reset-password.** `POST /api/users/{id}/reset-password`, global
+`users.manage`, body `{ temporaryPassword }`, 204. It applies the password policy
+(nothing changes when refused), sets the new hash and a new security stamp, sets
+**`MustChangePassword = true`**, **clears the lockout state**, and **revokes every
+refresh family** of the user (the old access token is then blocked by the gate on
+everything except `me` and change-password). A **disabled user stays disabled**.
+It refuses the caller's own account (422 `error.user.cannot_reset_own_password`:
+use change-password); unknown user: 404 `error.user.not_found`.
+
+**A temporary password** is accepted only in a request body (create and reset) and
+is **never returned, logged, put in an exception or echoed in an error body**;
+neither is a new or current password. Tests scan every response and the host's
+real console output for each password used, on success and on failure.
+
+**`GET /api/auth/me`** now also returns `mustChangePassword` and
+`clinicPermissions` (per live clinic: id, both names, permission names).
+
+**What the front end must handle (next step).** (1) A **403
+`error.auth.password_change_required`** on any call means: go to the change-password
+page (there is nothing else the user can do). (2) `/api/auth/me` has the new fields
+`mustChangePassword` and `clinicPermissions`; the `CurrentUser` model, `*cbCan` and the
+guards must learn clinic-scoped checks (`check:permissions` already compares names
+with `Permissions.cs`). (3) `schema.d.ts` was regenerated; the change-password
+request sends the refresh cookie itself (same origin). (4) A 401 on an authenticated
+call may now also mean "disabled": the existing refresh-then-sign-out path covers it.
+(5) After a successful change-password the other devices are signed out, not this
+one.
+
+**Tests.** `PasswordFlowTests` (the gate on several endpoints, `me` and
+change-password allowed, wrong or weak or unchanged or missing passwords, the lockout
+and its reset, other sessions revoked while the current one survives, no cookie,
+another user's cookie, a revoked cookie, reset in every case above),
+`ChangePasswordRateLimitTests` (per user, not shared with login or other users),
+`AccountStateTests` (login indistinguishable from a wrong password, never a 423 for
+a disabled account, refresh, an unexpired access token cut off on four endpoints,
+re-enable, idempotence, audit), `AccountGateGuardTests` (the attribute on exactly two
+endpoints), `PasswordSecrecyTests`.
+
+**Not built.** Email or SMS recovery, invitation links, two-factor, a self-service
+"forgot password" (the administrator resets it), a password-history rule, a
+breached-password check, checking the lockout in the gate.
+
+---
+
 ## Open questions
 
 O3, O4 and O5 are closed: see D44 and D43. O1 and O2 are deferred with the
@@ -1626,8 +1915,8 @@ is done and working on Azure. The project is not released until all are ticked.
 - [ ] If a CSP is added, it needs a hash for the inline pre-paint script in `index.html` (D26).
 
 **Secrets and data**
-- [ ] Remove the `Seed__*` variables from configuration after the first successful deploy, and move the JWT signing key and the seed values to Key Vault (D48). The seeder top-up of the admin's permissions depends on these variables (D55), so after this point **new global permissions must be granted through user management**, which has to exist by then.
-- [ ] A change-password flow exists before any real data is stored; it belongs to Phase 1 user management (D48).
+- [ ] Remove the `Seed__*` variables from configuration after the first successful deploy, and move the JWT signing key and the seed values to Key Vault (D48). The seeder top-up of the admin's permissions depends on these variables (D55, D57), so after this point **new global permissions must be granted through user management**: the API exists (D57), the screens are the next step and must exist by then.
+- [ ] A change-password flow exists before any real data is stored (D48). The API is built (D58: change-password, forced change for temporary passwords, admin reset); **the Angular change-password and user-management screens are still to come**, so this stays open.
 - [ ] An EF retry strategy for Azure SQL transient faults, together with the transaction wrapper D31 requires (D46, D31).
 
 **CI and repository**

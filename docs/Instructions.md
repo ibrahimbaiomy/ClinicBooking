@@ -114,6 +114,9 @@ deferred until the build is complete (D54).
 - Permission names are constants in Domain (`patients.create`, ...). Protect an
   endpoint with `[Authorize(Policy = Permissions.X.Y)]`: there is one policy per
   permission, named after it. Never compare permission or role names as literals.
+  A permission is either global (`Permissions.Global`) or clinic-scoped
+  (`Permissions.ClinicScoped`, granted per clinic, D57); see "Clinic-scoped
+  permissions" below.
 - Errors from auth use the keys in D48 (`error.auth.*`).
 - Endpoints are secure by default: a fallback policy requires a signed-in user
   where no attribute says otherwise. An anonymous endpoint must say so
@@ -136,9 +139,10 @@ deferred until the build is complete (D54).
 4. Api: attribute-routed controller, `[Authorize]` / `[Authorize(Policy = ...)]`
    on every action, `[ProducesResponseType]` for the success response (200/201
    with its type: without it the OpenAPI document has no schema, D52) and the
-   error responses. Add the permission constants to `Permissions` and to `Global`;
-   the seeded admin receives it at the next startup (seeder top-up, D55: restart
-   the API, no re-seed needed). A value an entity normalises or limits (a phone,
+   error responses. Add the permission constants to `Permissions` and to `Global`
+   (or `ClinicScoped`, see below); a global one reaches the seeded admin at the
+   next startup, once (seeder top-up, D55, D57: restart the API, no re-seed needed;
+   removing it later sticks). A value an entity normalises or limits (a phone,
    an address) must throw `InvalidRequestException` with an error key, never a
    generic exception, so a value that skips the validator is a 400 (D55).
 5. Regenerate `openapi.json` and `schema.d.ts` (`npm run gen:api`) and commit
@@ -223,6 +227,38 @@ runtime (a `"error."` prefix) must be declared in
 `scripts/backend-error-keys.json` with the keys it can produce, or the check
 fails; a stale declaration fails too. It needs the C# sources: with `CI` set it
 fails without them, otherwise it warns and skips (the Docker `web` stage).
+
+### Clinic-scoped permissions (D34, D57)
+**Adding one.** (1) A constant in a nested class of `Permissions` (for example
+`Doctors.Manage = "doctors.manage"`) and an entry in `Permissions.ClinicScoped`
+(`All` and the policies follow; `Global` stays for permissions held once for the
+whole system). (2) Add the name to `src/clinic-booking-web/src/app/core/auth/permissions.ts`
+when a screen uses it: `check:permissions` compares it with the C#. (3) Nothing else
+is needed for assignment: `GET /api/permissions` and
+`PUT /api/users/{id}/clinics/{clinicId}/permissions` read the same list. The seeder
+never grants clinic-scoped permissions: an administrator grants them through the API.
+
+**Protecting a clinic-scoped endpoint.**
+- The clinic is in the route (`/api/clinics/{clinicId}/doctors`): use
+  `[Authorize(Policy = Permissions.Doctors.Manage)]`. The route value must be named
+  `clinicId` (`RouteClinicResolver`); when it is not, register an `IClinicResolver`.
+  A missing clinic, a deleted clinic or a grant held only in another clinic is 403.
+- The resource is addressed by its own id (`/api/doctors/{id}`): load it in the
+  service, then call `IClinicAccess.RequireAsync(clinicIds, permission, notFoundKey)`.
+  No clinic-scoped permission in any of its clinics is **404** with the entity's own
+  not-found key (never a 403, so existence is not leaked); another permission there is
+  403 (D6, D57). Put `[Authorize]` on the action; the check is the service's.
+- Lists and creation: `IPermissionChecker.GetClinicIdsWithPermissionAsync` gives the
+  clinics to filter by or to validate the target clinic against.
+- A global permission never satisfies a clinic-scoped one. A test per endpoint: the
+  right clinic, another clinic, a deleted clinic, no grant, and the 404/403 rule (see
+  `ClinicScopedAuthorizationTests` and the test-only `ClinicScopedController`).
+
+**Account state (D58).** Every authenticated request passes `AccountStateMiddleware`
+(disabled user: 401; temporary password: 403 `error.auth.password_change_required`). Never
+add `[AllowWhilePasswordChangeRequired]` to another endpoint: a test allows exactly
+`GET /api/auth/me` and `POST /api/auth/change-password`. A password (temporary, new or
+current) is never returned, logged or put in an error; keep it out of exception messages.
 
 ### TypeScript / Angular
 - Standalone components only (no NgModules). Selector prefix `cb`, OnPush,
