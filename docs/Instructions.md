@@ -203,6 +203,18 @@ and a 409 `error.concurrency.conflict` shown as "reload"; dates through the
    form errors and conflict, permission-aware rendering, a name containing HTML
    shown as text. Then `npm run lint`, `npm test`, `npm run check:i18n`,
    `npm run check:api` and `npm run build`.
+9. Optional fields (Clinics, D56): a blank value is sent as `null` (the `PUT` is a
+   full replace); a missing value shows a "Not set" key, not a bare dash. A stored
+   value shown in a friendlier form (a phone through `formatPhone` / the `phone`
+   pipe, always in `<bdi dir="ltr">`) needs the **untouched guard**: keep the
+   stored value and the text shown, and send the stored value back when the field
+   still holds that text, otherwise exactly what was typed; test both directions.
+   The client keeps only trivial guards (a length); the server's rules and keys
+   are the authority, and a key that names its field goes on that field.
+10. A new header link: the header must still wrap with no horizontal overflow at
+    360 px in RTL and LTR (jsdom cannot show layout: a by-hand check). Copying
+    the Specialties screens copies `list-query.ts`, the session service and the
+    list/form logic; do not extract shared code before the third entity (D56).
 
 **The back-end error-key check.** `check:i18n` scans `src/ClinicBooking.*/**/*.cs`
 (comments skipped) for `"error.<area>.<reason>"` literals and fails when one is

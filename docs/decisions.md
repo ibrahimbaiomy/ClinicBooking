@@ -1332,6 +1332,9 @@ not driven in the browser, because that needs the seed password. They are covere
 by the component, route and logic specs; focus behaviour that depends on a real
 browser (native dialog focus restoration) is the part tests cannot prove.
 
+**Shared code.** Clinics copies these screens instead of sharing them; what to
+extract is decided at the third entity (D56).
+
 ---
 
 ### D54 — Azure deployment is postponed until the build is complete
@@ -1471,6 +1474,119 @@ third copy.
 yet; they need their own rule. Searching by address or phone. `error.clinic.in_use`
 with Doctors. Filtering the clinic list by the caller's clinics with per-clinic
 permissions.
+
+---
+
+### D56 — Clinics screens (front end)
+`ACCEPTED` (follows D53 exactly; implements D55 on the client)
+
+Clinics copies the Specialties screens: lazy `/clinics`, `/clinics/new` and
+`/clinics/:id/edit` with a Transloco scope `clinics` and a resolver; `authGuard`
+on the list, `permissionGuard(Permissions.ClinicsManage)` on the two form pages;
+the URL-driven list (`?q=&page=&size=&sort=&dir=`, Arabic name ascending, 300 ms
+debounce, sizes 10/20/50); separate create and edit pages on Signal Forms; the
+same conflict flow (Save disabled until Reload, "earlier entries" panel); the
+same delete dialog (focus on Cancel). A "Clinics" link sits next to
+"Specialties" in the header. `clinics.manage` is in `permissions.ts`, so
+`check:permissions` verifies it against the C#. Only what differs is listed here.
+
+**Reused unchanged:** `confirm-dialog`, `pager`, `ErrorMessageService`,
+`parseApiError`, `IntlPipe`, `CanDirective`, `authGuard`, `permissionGuard`,
+`LanguageService`, `types.ts`, and the test helpers (`provideAuthTesting`,
+`signIn`, `flushProblem`, the dialog polyfill).
+
+**Copied, not shared (decision, revisit at the third entity).** `list-query.ts`,
+the session service and the list and form components are copies of the
+Specialties ones with the entity's names. Nothing was extracted in this step.
+The duplication is deliberate: with two entities a shared abstraction would be a
+guess about what varies; Clinics already shows that the form differs (extra
+fields, the phone guard) and the list differs (more columns, phone and address
+cells), while `list-query.ts`, the session service, the scope resolver and most of
+the list state are identical. **When the third entity (Doctors or Patients) is
+built, decide what to extract** (the list-state logic, the session service, the
+scope resolver, the form's error mapping) by looking at what the three copies
+share, not before. Until then a fix in one copy must be made in the other.
+
+**Phone display (`formatPhone` and the `phone` pipe, `core/format`).** The stored
+value is E.164 (D55) and is never changed by display. The function is pure and
+never throws; `null`, `undefined`, `''` and non-strings give `''`; unexpected text
+is returned unchanged. The local Egyptian form is used only when the whole value
+matches an Egyptian shape. After `+20`:
+- **mobile**, `1[0125]` + 8 digits (10 in all): `+201012345678` → `010 1234 5678`;
+- **landline, 9 digits starting 2 or 3** (Cairo/Giza 02; a 03 number with 8
+  subscriber digits): a 2-digit area code, then 4 and 4: `+20223456789` →
+  `02 2345 6789`;
+- **landline, 8 digits starting 2-9** (Alexandria 03 and the like): a 2-digit area
+  code, then 3 and 4: `+2031234567` → `03 123 4567`;
+- **landline, 9 digits starting 4-9**: a 3-digit area code, then 3 and 4:
+  `+20403123456` → `040 312 3456`.
+Anything else is shown exactly as stored: a foreign number (`+14155552671`), a
+`+20` number of another shape, or non-E.164 text. The stored value does not carry
+the area-code length, so the landline grouping is a heuristic; a wrong grouping is
+cosmetic and never alters data. Templates render the phone inside
+`<bdi dir="ltr" class="whitespace-nowrap">`, so the digits keep their order in
+the Arabic UI (also the hint examples and the "earlier entries" panel). Spaces
+are plain, so a copy gives usable text.
+
+**`tel:` link: cards only.** On a phone, tapping to call is the point and the link
+text is the visible number (so its accessible name is right). In the table
+(desktop) a `tel:` link would open an unrelated app and add a tab stop to every
+row. The `href` is the stored E.164 (`tel:+201012345678`), not the grouped text.
+
+**List layout.** Table columns: Clinic (the UI-language name first and prominent,
+the other name secondary, each in a `<bdi>` with its own `lang`/`dir`), Phone,
+Address, Created (only from `lg` up), Actions. The address is clamped to two
+lines (`line-clamp-2`) with `title` carrying the whole text; the text is always in
+the DOM, so screen readers read all of it. Cards (below `md`) show the whole
+address, wrapping (`break-words`, so a long unbroken Arabic address cannot
+overflow), in a `<bdi dir="auto">` (its language is unknown), the date always, and
+the phone as a `tel:` link. A missing phone or address says "Not set" (a key),
+not a bare dash a screen reader would read as "dash". The search placeholder says
+the search matches the clinic **name** (Arabic or English): the API does not search
+address or phone (D55).
+
+**Form.** Fields: Arabic name, English name (as Specialties), **address** (a
+`<textarea>`, `dir="auto"`, optional, with a visible counter "N of 300" that counts
+the trimmed text, so it agrees with the rule, and is not a live region) and
+**phone** (`type="tel"` and `inputmode="tel"`, `dir="ltr"`, optional, with a hint
+under it listing mobile, landline and international examples; the examples are
+scope keys). Rules: the names as before; the address at most 300 after trimming
+(`error.clinic.address_too_long`); the phone has **one client rule only**: raw
+input over 32 characters is refused (`error.clinic.phone_invalid`). Everything
+else about a phone is the server's decision; text such as `abc` is sent and the
+server's `error.clinic.phone_invalid` is shown under the phone. The user may type
+Arabic-Indic digits: the client sends the text as typed. A 400's `address` and
+`phone` errors, and a `phone_invalid` or `address_too_long` that arrives as the
+problem key, are placed on their field; the name-taken 409s as in Specialties.
+Blank address and phone are sent as `null` (the `PUT` is a full replace).
+
+**Untouched-phone guard.** When editing, the phone is shown in its local form. The
+form keeps the stored E.164 value and the text it showed for it. On save, if the
+field still holds exactly that text, the stored value is sent back **as it is**;
+otherwise exactly what was typed is sent (even the same digits in another form,
+for example Arabic-Indic digits, or the E.164 form retyped). So a user who does
+not touch the phone cannot change it, whatever the server rules become. After a
+conflict Reload both values are refreshed. Tested in both directions, for each
+Egyptian shape, a foreign number and an unrecognised `+20` shape.
+
+**Header.** The header now carries the title, two links, the user name, Sign out
+and the language switcher. It wraps (`flex-wrap` on the header and on both
+groups, the links in a wrapping list), the user name is truncated
+(`max-w-40 truncate`) and the padding is smaller below `sm`. jsdom does no layout,
+so the unit test only guards those classes. A check in the built app at a 360 px
+viewport, with the signed-in header markup injected into the login page (the real
+signed-in header could not be shown without signing in), found no horizontal
+overflow in either direction (123 px high, wrapped). That is a simulation: **the
+real signed-in header at phone width, in Arabic and in English, is a by-hand
+check.**
+
+**Not verified in a browser.** Every signed-in flow (list, search, paging, sort,
+create, edit, clear the phone and address, conflict, delete, the phone digits
+staying left to right in the Arabic UI, a long Arabic address at phone width, the
+header at phone width) needs the seed password and was not driven. Verified in the
+browser without credentials: the signed-out redirects for `/clinics` and
+`/clinics/new` to the login page with their `returnUrl`, and that the scope files
+are served.
 
 ---
 
