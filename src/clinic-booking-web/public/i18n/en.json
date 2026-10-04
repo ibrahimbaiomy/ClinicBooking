@@ -51,6 +51,19 @@
       "password_required": "Enter your password.",
       "field_too_long": "The value is longer than allowed."
     },
+    "clinic": {
+      "name_ar_required": "Enter the clinic's Arabic name.",
+      "name_ar_too_long": "The clinic's Arabic name is too long (100 characters at most).",
+      "name_ar_invalid": "The clinic's Arabic name is not valid.",
+      "name_ar_taken": "Another clinic already has this Arabic name.",
+      "name_en_required": "Enter the clinic's English name.",
+      "name_en_too_long": "The clinic's English name is too long (100 characters at most).",
+      "name_en_invalid": "The clinic's English name is not valid.",
+      "name_en_taken": "Another clinic already has this English name.",
+      "not_found": "The clinic was not found.",
+      "address_too_long": "The address is too long (300 characters at most).",
+      "phone_invalid": "The phone number is not valid. Enter a valid number."
+    },
     "concurrency": {
       "conflict": "Someone else has changed this record. Reload it and try again.",
       "row_version_required": "The record version is missing. Reload the record.",

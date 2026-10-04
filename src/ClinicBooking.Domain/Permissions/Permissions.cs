@@ -18,8 +18,14 @@ public static class Permissions
         public const string Manage = "specialties.manage";
     }
 
+    public static class Clinics
+    {
+        /// <summary>Create, edit and delete clinics. Global: it cannot be scoped to a clinic that does not exist yet (D55).</summary>
+        public const string Manage = "clinics.manage";
+    }
+
     /// <summary>Permissions that are not clinic-specific (D34). All of them for now.</summary>
-    public static IReadOnlyList<string> Global { get; } = [Users.Manage, Specialties.Manage];
+    public static IReadOnlyList<string> Global { get; } = [Users.Manage, Specialties.Manage, Clinics.Manage];
 
     public static IReadOnlyList<string> All { get; } = Global;
 

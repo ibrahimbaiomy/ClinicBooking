@@ -19,6 +19,8 @@ public class AppDbContext : IdentityUserContext<ApplicationUser, long>, IAppDbCo
 
     public DbSet<Specialty> Specialties => Set<Specialty>();
 
+    public DbSet<Clinic> Clinics => Set<Clinic>();
+
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

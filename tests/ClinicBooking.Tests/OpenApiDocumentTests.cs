@@ -116,6 +116,32 @@ public class OpenApiDocumentTests : IClassFixture<PlainApiFactory>
     }
 
     [Fact]
+    public async Task The_clinics_endpoints_and_dtos_are_documented_without_entity_internals()
+    {
+        using var document = JsonDocument.Parse(await GenerateAsync());
+        var root = document.RootElement;
+
+        var paths = root.GetProperty("paths");
+        Assert.True(paths.TryGetProperty("/api/clinics", out var collection));
+        Assert.True(paths.TryGetProperty("/api/clinics/{id}", out var item));
+        Assert.True(collection.TryGetProperty("get", out _) && collection.TryGetProperty("post", out _));
+        Assert.True(item.TryGetProperty("get", out _) && item.TryGetProperty("put", out _) && item.TryGetProperty("delete", out _));
+
+        var schemas = root.GetProperty("components").GetProperty("schemas");
+        foreach (var name in new[] { "ClinicResponse", "CreateClinicRequest", "UpdateClinicRequest", "PagedResponseOfClinicResponse" })
+        {
+            Assert.True(schemas.TryGetProperty(name, out _), $"{name} is missing");
+        }
+
+        var properties = schemas.GetProperty("ClinicResponse").GetProperty("properties").EnumerateObject().Select(p => p.Name).ToList();
+        Assert.Contains("address", properties);
+        Assert.Contains("phone", properties);
+        Assert.Contains("rowVersion", properties);
+        Assert.DoesNotContain(properties, p => p.Contains("Normalized", StringComparison.OrdinalIgnoreCase) || p.Contains("IsDeleted", StringComparison.OrdinalIgnoreCase));
+        Assert.False(schemas.TryGetProperty("Clinic", out _));
+    }
+
+    [Fact]
     public async Task The_auth_success_schemas_are_documented()
     {
         using var document = JsonDocument.Parse(await GenerateAsync());

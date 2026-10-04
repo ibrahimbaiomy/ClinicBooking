@@ -1,4 +1,5 @@
 using ClinicBooking.Application.Features.Auth;
+using ClinicBooking.Application.Features.Clinics;
 using ClinicBooking.Application.Features.Specialties;
 using ClinicBooking.Application.Interfaces;
 using ClinicBooking.Application.Validators;
@@ -12,6 +13,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ISpecialtyService, SpecialtyService>();
+        services.AddScoped<IClinicService, ClinicService>();
 
         // Every validator in this assembly, so a new entity needs no registration code.
         services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
