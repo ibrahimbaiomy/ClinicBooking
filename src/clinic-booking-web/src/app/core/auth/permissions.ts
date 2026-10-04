@@ -7,4 +7,5 @@
 export const Permissions = {
   UsersManage: 'users.manage',
   SpecialtiesManage: 'specialties.manage',
+  ClinicsManage: 'clinics.manage',
 } as const;

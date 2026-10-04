@@ -113,6 +113,39 @@ describe('App shell', () => {
     );
   });
 
+  it('signed in, the shell has a Clinics entry next to Specialties that marks the current page', async () => {
+    const fixture = await render('/');
+    await TestBed.inject(Router).navigateByUrl('/clinics');
+    fixture.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    http.expectOne((r) => r.url === '/api/clinics').flush({ items: [], page: 1, pageSize: 20, totalCount: 0 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+
+    const links = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('nav a')];
+    expect(links.map((l) => l.getAttribute('href'))).toEqual(['/specialties', '/clinics']);
+    expect(links[1].textContent?.trim()).toBe(arabicTranslations.shell.nav.clinics);
+    expect(links[1].getAttribute('aria-current')).toBe('page');
+    expect(links[0].hasAttribute('aria-current')).toBe(false);
+  });
+
+  // jsdom does no layout, so this cannot prove that the header fits at 360 px: it only guards the classes
+  // that make it wrap and shorten the user name. The real check is by hand at phone width, in RTL and LTR (D56).
+  it('the header keeps its wrapping classes so the title, two links, user name, sign-out and language switcher can wrap', async () => {
+    const fixture = await render('/');
+    const root = fixture.nativeElement as HTMLElement;
+
+    const header = root.querySelector('header')!;
+    expect(header.className).toContain('flex-wrap');
+    const groups = [...header.querySelectorAll(':scope > div')];
+    expect(groups).toHaveLength(2);
+    expect(groups.every((g) => g.className.includes('flex-wrap') && g.className.includes('min-w-0'))).toBe(true);
+    expect(root.querySelector('nav ul')!.className).toContain('flex-wrap');
+    expect(root.querySelector('header strong')!.className).toContain('truncate');
+    expect(header.className).not.toMatch(/\bnowrap\b|whitespace-nowrap|overflow-x/);
+  });
+
   it('signed out, there is no navigation', async () => {
     const fixture = await render('/login', false);
 

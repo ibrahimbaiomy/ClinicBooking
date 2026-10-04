@@ -1,0 +1,247 @@
+<section class="mx-auto max-w-xl space-y-4">
+  <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">
+    @if (isNew) {
+      {{ 'clinics.form.title_new' | transloco }}
+    } @else {
+      {{ 'clinics.form.title_edit' | transloco }}
+    }
+  </h2>
+
+  @switch (loadState()) {
+    @case ('loading') {
+      <p class="text-slate-600" aria-busy="true">{{ 'clinics.loading' | transloco }}</p>
+    }
+    @case ('notFound') {
+      <div role="alert" class="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-900">
+        <p class="font-medium">{{ 'clinics.not_found.title' | transloco }}</p>
+        <p>{{ 'clinics.not_found.message' | transloco }}</p>
+        <a routerLink="/clinics" class="inline-block text-blue-700 underline">
+          {{ 'clinics.not_found.back' | transloco }}
+        </a>
+      </div>
+    }
+    @case ('error') {
+      <div role="alert" class="space-y-3 rounded-lg bg-red-50 p-4 text-red-800">
+        <!-- i18n-keys: error.unexpected -->
+        <p>{{ loadErrorKey() | transloco }}</p>
+        <button
+          type="button"
+          class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+          (click)="load()"
+        >
+          {{ 'clinics.retry' | transloco }}
+        </button>
+      </div>
+    }
+    @default {
+      @if (record(); as saved) {
+        <p class="text-sm text-slate-600">
+          {{ 'clinics.form.created_at' | transloco }}: {{ saved.createdAt | intl: 'datetime' }}
+          <br />
+          {{ 'clinics.form.updated_at' | transloco }}:
+          @if (saved.updatedAt) {
+            {{ saved.updatedAt | intl: 'datetime' }}
+          } @else {
+            {{ 'clinics.form.never_updated' | transloco }}
+          }
+        </p>
+      }
+
+      <div #banner tabindex="-1" role="alert" aria-live="assertive" class="outline-none">
+        @if (conflict()) {
+          <div class="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-900">
+            <p class="font-medium">{{ 'clinics.conflict.title' | transloco }}</p>
+            <p>{{ 'clinics.conflict.message' | transloco }}</p>
+            <button
+              type="button"
+              class="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+              [disabled]="reloading()"
+              [attr.aria-busy]="reloading()"
+              (click)="reload()"
+            >
+              @if (reloading()) {
+                {{ 'clinics.conflict.reloading' | transloco }}
+              } @else {
+                {{ 'clinics.conflict.reload' | transloco }}
+              }
+            </button>
+          </div>
+        }
+        @if (formErrorKey(); as key) {
+          <div class="rounded-lg bg-red-50 p-3 text-sm text-red-800">
+            <!-- i18n-keys: error.unexpected -->
+            <p>{{ key | transloco }}</p>
+            @if (correlationId(); as id) {
+              <p class="mt-1 text-xs" dir="ltr">{{ 'clinics.correlation' | transloco: { id: id } }}</p>
+            }
+          </div>
+        }
+      </div>
+
+      @if (earlier(); as mine) {
+        <div class="space-y-2 rounded-lg border border-slate-300 bg-slate-50 p-4 text-sm">
+          <p class="font-medium">{{ 'clinics.conflict.earlier_title' | transloco }}</p>
+          <p class="text-slate-600">{{ 'clinics.conflict.earlier_hint' | transloco }}</p>
+          <p><bdi lang="ar" dir="rtl">{{ mine.nameAr }}</bdi></p>
+          <p><bdi lang="en" dir="ltr">{{ mine.nameEn }}</bdi></p>
+          @if (mine.address.trim()) {
+            <p class="break-words"><bdi dir="auto">{{ mine.address }}</bdi></p>
+          }
+          @if (mine.phone.trim()) {
+            <p><bdi dir="ltr" class="whitespace-nowrap">{{ mine.phone }}</bdi></p>
+          }
+          <button
+            type="button"
+            class="text-blue-700 underline"
+            (click)="dismissEarlier()"
+          >
+            {{ 'clinics.conflict.dismiss' | transloco }}
+          </button>
+        </div>
+      }
+
+      <form novalidate class="space-y-4" (submit)="onSubmit($event)">
+        <div>
+          <label for="clinic-name-ar" class="mb-1 block text-sm font-medium">
+            {{ 'clinics.form.name_ar' | transloco }}
+          </label>
+          <input
+            id="clinic-name-ar"
+            type="text"
+            lang="ar"
+            dir="rtl"
+            autocomplete="off"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            [formField]="clinicForm.nameAr"
+            [attr.aria-invalid]="clinicForm.nameAr().touched() && clinicForm.nameAr().invalid()"
+            aria-describedby="clinic-name-ar-error"
+          />
+          <div id="clinic-name-ar-error" aria-live="polite">
+            @if (clinicForm.nameAr().touched()) {
+              @for (error of clinicForm.nameAr().errors(); track $index) {
+                <!-- i18n-keys: error.clinic.name_ar_required, error.clinic.name_ar_too_long, error.clinic.name_ar_invalid, error.clinic.name_ar_taken, error.validation.invalid, error.unexpected -->
+                <p class="mt-1 text-sm text-red-700">{{ messageKey(error.message) | transloco }}</p>
+              }
+            }
+          </div>
+        </div>
+
+        <div>
+          <label for="clinic-name-en" class="mb-1 block text-sm font-medium">
+            {{ 'clinics.form.name_en' | transloco }}
+          </label>
+          <input
+            id="clinic-name-en"
+            type="text"
+            lang="en"
+            dir="ltr"
+            autocomplete="off"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            [formField]="clinicForm.nameEn"
+            [attr.aria-invalid]="clinicForm.nameEn().touched() && clinicForm.nameEn().invalid()"
+            aria-describedby="clinic-name-en-error"
+          />
+          <div id="clinic-name-en-error" aria-live="polite">
+            @if (clinicForm.nameEn().touched()) {
+              @for (error of clinicForm.nameEn().errors(); track $index) {
+                <!-- i18n-keys: error.clinic.name_en_required, error.clinic.name_en_too_long, error.clinic.name_en_invalid, error.clinic.name_en_taken, error.validation.invalid, error.unexpected -->
+                <p class="mt-1 text-sm text-red-700">{{ messageKey(error.message) | transloco }}</p>
+              }
+            }
+          </div>
+        </div>
+
+        <div>
+          <label for="clinic-address" class="mb-1 block text-sm font-medium">
+            {{ 'clinics.form.address' | transloco }}
+          </label>
+          <textarea
+            id="clinic-address"
+            rows="3"
+            dir="auto"
+            autocomplete="off"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            [formField]="clinicForm.address"
+            [attr.aria-invalid]="clinicForm.address().touched() && clinicForm.address().invalid()"
+            aria-describedby="clinic-address-counter clinic-address-error"
+          ></textarea>
+          <p id="clinic-address-counter" class="mt-1 text-xs text-slate-500">
+            {{ 'clinics.form.address_counter' | transloco: { count: addressLength(), max: addressMax } }}
+          </p>
+          <div id="clinic-address-error" aria-live="polite">
+            @if (clinicForm.address().touched()) {
+              @for (error of clinicForm.address().errors(); track $index) {
+                <!-- i18n-keys: error.clinic.address_too_long, error.validation.invalid, error.unexpected -->
+                <p class="mt-1 text-sm text-red-700">{{ messageKey(error.message) | transloco }}</p>
+              }
+            }
+          </div>
+        </div>
+
+        <div>
+          <label for="clinic-phone" class="mb-1 block text-sm font-medium">
+            {{ 'clinics.form.phone' | transloco }}
+          </label>
+          <input
+            id="clinic-phone"
+            type="tel"
+            inputmode="tel"
+            dir="ltr"
+            autocomplete="off"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-start focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            [formField]="clinicForm.phone"
+            [attr.aria-invalid]="clinicForm.phone().touched() && clinicForm.phone().invalid()"
+            aria-describedby="clinic-phone-hint clinic-phone-error"
+          />
+          <div id="clinic-phone-hint" class="mt-1 text-xs text-slate-500">
+            <p>{{ 'clinics.form.phone_hint' | transloco }}</p>
+            <ul class="mt-1 space-y-0.5">
+              <li>
+                {{ 'clinics.form.phone_kind_mobile' | transloco }}:
+                <bdi dir="ltr" class="whitespace-nowrap">{{ 'clinics.form.phone_example_mobile' | transloco }}</bdi>
+              </li>
+              <li>
+                {{ 'clinics.form.phone_kind_landline' | transloco }}:
+                <bdi dir="ltr" class="whitespace-nowrap">{{ 'clinics.form.phone_example_landline' | transloco }}</bdi>
+              </li>
+              <li>
+                {{ 'clinics.form.phone_kind_international' | transloco }}:
+                <bdi dir="ltr" class="whitespace-nowrap">{{ 'clinics.form.phone_example_international' | transloco }}</bdi>
+              </li>
+            </ul>
+          </div>
+          <div id="clinic-phone-error" aria-live="polite">
+            @if (clinicForm.phone().touched()) {
+              @for (error of clinicForm.phone().errors(); track $index) {
+                <!-- i18n-keys: error.clinic.phone_invalid, error.validation.invalid, error.unexpected -->
+                <p class="mt-1 text-sm text-red-700">{{ messageKey(error.message) | transloco }}</p>
+              }
+            }
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3">
+          <button
+            type="submit"
+            class="rounded-lg bg-blue-700 px-4 py-2 font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            [disabled]="clinicForm().submitting() || conflict()"
+            [attr.aria-busy]="clinicForm().submitting()"
+          >
+            @if (clinicForm().submitting()) {
+              {{ 'clinics.form.saving' | transloco }}
+            } @else {
+              {{ 'clinics.form.save' | transloco }}
+            }
+          </button>
+          <a
+            routerLink="/clinics"
+            [queryParams]="listQuery()"
+            class="rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          >
+            {{ 'clinics.form.cancel' | transloco }}
+          </a>
+        </div>
+      </form>
+    }
+  }
+</section>

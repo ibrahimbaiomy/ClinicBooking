@@ -1,0 +1,269 @@
+<section class="space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">
+      {{ 'clinics.title' | transloco }}
+    </h2>
+    <a
+      *cbCan="permissions.ClinicsManage"
+      routerLink="/clinics/new"
+      class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+    >
+      {{ 'clinics.new' | transloco }}
+    </a>
+  </div>
+
+  <div role="status" aria-live="polite">
+    @if (status(); as key) {
+      <!-- i18n-keys: clinics.flash.saved_created, clinics.flash.saved_updated, clinics.flash.deleted, clinics.flash.already_deleted -->
+      <p class="rounded-lg bg-green-50 p-3 text-sm text-green-900">{{ key | transloco }}</p>
+    }
+  </div>
+
+  <form role="search" class="flex flex-wrap items-end gap-3" (submit)="onSearchSubmit($event)">
+    <div class="grow basis-64">
+      <label for="clinics-search" class="mb-1 block text-sm font-medium">
+        {{ 'clinics.search.label' | transloco }}
+      </label>
+      <input
+        id="clinics-search"
+        type="search"
+        autocomplete="off"
+        class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [attr.maxlength]="maxSearchLength"
+        [placeholder]="'clinics.search.placeholder' | transloco"
+        [value]="searchText()"
+        (input)="onSearchInput($event)"
+        (compositionend)="onCompositionEnd($event)"
+      />
+    </div>
+
+    <div>
+      <label for="clinics-sort" class="mb-1 block text-sm font-medium">
+        {{ 'clinics.sort.label' | transloco }}
+      </label>
+      <select
+        id="clinics-sort"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [value]="state().sortBy"
+        (change)="onSort($event)"
+      >
+        <option value="nameAr">{{ 'clinics.sort.name_ar' | transloco }}</option>
+        <option value="nameEn">{{ 'clinics.sort.name_en' | transloco }}</option>
+        <option value="createdAt">{{ 'clinics.sort.created_at' | transloco }}</option>
+      </select>
+    </div>
+
+    <button
+      type="button"
+      class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      (click)="toggleDirection()"
+    >
+      @if (state().sortDirection === 'asc') {
+        {{ 'clinics.sort.asc' | transloco }}
+      } @else {
+        {{ 'clinics.sort.desc' | transloco }}
+      }
+    </button>
+
+    <div>
+      <label for="clinics-size" class="mb-1 block text-sm font-medium">
+        {{ 'clinics.page_size' | transloco }}
+      </label>
+      <select
+        id="clinics-size"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        (change)="onPageSize($event)"
+      >
+        @for (size of pageSizes; track size) {
+          <option [value]="size" [selected]="size === state().pageSize">{{ size | intl: 'number' }}</option>
+        }
+      </select>
+    </div>
+  </form>
+
+  <div [attr.aria-busy]="loading()">
+    @switch (view()) {
+      @case ('loading') {
+        <p class="text-slate-600">{{ 'clinics.loading' | transloco }}</p>
+      }
+      @case ('error') {
+        <div role="alert" class="space-y-3 rounded-lg bg-red-50 p-4 text-red-800">
+          <!-- i18n-keys: error.unexpected -->
+          <p>{{ errorKey() | transloco }}</p>
+          @if (correlationId(); as id) {
+            <p class="text-xs" dir="ltr">{{ 'clinics.correlation' | transloco: { id: id } }}</p>
+          }
+          <button
+            type="button"
+            class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+            (click)="retry()"
+          >
+            {{ 'clinics.retry' | transloco }}
+          </button>
+        </div>
+      }
+      @case ('none') {
+        <div class="rounded-lg border border-dashed border-slate-300 p-6 text-center text-slate-600">
+          <p>{{ 'clinics.empty.none' | transloco }}</p>
+        </div>
+      }
+      @case ('no-results') {
+        <div class="space-y-3 rounded-lg border border-dashed border-slate-300 p-6 text-center text-slate-600">
+          <p>{{ 'clinics.empty.no_results' | transloco }}</p>
+          <button
+            type="button"
+            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            (click)="clearSearch()"
+          >
+            {{ 'clinics.search.clear' | transloco }}
+          </button>
+        </div>
+      }
+      @default {
+        <p role="status" aria-live="polite" class="mb-2 text-sm text-slate-600">
+          {{ 'clinics.results' | transloco: { from: from(), to: to(), total: total() } }}
+        </p>
+
+        <table class="hidden w-full border-collapse overflow-hidden rounded-lg border border-slate-200 bg-white md:table">
+          <caption class="sr-only">{{ 'clinics.table.caption' | transloco }}</caption>
+          <thead class="bg-slate-100 text-sm text-slate-700">
+            <tr>
+              <th
+                scope="col"
+                class="px-4 py-3 text-start font-semibold"
+                [attr.aria-sort]="state().sortBy !== 'createdAt' ? (state().sortDirection === 'asc' ? 'ascending' : 'descending') : null"
+              >
+                {{ 'clinics.table.clinic' | transloco }}
+              </th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">
+                {{ 'clinics.table.phone' | transloco }}
+              </th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">
+                {{ 'clinics.table.address' | transloco }}
+              </th>
+              <th
+                scope="col"
+                class="hidden px-4 py-3 text-start font-semibold lg:table-cell"
+                [attr.aria-sort]="state().sortBy === 'createdAt' ? (state().sortDirection === 'asc' ? 'ascending' : 'descending') : null"
+              >
+                {{ 'clinics.table.created' | transloco }}
+              </th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">
+                {{ 'clinics.table.actions' | transloco }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.id) {
+              <tr class="border-t border-slate-200 align-top">
+                <th scope="row" class="px-4 py-3 text-start font-normal">
+                  <div class="font-medium"><bdi [attr.lang]="row.primary.lang" [attr.dir]="row.primary.dir">{{ row.primary.text }}</bdi></div>
+                  <div class="text-sm text-slate-500"><bdi [attr.lang]="row.secondary.lang" [attr.dir]="row.secondary.dir">{{ row.secondary.text }}</bdi></div>
+                </th>
+                <td class="px-4 py-3 text-start text-sm">
+                  @if (row.phone) {
+                    <bdi dir="ltr" class="whitespace-nowrap">{{ row.phone | phone }}</bdi>
+                  } @else {
+                    <span class="text-slate-500">{{ 'clinics.table.not_set' | transloco }}</span>
+                  }
+                </td>
+                <td class="max-w-xs px-4 py-3 text-start text-sm">
+                  @if (row.address) {
+                    <div class="line-clamp-2 break-words" [attr.title]="row.address"><bdi dir="auto">{{ row.address }}</bdi></div>
+                  } @else {
+                    <span class="text-slate-500">{{ 'clinics.table.not_set' | transloco }}</span>
+                  }
+                </td>
+                <td class="hidden px-4 py-3 text-start text-sm lg:table-cell">{{ row.createdAt | intl: 'date' }}</td>
+                <td class="px-4 py-3 text-start">
+                  <ng-container *ngTemplateOutlet="actions; context: { $implicit: row }" />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+
+        <ul class="space-y-3 md:hidden">
+          @for (row of rows(); track row.id) {
+            <li class="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
+              <div class="font-medium"><bdi [attr.lang]="row.primary.lang" [attr.dir]="row.primary.dir">{{ row.primary.text }}</bdi></div>
+              <div class="text-sm text-slate-500"><bdi [attr.lang]="row.secondary.lang" [attr.dir]="row.secondary.dir">{{ row.secondary.text }}</bdi></div>
+              <p class="text-sm">
+                <span class="text-xs text-slate-500">{{ 'clinics.table.phone' | transloco }}:</span>
+                @if (row.phone) {
+                  <a
+                    [href]="'tel:' + row.phone"
+                    class="rounded text-blue-700 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                  ><bdi dir="ltr" class="whitespace-nowrap">{{ row.phone | phone }}</bdi></a>
+                } @else {
+                  <span class="text-slate-500">{{ 'clinics.table.not_set' | transloco }}</span>
+                }
+              </p>
+              <p class="break-words text-sm">
+                <span class="text-xs text-slate-500">{{ 'clinics.table.address' | transloco }}:</span>
+                @if (row.address) {
+                  <bdi dir="auto">{{ row.address }}</bdi>
+                } @else {
+                  <span class="text-slate-500">{{ 'clinics.table.not_set' | transloco }}</span>
+                }
+              </p>
+              <div class="text-xs text-slate-500">
+                {{ 'clinics.table.created' | transloco }}: {{ row.createdAt | intl: 'date' }}
+              </div>
+              <ng-container *ngTemplateOutlet="actions; context: { $implicit: row }" />
+            </li>
+          }
+        </ul>
+
+        <div class="mt-4">
+          <cb-pager [page]="state().page" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
+        </div>
+      }
+    }
+  </div>
+</section>
+
+<ng-template #actions let-row>
+  <div class="flex flex-wrap gap-2">
+    <a
+      *cbCan="permissions.ClinicsManage"
+      [routerLink]="['/clinics', row.id, 'edit']"
+      class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      [attr.aria-label]="'clinics.edit_named' | transloco: { name: row.primary.text }"
+    >
+      {{ 'clinics.edit' | transloco }}
+    </a>
+    <button
+      *cbCan="permissions.ClinicsManage"
+      type="button"
+      class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+      [attr.aria-label]="'clinics.delete.named' | transloco: { name: row.primary.text }"
+      (click)="askDelete(row)"
+    >
+      {{ 'clinics.delete.action' | transloco }}
+    </button>
+  </div>
+</ng-template>
+
+<cb-confirm-dialog
+  [open]="pendingDelete() !== null"
+  [busy]="deleting()"
+  [errorKey]="deleteErrorKey()"
+  (confirmed)="confirmDelete()"
+  (cancelled)="cancelDelete()"
+>
+  <span cbDialogTitle>{{ 'clinics.delete.title' | transloco }}</span>
+  <p>{{ 'clinics.delete.message' | transloco }}</p>
+  @if (pendingDelete(); as row) {
+    <p class="font-medium"><bdi lang="ar" dir="rtl">{{ row.nameAr }}</bdi></p>
+    <p class="font-medium"><bdi lang="en" dir="ltr">{{ row.nameEn }}</bdi></p>
+  }
+  <span cbDialogCancel>{{ 'clinics.delete.cancel' | transloco }}</span>
+  <span cbDialogConfirm>
+    @if (deleting()) {
+      {{ 'clinics.delete.deleting' | transloco }}
+    } @else {
+      {{ 'clinics.delete.confirm' | transloco }}
+    }
+  </span>
+</cb-confirm-dialog>

@@ -13,7 +13,8 @@
     "sign_out": "Sign out",
     "nav": {
       "label": "Main navigation",
-      "specialties": "Specialties"
+      "specialties": "Specialties",
+      "clinics": "Clinics"
     }
   },
   "pager": {

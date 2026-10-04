@@ -13,7 +13,8 @@
     "sign_out": "تسجيل الخروج",
     "nav": {
       "label": "التنقل الرئيسي",
-      "specialties": "التخصصات"
+      "specialties": "التخصصات",
+      "clinics": "العيادات"
     }
   },
   "pager": {

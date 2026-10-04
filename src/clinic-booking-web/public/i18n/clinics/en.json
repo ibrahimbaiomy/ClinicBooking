@@ -1,0 +1,88 @@
+{
+  "title": "Clinics",
+  "new": "New clinic",
+  "edit": "Edit",
+  "edit_named": "Edit {{ name }}",
+  "loading": "Loading…",
+  "retry": "Try again",
+  "correlation": "Reference for support: {{ id }}",
+  "page_size": "Per page",
+  "results": "Showing {{ from }}–{{ to }} of {{ total }}",
+  "search": {
+    "label": "Search",
+    "placeholder": "Search by clinic name (Arabic or English)",
+    "clear": "Clear search"
+  },
+  "sort": {
+    "label": "Sort by",
+    "name_ar": "Arabic name",
+    "name_en": "English name",
+    "created_at": "Date created",
+    "asc": "Ascending",
+    "desc": "Descending"
+  },
+  "table": {
+    "caption": "List of clinics",
+    "clinic": "Clinic",
+    "phone": "Phone",
+    "address": "Address",
+    "created": "Created",
+    "actions": "Actions",
+    "not_set": "Not set"
+  },
+  "empty": {
+    "none": "There are no clinics yet.",
+    "no_results": "No clinics match your search."
+  },
+  "delete": {
+    "action": "Delete",
+    "named": "Delete {{ name }}",
+    "title": "Delete this clinic?",
+    "message": "This will delete the clinic:",
+    "confirm": "Delete",
+    "deleting": "Deleting…",
+    "cancel": "Cancel"
+  },
+  "flash": {
+    "saved_created": "The clinic was created.",
+    "saved_updated": "The changes were saved.",
+    "deleted": "The clinic was deleted.",
+    "already_deleted": "This clinic had already been deleted."
+  },
+  "form": {
+    "title_new": "New clinic",
+    "title_edit": "Edit clinic",
+    "name_ar": "Clinic name in Arabic",
+    "name_en": "Clinic name in English",
+    "address": "Address (optional)",
+    "address_counter": "{{ count }} of {{ max }} characters",
+    "phone": "Phone number (optional)",
+    "phone_hint": "Accepted formats:",
+    "phone_kind_mobile": "Egyptian mobile",
+    "phone_kind_landline": "Landline",
+    "phone_kind_international": "International",
+    "phone_example_mobile": "010 1234 5678",
+    "phone_example_landline": "02 2345 6789",
+    "phone_example_international": "+44 20 7946 0958",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "created_at": "Created",
+    "updated_at": "Last changed",
+    "never_updated": "Not changed since it was created"
+  },
+  "conflict": {
+    "title": "This clinic was changed by someone else",
+    "message": "Your changes were not saved. Reload the latest version, then re-apply your changes.",
+    "reload": "Reload the latest version",
+    "reloading": "Reloading…",
+    "earlier_title": "Your earlier entries",
+    "earlier_hint": "These are the values you typed before reloading. Copy them into the form if you still need them.",
+    "dismiss": "Hide"
+  },
+  "not_found": {
+    "title": "Clinic not found",
+    "message": "This clinic does not exist or has been deleted.",
+    "back": "Back to the list of clinics"
+  }
+}
