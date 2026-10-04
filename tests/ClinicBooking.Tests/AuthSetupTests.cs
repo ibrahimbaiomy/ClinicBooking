@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Claims;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ClinicBooking.Domain.Permissions;
@@ -75,6 +76,96 @@ public class SeedTests : IClassFixture<SeededAuthFixture>
         using var scope = _fixture.Factory.Services.CreateScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         Assert.Equal(1, await users.Users.CountAsync());
+    }
+
+    [Fact]
+    public async Task A_missing_global_permission_is_topped_up_for_the_seeded_user_only()
+    {
+        _ = _fixture.Factory.CreateClient();
+        var missing = Permissions.Global[0];
+        var other = await AuthHelpers.CreateUserAsync(_fixture.Factory.Services); // no permissions at all
+
+        long seededId;
+        using (var scope = _fixture.Factory.Services.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var seeded = (await users.FindByNameAsync(SeededAuthFixture.UserName))!;
+            seededId = seeded.Id;
+            await users.RemoveClaimAsync(seeded, new Claim(PermissionChecker.ClaimType, missing));
+            await users.AddClaimAsync(seeded, new Claim("custom", "kept")); // not a global permission
+        }
+
+        await _fixture.Factory.Services.SeedInitialUserAsync();
+
+        using (var scope = _fixture.Factory.Services.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var seeded = (await users.FindByIdAsync(seededId.ToString()))!;
+            var seededClaims = await users.GetClaimsAsync(seeded);
+            Assert.Equal(
+                Permissions.Global.Order(StringComparer.Ordinal),
+                seededClaims.Where(c => c.Type == PermissionChecker.ClaimType).Select(c => c.Value).Order(StringComparer.Ordinal));
+            Assert.Contains(seededClaims, c => c.Type == "custom" && c.Value == "kept"); // nothing is removed
+
+            var untouched = (await users.FindByIdAsync(other.Id.ToString()))!;
+            Assert.Empty(await users.GetClaimsAsync(untouched)); // other users are never touched
+            Assert.Equal(2, await users.Users.CountAsync()); // no user is created
+        }
+    }
+
+    [Fact]
+    public async Task The_top_up_is_idempotent_and_leaves_the_password_alone()
+    {
+        var client = _fixture.Factory.CreateClient();
+
+        await _fixture.Factory.Services.SeedInitialUserAsync();
+        await _fixture.Factory.Services.SeedInitialUserAsync();
+
+        var login = await LoginAsync(client, SeededAuthFixture.UserName, SeededAuthFixture.Password);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var me = await client.SendAsync(WithBearer(HttpMethod.Get, "/api/auth/me", await AccessTokenAsync(login)));
+        var body = await me.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(Permissions.Global.Count, body.GetProperty("permissions").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task A_seed_name_that_matches_nobody_creates_no_user_and_changes_nothing()
+    {
+        _ = _fixture.Factory.CreateClient();
+
+        // The host seeds at startup: a different seed name finds no such user.
+        using var factory = _fixture.Factory.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configuration) =>
+                configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["Seed:AdminUserName"] = "someone.else" })));
+        _ = factory.CreateClient();
+
+        using var scope = factory.Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        Assert.Null(await users.FindByNameAsync("someone.else"));
+    }
+}
+
+[Collection(SqlServerCollection.Name)]
+public class SeedOffTests : IClassFixture<AuthApiFixture>
+{
+    private readonly AuthApiFixture _fixture;
+
+    public SeedOffTests(AuthApiFixture fixture)
+    {
+        _fixture = fixture;
+    }
+
+    [Fact]
+    public async Task Without_seed_settings_nothing_is_created_and_no_permission_is_granted()
+    {
+        _ = _fixture.Factory.CreateClient();
+        var user = await AuthHelpers.CreateUserAsync(_fixture.Factory.Services);
+
+        await _fixture.Factory.Services.SeedInitialUserAsync();
+
+        using var scope = _fixture.Factory.Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        Assert.Empty(await users.GetClaimsAsync((await users.FindByIdAsync(user.Id.ToString()))!));
     }
 }
 
