@@ -528,9 +528,11 @@ Authorization is claim-based, using fine-grained permission names such as
 - A user is granted permissions **per clinic**. Assignments are stored in the
   database (user, clinic, permission), not packed into the JWT, so the token
   stays small and revocation takes effect immediately. The per-clinic table
-  arrives with Clinics (Phase 1).
+  arrives with user management (Phase 1), before Doctors (D55).
 - Permissions that are not clinic-specific are global: for example
-  `users.manage`, `specialties.manage`, and all `patients.*`, because
+  `users.manage`, `specialties.manage`, `clinics.manage` (managing the clinic
+  list itself cannot be scoped to a clinic that does not exist yet, D55), and all
+  `patients.*`, because
   patients are shared across clinics (D44). Global permissions are stored as
   Identity user claims of type `permission` (D48), also read from the database
   on every check.
@@ -917,11 +919,16 @@ checker reads the (user, clinic, permission) table; nothing of that exists yet.
 
 **Seeding.** `Seed:AdminUserName` / `Seed:AdminPassword` (compose maps
 `SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD`). Runs at startup in every
-environment, only when both are set and no user exists, and grants every
-global permission. The password is never logged. **The seed variables must be
-removed from configuration after the first successful deploy**, and a
-change-password flow (Phase 1 user management) **must exist before any real
-data** is stored.
+environment when both are set. It creates the user only when no user exists, and
+grants every global permission. When users already exist it only **tops up** the
+user named by `Seed:AdminUserName`: it adds the permissions of
+`Permissions.Global` that user lacks, so a permission added to the code later
+reaches the seeded admin (D55). It never creates a user, never touches a password
+or another user, never removes a permission, and logs only a count. The password
+is never logged. **The seed variables must be removed from configuration after
+the first successful deploy**, which also stops the top-up: from then on new
+global permissions are granted through user management. A change-password flow
+(Phase 1 user management) **must exist before any real data** is stored.
 
 **Endpoints.** `POST /api/auth/login`, `POST /api/auth/refresh`,
 `POST /api/auth/logout`, `GET /api/auth/me` (id, user name, permissions: the
@@ -1364,6 +1371,109 @@ run; what is late is the cloud half of the pipeline.
 
 ---
 
+### D55 — Clinics back end
+`ACCEPTED` (follows D50 exactly; refines D34, D38 and D48)
+
+Clinics is the second reference-data entity and copies Specialties: soft delete
+(D35), audit fields (D36), `RowVersion` concurrency, names unique after
+normalisation (D49) with the annotated unique-index mechanism, projection by
+`Select`, one validator per request DTO and query object, error-key
+ProblemDetails. No Angular screens yet (the next step).
+
+**Fields.** `NameAr` and `NameEn` (required, trimmed, at most 100, as Specialty);
+`Address` (optional free text, trimmed, at most 300, `nvarchar(300)`; blank is
+stored as null); `Phone` (optional, `nvarchar(16)`: `+` and up to 15 digits). The
+normalised name columns are `nvarchar(100)`; unique filtered indexes
+`UX_Clinics_NameArNormalized` / `UX_Clinics_NameEnNormalized` (`WHERE [IsDeleted] =
+0`) carry the conflict keys. There is **no** index on the phone: clinics may share
+a switchboard.
+
+**Endpoints** (`/api/clinics`, same shape as Specialties): `GET` list, `GET {id}`,
+`POST` (201 + `Location`), `PUT {id}`, `DELETE {id}` (204). List query `Search`,
+`Page` (1), `PageSize` (20, max 100), `SortBy` (`nameEn` default, `nameAr`,
+`createdAt`), `SortDirection`; ties broken by `Id`. Responses carry id, both names,
+address, phone, `createdAt`, `updatedAt` and `rowVersion`. **`PUT` is a full
+replace:** an omitted or blank address or phone is cleared.
+
+**Search** matches **both names only** (D49). Address and phone are not searched:
+addresses are not normalised, and street names would give surprising matches;
+phone search belongs to a digit-prefix match, later.
+
+**Permission.** A new **global** permission, `clinics.manage` (create, edit,
+delete). It is global because it cannot be scoped to a clinic that does not exist
+yet; it is in `Permissions.Global`, so the policy and the handler needed no
+change. **Reading (list and get) is allowed for any signed-in user**, like
+Specialties. *Revisit:* when per-clinic permission assignments arrive (with user
+management, before Doctors) the list may have to be filtered for scoped users, and
+D6's "an inaccessible resource returns 404" will then apply; nothing of that
+exists yet.
+
+**Error keys** (11 new, translated in the root `ar.json`/`en.json`):
+`error.clinic.name_ar_required|too_long|invalid|taken` and the same four for
+`name_en_*`, `error.clinic.not_found` (404), `error.clinic.address_too_long`,
+`error.clinic.phone_invalid`. Paging, sort, search and concurrency keys are
+reused. **Not built:** `error.clinic.in_use` (409 when doctors or appointments use
+a clinic); the delete path stays generic, as for Specialties.
+
+**Phone numbers (`PhoneNumber`, Domain/ValueObjects, no package).** One
+normalisation for every entity that stores a phone (patients will reuse it, D38,
+D44); the stored form is E.164. Ignored: spaces, hyphens, dots, parentheses, bidi
+marks and other invisible format characters; Arabic-Indic and Persian digits are
+folded to 0-9. Accepted: the international form (`+…` or `00…`, 8 to 15 digits,
+first digit not 0), and Egyptian national numbers with a single leading 0 (mobile
+`01[0125]` + 8 digits, 11 in total; landline `0[2-9]` + 7 or 8 digits, 9 or 10 in
+total), stored as `+20…`. Rejected: anything else, including a number with
+neither `+` nor a leading 0 (ambiguous) and raw input longer than 32 characters
+(checked before parsing). Blank means absent. One key for every failure:
+`error.clinic.phone_invalid`.
+**A value that slips past a validator is a 400, never a 500:** the entity
+(`Clinic.SetContact`) and `PhoneNumber.Normalize` throw `InvalidRequestException`
+with the key (the address limit too); a test calls the service directly with a bad
+phone. Later entities follow this: a Domain method that normalises or limits a
+value reports the failure with an `InvalidRequestException`, not a generic
+exception.
+
+**Seeder top-up (refines D48).** `IdentitySeeder` used to act only when no user
+existed, so a permission added to the code later never reached the seeded admin
+on an existing database. Now, when users already exist and the seed credentials
+are configured, it adds the permissions of `Permissions.Global` that the user
+named by `Seed:AdminUserName` lacks. Limits: only `Permissions.Global`; only that
+one user; it never creates a user, never touches a password or another user,
+never removes a permission; it logs only a count. Permissions are read from the
+database on every call, so no re-login is needed. **It depends on the `Seed__*`
+variables, which D48 removes after the first deploy: from then on a new global
+permission must be granted through user management** (Phase 1), not by the seeder.
+On a developer machine the only step is `docker compose up --build` (the API
+restarts and tops the admin up); `docker compose down -v` is the heavier fallback
+that also deletes all data.
+
+**Tests.** `PhoneNumberTests` (valid table incl. Persian digits and bidi marks,
+invalid table incl. raw input over 32 characters and short hotline numbers, the
+entity throwing `InvalidRequestException`), `ClinicsAuthorizationTests`,
+`ClinicsCrudTests` (validation keys, CRUD and row versions, full replace, audit
+with real users, duplicates across Arabic variants, a deleted name re-created, the
+parallel-create race), `ClinicsSearchTests` (hamza, ta marbuta, ya, diacritics,
+digits, wildcards literal, paging, sorting, address and phone not searched), seeder
+top-up tests, and OpenAPI assertions. Existing guards that cover the new code with
+no change: the validator-coverage reflection test, the fallback authorization
+policy, the unique-violation translation (generic over the annotation), the
+`ExecuteUpdate`/`ExecuteDelete` scan, the seed test that compares the seeded
+admin's permissions with `Permissions.Global`, and the OpenAPI checks (no test
+paths, every operation documents a success schema).
+
+**Variations from the Specialties pattern.** Only the new fields (address, phone,
+the shared `PhoneNumber`), the full-replace `PUT`, and `InvalidRequestException`
+from the entity. The name rules are copied (`ClinicRules`) rather than shared with
+Specialties, to avoid touching unrelated code; a shared helper is natural at the
+third copy.
+
+**Later.** Short hotline numbers (for example 16xxx and 19xxx) are not accepted
+yet; they need their own rule. Searching by address or phone. `error.clinic.in_use`
+with Doctors. Filtering the clinic list by the caller's clinics with per-clinic
+permissions.
+
+---
+
 ## Open questions
 
 O3, O4 and O5 are closed: see D44 and D43. O1 and O2 are deferred with the
@@ -1400,7 +1510,7 @@ is done and working on Azure. The project is not released until all are ticked.
 - [ ] If a CSP is added, it needs a hash for the inline pre-paint script in `index.html` (D26).
 
 **Secrets and data**
-- [ ] Remove the `Seed__*` variables from configuration after the first successful deploy, and move the JWT signing key and the seed values to Key Vault (D48).
+- [ ] Remove the `Seed__*` variables from configuration after the first successful deploy, and move the JWT signing key and the seed values to Key Vault (D48). The seeder top-up of the admin's permissions depends on these variables (D55), so after this point **new global permissions must be granted through user management**, which has to exist by then.
 - [ ] A change-password flow exists before any real data is stored; it belongs to Phase 1 user management (D48).
 - [ ] An EF retry strategy for Azure SQL transient faults, together with the transaction wrapper D31 requires (D46, D31).
 
@@ -1428,4 +1538,5 @@ The deadline is real and the scope is the only variable under control.
 
 ## Later
 
-*(empty)*
+- Short hotline phone numbers (for example 16xxx and 19xxx) are not accepted by `PhoneNumber` yet (D55).
+- Search clinics by address or phone (D55).

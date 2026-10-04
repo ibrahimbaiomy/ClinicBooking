@@ -134,8 +134,13 @@ deferred until the build is complete (D54).
    constants. Updates take a `rowVersion` and answer 409
    `error.concurrency.conflict` when it is stale.
 4. Api: attribute-routed controller, `[Authorize]` / `[Authorize(Policy = ...)]`
-   on every action, `[ProducesResponseType]` for the error responses. Add the
-   permission constants.
+   on every action, `[ProducesResponseType]` for the success response (200/201
+   with its type: without it the OpenAPI document has no schema, D52) and the
+   error responses. Add the permission constants to `Permissions` and to `Global`;
+   the seeded admin receives it at the next startup (seeder top-up, D55: restart
+   the API, no re-seed needed). A value an entity normalises or limits (a phone,
+   an address) must throw `InvalidRequestException` with an error key, never a
+   generic exception, so a value that skips the validator is a 400 (D55).
 5. Regenerate `openapi.json` and `schema.d.ts` (`npm run gen:api`) and commit
    both. Tests: each endpoint with and without the permission, validation keys,
    duplicates, search, paging, audit with a real user.
@@ -359,7 +364,7 @@ cd src/clinic-booking-web && npm run gen:api
   are hard-deleted. Deleting a doctor with upcoming appointments needs
   confirmation and cancels those appointments in the same transaction.
 - **Permissions are per clinic**, except global ones (`users.*`,
-  `specialties.*`, `patients.*`). A user with `appointments.create` at clinic
+  `specialties.*`, `clinics.manage`, `patients.*`). A user with `appointments.create` at clinic
   A has no access to clinic B's data. An inaccessible resource returns 404.
 - **Health endpoints:** `/health/live` has no dependency checks;
   `/health/ready` checks the database.
