@@ -10,10 +10,11 @@ public static class IdentitySeeder
     /// <summary>
     /// Creates the first user from <c>Seed:AdminUserName</c> / <c>Seed:AdminPassword</c>, with every
     /// global permission, when no user exists yet. When users already exist it only tops up the
-    /// seeded user: it adds the permissions of <see cref="Permissions.Global"/> that user lacks, so a
-    /// permission added to the code later reaches the seeded admin (D48, D55). It never creates a user,
-    /// never touches a password or another user, never removes a permission, and logs only a count.
-    /// It stops working when the <c>Seed:*</c> settings are removed after the first deploy.
+    /// seeded user: each permission of <see cref="Permissions.Global"/> is granted at most once, tracked
+    /// by a <c>seeded_permission</c> marker claim, so a permission added to the code later still reaches
+    /// the seeded admin while one an administrator removed on purpose stays removed (D48, D55, D57).
+    /// It never creates a user, never touches a password or another user, never removes a permission,
+    /// and logs only a count. It stops working when the <c>Seed:*</c> settings are removed after the first deploy.
     /// </summary>
     public static async Task SeedInitialUserAsync(
         this IServiceProvider services,
@@ -39,6 +40,7 @@ public static class IdentitySeeder
             return;
         }
 
+        // The password is the deployer's own secret, not a temporary one: no forced change.
         var user = new ApplicationUser { UserName = userName };
         var created = await users.CreateAsync(user, password);
         if (!created.Succeeded)
@@ -50,7 +52,11 @@ public static class IdentitySeeder
 
         var granted = await users.AddClaimsAsync(
             user,
-            Permissions.Global.Select(p => new Claim(PermissionChecker.ClaimType, p)));
+            Permissions.Global.SelectMany(p => new[]
+            {
+                new Claim(PermissionChecker.ClaimType, p),
+                new Claim(PermissionChecker.SeededClaimType, p)
+            }));
         if (!granted.Succeeded)
         {
             throw new InvalidOperationException(
@@ -68,23 +74,37 @@ public static class IdentitySeeder
             return;
         }
 
-        var held = (await users.GetClaimsAsync(user))
+        var claims = await users.GetClaimsAsync(user);
+        var held = claims
             .Where(c => c.Type == PermissionChecker.ClaimType)
             .Select(c => c.Value)
             .ToHashSet(StringComparer.Ordinal);
-        var missing = Permissions.Global.Where(p => !held.Contains(p)).ToList();
-        if (missing.Count == 0)
+        var alreadyGranted = claims
+            .Where(c => c.Type == PermissionChecker.SeededClaimType)
+            .Select(c => c.Value)
+            .ToHashSet(StringComparer.Ordinal);
+
+        // A permission the seeder has not granted before is granted now (unless the user somehow holds it)
+        // and remembered, so removing it later is never undone.
+        var pending = Permissions.Global.Where(p => !alreadyGranted.Contains(p)).ToList();
+        if (pending.Count == 0)
         {
             return;
         }
 
-        var granted = await users.AddClaimsAsync(user, missing.Select(p => new Claim(PermissionChecker.ClaimType, p)));
-        if (!granted.Succeeded)
+        var missing = pending.Where(p => !held.Contains(p)).ToList();
+        var toAdd = missing
+            .Select(p => new Claim(PermissionChecker.ClaimType, p))
+            .Concat(pending.Select(p => new Claim(PermissionChecker.SeededClaimType, p)))
+            .ToList();
+
+        var result = await users.AddClaimsAsync(user, toAdd);
+        if (!result.Succeeded)
         {
             throw new InvalidOperationException(
-                "The seeded user's permissions could not be topped up: " + string.Join(", ", granted.Errors.Select(e => e.Code)));
+                "The seeded user's permissions could not be topped up: " + string.Join(", ", result.Errors.Select(e => e.Code)));
         }
 
-        logger.LogInformation("Seeded user topped up with {PermissionCount} missing global permissions", missing.Count);
+        logger.LogInformation("Seeded user topped up with {PermissionCount} global permissions not granted before", missing.Count);
     }
 }

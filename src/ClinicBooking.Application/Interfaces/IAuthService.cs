@@ -13,4 +13,15 @@ public interface IAuthService
     Task LogoutAsync(string? refreshToken, CancellationToken cancellationToken);
 
     Task<CurrentUserResponse> GetCurrentUserAsync(long userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Changes the caller's own password (D57). Every session of the user is revoked except the one
+    /// that owns <paramref name="refreshToken"/>; when that token is missing or is not the caller's, all of
+    /// them are revoked and the user signs in again.
+    /// </summary>
+    Task ChangePasswordAsync(
+        long userId,
+        ChangePasswordRequest request,
+        string? refreshToken,
+        CancellationToken cancellationToken);
 }

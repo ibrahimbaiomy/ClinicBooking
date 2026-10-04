@@ -1,9 +1,12 @@
+using System.Data;
 using System.Linq.Expressions;
+using ClinicBooking.Application.Features.Common;
 using ClinicBooking.Application.Interfaces;
 using ClinicBooking.Domain.Entities;
 using ClinicBooking.Domain.Exceptions;
 using ClinicBooking.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 
 namespace ClinicBooking.Infrastructure.Persistence;
 
@@ -22,6 +25,8 @@ public class AppDbContext : IdentityUserContext<ApplicationUser, long>, IAppDbCo
     public DbSet<Clinic> Clinics => Set<Clinic>();
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    public DbSet<UserClinicPermission> UserClinicPermissions => Set<UserClinicPermission>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -58,6 +63,22 @@ public class AppDbContext : IdentityUserContext<ApplicationUser, long>, IAppDbCo
         }
     }
 
+    public async Task<T> InSerializableTransactionAsync<T>(Func<Task<T>> work, CancellationToken cancellationToken)
+    {
+        await using var transaction = await Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        try
+        {
+            var result = await work();
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        }
+        catch (Exception exception) when (IsDeadlockVictim(exception))
+        {
+            // The disposal above rolls back. The caller looks again and retries by hand.
+            throw new ConflictException(ConcurrencyErrors.Conflict);
+        }
+    }
+
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         try
@@ -69,6 +90,21 @@ public class AppDbContext : IdentityUserContext<ApplicationUser, long>, IAppDbCo
             UniqueViolationTranslation.TryGetConflictKey(Model, exception, out var key);
             throw new ConflictException(key);
         }
+    }
+
+    private const int DeadlockVictim = 1205;
+
+    private static bool IsDeadlockVictim(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is SqlException { Number: DeadlockVictim })
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // e => !e.IsDeleted

@@ -42,6 +42,7 @@ public static class DependencyInjection
             .AddEntityFrameworkStores<AppDbContext>();
 
         services.AddScoped<IIdentityService, IdentityService>();
+        services.AddScoped<IUserAccounts, UserAccounts>();
         services.AddScoped<IPermissionChecker, PermissionChecker>();
         services.AddSingleton<IAccessTokenService, JwtAccessTokenService>();
 

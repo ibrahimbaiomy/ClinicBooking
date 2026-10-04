@@ -24,10 +24,22 @@ public static class Permissions
         public const string Manage = "clinics.manage";
     }
 
-    /// <summary>Permissions that are not clinic-specific (D34). All of them for now.</summary>
+    public static class Doctors
+    {
+        /// <summary>Manage the doctors of one clinic. Clinic-scoped: granted per clinic (D57).</summary>
+        public const string Manage = "doctors.manage";
+    }
+
+    /// <summary>Permissions that are not clinic-specific (D34): held once, for the whole system.</summary>
     public static IReadOnlyList<string> Global { get; } = [Users.Manage, Specialties.Manage, Clinics.Manage];
 
-    public static IReadOnlyList<string> All { get; } = Global;
+    /// <summary>Permissions granted per clinic (D34, D57): a grant is valid only in the clinic it names.</summary>
+    public static IReadOnlyList<string> ClinicScoped { get; } = [Doctors.Manage];
+
+    /// <summary>Every permission; one authorization policy exists for each.</summary>
+    public static IReadOnlyList<string> All { get; } = [.. Global, .. ClinicScoped];
 
     public static bool IsGlobal(string permission) => Global.Contains(permission);
+
+    public static bool IsClinicScoped(string permission) => ClinicScoped.Contains(permission);
 }

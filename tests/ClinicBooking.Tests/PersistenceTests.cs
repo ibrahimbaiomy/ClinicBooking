@@ -116,9 +116,9 @@ public class PersistenceTests : IClassFixture<ApiDatabaseFixture>
     }
 
     [Fact]
-    public async Task Unique_violations_on_indexes_without_a_conflict_key_are_rethrown_unchanged()
+    public async Task A_duplicate_user_name_at_the_index_becomes_a_user_name_taken_conflict()
     {
-        // Identity's unique user name index carries no conflict-key annotation.
+        // The unique user name index carries the conflict key of user management (D57).
         var normalized = $"DUP_{Guid.NewGuid():N}";
         using (var scope = _fixture.Factory.Services.CreateScope())
         {
@@ -131,8 +131,8 @@ public class PersistenceTests : IClassFixture<ApiDatabaseFixture>
         var context = second.ServiceProvider.GetRequiredService<AppDbContext>();
         context.Users.Add(new ApplicationUser { UserName = normalized + "x", NormalizedUserName = normalized, SecurityStamp = "b" });
 
-        var failure = await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
-        Assert.IsNotType<ConflictException>(failure);
+        var failure = await Assert.ThrowsAsync<ConflictException>(() => context.SaveChangesAsync());
+        Assert.Equal("error.user.user_name_taken", failure.ErrorKey);
     }
 
     [Fact]

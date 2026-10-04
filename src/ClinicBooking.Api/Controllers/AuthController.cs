@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using ClinicBooking.Api.Authentication;
+using ClinicBooking.Api.Authorization;
 using ClinicBooking.Api.Filters;
 using ClinicBooking.Application.DTOs;
 using ClinicBooking.Application.Features.Auth;
@@ -93,11 +94,38 @@ public sealed class AuthController : ControllerBase
     [ProducesResponseType(typeof(CurrentUserResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized, "application/problem+json")]
     [Authorize]
+    [AllowWhilePasswordChangeRequired]
     public async Task<ActionResult<CurrentUserResponse>> Me(CancellationToken cancellationToken)
     {
         var userId = _user.Id ?? throw new UnauthorizedException(AuthService.UnauthorizedKey);
 
         return Ok(await _auth.GetCurrentUserAsync(userId, cancellationToken));
+    }
+
+    /// <summary>
+    /// Changes the caller's own password (D57). The refresh cookie says which session to keep: every
+    /// other session of the user ends. The cookie is sent here because its path is <c>/api/auth</c>,
+    /// so this endpoint also runs the origin check.
+    /// </summary>
+    [HttpPost("change-password")]
+    [Authorize]
+    [AllowWhilePasswordChangeRequired]
+    [EnableRateLimiting(AuthExtensions.ChangePasswordRateLimitPolicy)]
+    [ServiceFilter(typeof(SameOriginFilter))]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(HttpValidationProblemDetails), StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status423Locked, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests, "application/problem+json")]
+    public async Task<IActionResult> ChangePassword(
+        [FromBody] ChangePasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = _user.Id ?? throw new UnauthorizedException(AuthService.UnauthorizedKey);
+        await _auth.ChangePasswordAsync(userId, request, Request.Cookies[RefreshCookieName], cancellationToken);
+
+        return NoContent();
     }
 
     private void SetRefreshCookie(AuthResult result) =>

@@ -50,7 +50,11 @@
       "invalid_refresh_token": "Your session has expired. Please sign in again.",
       "user_name_required": "Enter your user name.",
       "password_required": "Enter your password.",
-      "field_too_long": "The value is longer than allowed."
+      "field_too_long": "The value is longer than allowed.",
+      "current_password_required": "Enter the current password.",
+      "current_password_incorrect": "The current password is incorrect.",
+      "password_unchanged": "The new password must be different from the current one.",
+      "password_change_required": "You must change the temporary password before you continue."
     },
     "clinic": {
       "name_ar_required": "Enter the clinic's Arabic name.",
@@ -77,6 +81,15 @@
       "page_invalid": "The page number is not valid.",
       "page_size_invalid": "The page size is not valid."
     },
+    "password": {
+      "required": "Enter the password.",
+      "too_long": "The password is too long (128 characters at most).",
+      "too_short": "The password is too short (12 characters at least).",
+      "requires_digit": "The password must contain at least one digit.",
+      "requires_lowercase": "The password must contain at least one lower-case letter (a–z).",
+      "requires_uppercase": "The password must contain at least one upper-case letter (A–Z).",
+      "requires_unique_chars": "The password must contain at least 4 different characters."
+    },
     "search": {
       "too_long": "The search text is too long."
     },
@@ -93,6 +106,18 @@
       "name_en_invalid": "The English name is not valid.",
       "name_en_taken": "Another specialty already has this English name.",
       "not_found": "The specialty was not found."
+    },
+    "user": {
+      "not_found": "The user was not found.",
+      "user_name_required": "Enter the user name.",
+      "user_name_too_short": "The user name is too short (3 characters at least).",
+      "user_name_too_long": "The user name is too long (64 characters at most).",
+      "user_name_invalid": "A user name may contain only English letters, digits, dots, hyphens and underscores.",
+      "user_name_taken": "This user name is already in use. Choose another one.",
+      "permission_unknown": "The selected permission is not recognised.",
+      "cannot_disable_self": "You cannot disable your own account.",
+      "last_administrator": "This cannot be done because it would leave the system without an active user administrator.",
+      "cannot_reset_own_password": "You cannot reset your own password here. Use change password instead."
     },
     "validation": {
       "failed": "Some of the information entered is not valid. Please check it.",

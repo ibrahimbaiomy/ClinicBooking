@@ -19,6 +19,7 @@ public static class AuthExtensions
 {
     public const string LoginRateLimitPolicy = "login";
     public const string RefreshRateLimitPolicy = "refresh";
+    public const string ChangePasswordRateLimitPolicy = "change-password";
     public const string RateLimitedKey = "error.auth.rate_limited";
 
     /// <summary>JWT bearer authentication, permission policies, the login rate limiter and the origin check.</summary>
@@ -82,10 +83,14 @@ public static class AuthExtensions
             {
                 options.AddPolicy(permission, policy => policy
                     .RequireAuthenticatedUser()
-                    .AddRequirements(new PermissionRequirement(permission)));
+                    .AddRequirements(Permissions.IsGlobal(permission)
+                        ? new PermissionRequirement(permission)
+                        : new ClinicPermissionRequirement(permission)));
             }
         });
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, ClinicPermissionAuthorizationHandler>();
+        services.AddScoped<IClinicResolver, RouteClinicResolver>();
 
         services.AddScoped<SameOriginFilter>();
         services.AddRateLimiter(ConfigureRateLimiter);
@@ -99,6 +104,7 @@ public static class AuthExtensions
 
         options.AddPolicy(LoginRateLimitPolicy, context => PerClientWindow(context, s => s.LoginPerMinute));
         options.AddPolicy(RefreshRateLimitPolicy, context => PerClientWindow(context, s => s.RefreshPerMinute));
+        options.AddPolicy(ChangePasswordRateLimitPolicy, context => PerUserWindow(context, s => s.ChangePasswordPerMinute));
 
         options.OnRejected = async (context, cancellationToken) =>
         {
@@ -121,6 +127,24 @@ public static class AuthExtensions
                     }
                 });
         };
+    }
+
+    // Partitioned by the signed-in user, not by address: change-password is a guessing target for one
+    // account, wherever the guesses come from. Needs the rate limiter to run after authentication.
+    private static RateLimitPartition<string> PerUserWindow(
+        HttpContext context,
+        Func<RateLimitSettings, int> limit)
+    {
+        var settings = context.RequestServices.GetRequiredService<IOptions<RateLimitSettings>>().Value;
+        var user = context.User.FindFirst(Microsoft.IdentityModel.JsonWebTokens.JwtRegisteredClaimNames.Sub)?.Value
+            ?? "anonymous-" + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+
+        return RateLimitPartition.GetFixedWindowLimiter(user, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = limit(settings),
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        });
     }
 
     // Partitioned by client address. Behind a proxy this needs forwarded headers (deploy step).
@@ -146,6 +170,8 @@ public sealed class RateLimitSettings
     public int LoginPerMinute { get; set; } = 10;
 
     public int RefreshPerMinute { get; set; } = 30;
+
+    public int ChangePasswordPerMinute { get; set; } = 10;
 }
 
 /// <summary>Bound from the "Auth" section: extra allowed origins for refresh and logout (e.g. the Angular dev server).</summary>

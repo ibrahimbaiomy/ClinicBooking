@@ -11,5 +11,14 @@ public interface IAppDbContext
 
     DbSet<RefreshToken> RefreshTokens { get; }
 
+    DbSet<UserClinicPermission> UserClinicPermissions { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs <paramref name="work"/> in one serializable transaction, so a rule that reads and then
+    /// writes (the last administrator, D57) cannot be beaten by a parallel request. When SQL Server
+    /// picks this request as a deadlock victim the result is a 409 <c>error.concurrency.conflict</c>.
+    /// </summary>
+    Task<T> InSerializableTransactionAsync<T>(Func<Task<T>> work, CancellationToken cancellationToken);
 }

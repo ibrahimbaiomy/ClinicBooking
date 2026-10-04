@@ -70,16 +70,23 @@ public class SeedTests : IClassFixture<SeededAuthFixture>
     public async Task Seeding_again_does_nothing_when_users_exist()
     {
         _ = _fixture.Factory.CreateClient();
+        int before;
+        using (var scope = _fixture.Factory.Services.CreateScope())
+        {
+            before = await scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>().Users.CountAsync();
+        }
 
         await _fixture.Factory.Services.SeedInitialUserAsync();
 
-        using var scope = _fixture.Factory.Services.CreateScope();
-        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-        Assert.Equal(1, await users.Users.CountAsync());
+        using (var scope = _fixture.Factory.Services.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            Assert.Equal(before, await users.Users.CountAsync()); // no user is created
+        }
     }
 
     [Fact]
-    public async Task A_missing_global_permission_is_topped_up_for_the_seeded_user_only()
+    public async Task A_global_permission_never_granted_by_the_seeder_is_topped_up_for_the_seeded_user_only()
     {
         _ = _fixture.Factory.CreateClient();
         var missing = Permissions.Global[0];
@@ -91,7 +98,9 @@ public class SeedTests : IClassFixture<SeededAuthFixture>
             var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var seeded = (await users.FindByNameAsync(SeededAuthFixture.UserName))!;
             seededId = seeded.Id;
+            // As if the permission had been added to the code after the seeder last ran: neither held nor marked.
             await users.RemoveClaimAsync(seeded, new Claim(PermissionChecker.ClaimType, missing));
+            await users.RemoveClaimAsync(seeded, new Claim(PermissionChecker.SeededClaimType, missing));
             await users.AddClaimAsync(seeded, new Claim("custom", "kept")); // not a global permission
         }
 
@@ -109,7 +118,7 @@ public class SeedTests : IClassFixture<SeededAuthFixture>
 
             var untouched = (await users.FindByIdAsync(other.Id.ToString()))!;
             Assert.Empty(await users.GetClaimsAsync(untouched)); // other users are never touched
-            Assert.Equal(2, await users.Users.CountAsync()); // no user is created
+            Assert.Equal(2, await users.Users.CountAsync()); // the seeded user and the other one: none is created
         }
     }
 

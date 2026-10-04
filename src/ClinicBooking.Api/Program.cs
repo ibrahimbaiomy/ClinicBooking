@@ -48,8 +48,11 @@ app.UseSerilogRequestLogging(options => options.GetLevel = (context, _, exceptio
     : LogEventLevel.Information);
 app.UseExceptionHandler();
 app.UseStatusCodePages();
-app.UseRateLimiter();
 app.UseAuthentication();
+// After authentication: the change-password limiter is partitioned by user id.
+app.UseRateLimiter();
+// Reads the account state (disabled, temporary password) of every signed-in caller.
+app.UseMiddleware<AccountStateMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

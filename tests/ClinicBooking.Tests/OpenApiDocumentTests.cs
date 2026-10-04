@@ -142,6 +142,61 @@ public class OpenApiDocumentTests : IClassFixture<PlainApiFactory>
     }
 
     [Fact]
+    public async Task The_user_management_endpoints_and_dtos_are_documented_without_secrets_or_internals()
+    {
+        using var document = JsonDocument.Parse(await GenerateAsync());
+        var root = document.RootElement;
+        var paths = root.GetProperty("paths");
+
+        foreach (var (path, method) in new[]
+        {
+            ("/api/users", "get"), ("/api/users", "post"), ("/api/users/{id}", "get"),
+            ("/api/users/{id}/disable", "post"), ("/api/users/{id}/enable", "post"),
+            ("/api/users/{id}/global-permissions", "put"),
+            ("/api/users/{id}/clinics/{clinicId}/permissions", "put"),
+            ("/api/users/{id}/reset-password", "post"),
+            ("/api/permissions", "get"),
+            ("/api/auth/change-password", "post")
+        })
+        {
+            Assert.True(paths.TryGetProperty(path, out var item) && item.TryGetProperty(method, out _), $"{method.ToUpperInvariant()} {path} is missing");
+        }
+
+        // There is no way to delete a user.
+        Assert.False(paths.GetProperty("/api/users/{id}").TryGetProperty("delete", out _));
+
+        var schemas = root.GetProperty("components").GetProperty("schemas");
+        foreach (var name in new[]
+        {
+            "UserSummaryResponse", "UserDetailResponse", "UserClinicPermissionsResponse", "CreateUserRequest",
+            "ResetPasswordRequest", "ReplaceGlobalPermissionsRequest", "ReplaceClinicPermissionsRequest",
+            "AssignablePermissionsResponse", "ChangePasswordRequest", "PagedResponseOfUserSummaryResponse"
+        })
+        {
+            Assert.True(schemas.TryGetProperty(name, out _), $"{name} is missing");
+        }
+
+        // No response schema carries a password, and no entity leaks.
+        foreach (var name in new[] { "UserSummaryResponse", "UserDetailResponse", "UserClinicPermissionsResponse", "CurrentUserResponse" })
+        {
+            var properties = schemas.GetProperty(name).GetProperty("properties").EnumerateObject().Select(p => p.Name).ToList();
+            Assert.DoesNotContain(properties, p => p.Contains("password", StringComparison.OrdinalIgnoreCase) && p != "mustChangePassword");
+        }
+
+        Assert.False(schemas.TryGetProperty("UserClinicPermission", out _));
+        Assert.False(schemas.TryGetProperty("ApplicationUser", out _));
+
+        var me = schemas.GetProperty("CurrentUserResponse").GetProperty("properties").EnumerateObject().Select(p => p.Name).ToList();
+        Assert.Contains("mustChangePassword", me);
+        Assert.Contains("clinicPermissions", me);
+
+        // Nothing of the test-only clinic-scoped endpoints or permission leaks into the document.
+        var text = root.GetRawText();
+        Assert.DoesNotContain("/test/", text);
+        Assert.DoesNotContain("test.other", text);
+    }
+
+    [Fact]
     public async Task The_auth_success_schemas_are_documented()
     {
         using var document = JsonDocument.Parse(await GenerateAsync());

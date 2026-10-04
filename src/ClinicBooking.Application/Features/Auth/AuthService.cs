@@ -1,4 +1,5 @@
 using ClinicBooking.Application.DTOs;
+using ClinicBooking.Application.Features.Users;
 using ClinicBooking.Application.Interfaces;
 using ClinicBooking.Domain.Entities;
 using ClinicBooking.Domain.Exceptions;
@@ -13,6 +14,9 @@ public sealed class AuthService : IAuthService
     public const string LockedOutKey = "error.auth.locked_out";
     public const string InvalidRefreshTokenKey = "error.auth.invalid_refresh_token";
     public const string UnauthorizedKey = "error.auth.unauthorized";
+    public const string PasswordChangeRequiredKey = "error.auth.password_change_required";
+    public const string CurrentPasswordIncorrectKey = "error.auth.current_password_incorrect";
+    public const string PasswordUnchangedKey = "error.auth.password_unchanged";
 
     private readonly IAppDbContext _db;
     private readonly IIdentityService _identity;
@@ -148,9 +152,67 @@ public sealed class AuthService : IAuthService
         var user = await _identity.GetActiveUserAsync(userId, cancellationToken)
             ?? throw new UnauthorizedException(UnauthorizedKey);
         var permissions = await _permissions.GetGlobalPermissionsAsync(userId, cancellationToken);
+        var clinicPermissions = await _permissions.GetClinicPermissionsAsync(userId, cancellationToken);
 
-        return new CurrentUserResponse(user.Id, user.UserName, permissions);
+        return new CurrentUserResponse(
+            user.Id,
+            user.UserName,
+            permissions,
+            user.MustChangePassword,
+            UserMapping.GroupByClinic(clinicPermissions));
     }
+
+    public async Task ChangePasswordAsync(
+        long userId,
+        ChangePasswordRequest request,
+        string? refreshToken,
+        CancellationToken cancellationToken)
+    {
+        var result = await _identity.ChangePasswordAsync(
+            userId,
+            request.CurrentPassword!,
+            request.NewPassword!,
+            cancellationToken);
+
+        switch (result.Status)
+        {
+            case PasswordChangeStatus.Succeeded:
+                break;
+            case PasswordChangeStatus.LockedOut:
+                throw new AccountLockedException(LockedOutKey, result.RetryAfter);
+            case PasswordChangeStatus.CurrentPasswordIncorrect:
+                throw FieldError("currentPassword", CurrentPasswordIncorrectKey, CurrentPasswordIncorrectKey);
+            case PasswordChangeStatus.PasswordUnchanged:
+                throw FieldError("newPassword", PasswordUnchangedKey, PasswordUnchangedKey);
+            default:
+                throw FieldError("newPassword", UserErrors.ValidationFailed, result.PolicyErrorKeys!.ToArray());
+        }
+
+        // The session that made the request survives; every other one ends (D57). A cookie that is
+        // missing, unknown, revoked, expired or owned by another user cannot name a session, so all end.
+        var now = _timeProvider.GetUtcNow();
+        Guid? currentFamily = null;
+        if (!string.IsNullOrEmpty(refreshToken))
+        {
+            var hash = RefreshTokenSecret.Hash(refreshToken);
+            currentFamily = await _db.RefreshTokens
+                .Where(t => t.TokenHash == hash && t.UserId == userId && t.RevokedAt == null && t.ExpiresAt > now)
+                .Select(t => (Guid?)t.FamilyId)
+                .SingleOrDefaultAsync(cancellationToken);
+        }
+
+        var revoked = await SessionRevocation.RevokeUserSessionsAsync(_db, userId, currentFamily, now, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Password changed by user {UserId}; {RevokedSessions} other sessions revoked (current session kept: {CurrentKept})",
+            userId,
+            revoked,
+            currentFamily is not null);
+    }
+
+    private static InvalidRequestException FieldError(string field, string title, params string[] keys) =>
+        new(title, new Dictionary<string, string[]> { [field] = keys });
 
     private RefreshTokenIssue AddRefreshToken(
         long userId,

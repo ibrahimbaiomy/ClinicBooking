@@ -50,9 +50,9 @@ public class AuthApiFixture : IAsyncLifetime
 
     public TestClock Clock { get; } = new();
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public virtual Task InitializeAsync() => Task.CompletedTask;
 
-    public async Task DisposeAsync()
+    public virtual async Task DisposeAsync()
     {
         await Factory.DisposeAsync();
         SqlConnection.ClearAllPools();
@@ -101,6 +101,62 @@ public sealed class LowRateLimitAuthFixture : AuthApiFixture
     public LowRateLimitAuthFixture(SqlServerFixture sqlServer)
         : base(sqlServer, new Dictionary<string, string?> { ["RateLimiting:LoginPerMinute"] = "3" })
     {
+    }
+}
+
+/// <summary>Change-password limit of 3 per minute, to test the per-user limiter (D57).</summary>
+public sealed class LowChangePasswordLimitAuthFixture : AuthApiFixture
+{
+    public LowChangePasswordLimitAuthFixture(SqlServerFixture sqlServer)
+        : base(sqlServer, new Dictionary<string, string?> { ["RateLimiting:ChangePasswordPerMinute"] = "3" })
+    {
+    }
+}
+
+/// <summary>
+/// Serilog's console sink writes to whatever <c>Console.Out</c> is at that moment. This fixture holds a
+/// capturing writer there for the life of the class (every API test class shares one serial collection, so
+/// no other host logs meanwhile), so every log line of its host ends up in <see cref="Output"/> and a test can
+/// prove that no secret was logged (D57).
+/// </summary>
+public sealed class LogCaptureAuthFixture : AuthApiFixture
+{
+    private readonly StringWriter _writer = new();
+    private TextWriter? _original;
+
+    public LogCaptureAuthFixture(SqlServerFixture sqlServer)
+        : base(sqlServer)
+    {
+    }
+
+    public string Output
+    {
+        get
+        {
+            lock (_writer)
+            {
+                return _writer.ToString();
+            }
+        }
+    }
+
+    public override Task InitializeAsync()
+    {
+        _original = Console.Out;
+        Console.SetOut(TextWriter.Synchronized(_writer));
+        using var client = Factory.CreateClient(); // builds the host
+
+        return Task.CompletedTask;
+    }
+
+    public override async Task DisposeAsync()
+    {
+        if (_original is not null)
+        {
+            Console.SetOut(_original);
+        }
+
+        await base.DisposeAsync();
     }
 }
 
