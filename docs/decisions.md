@@ -18,19 +18,21 @@ clinics. It has two goals, and both are required:
    registry → cloud → running application, with CI/CD — that doubles as a
    portfolio piece.
 
-Deployment comes first in the build order (see Phase 0). Code quality and UX
-are judged as seriously as the pipeline.
+Deployment to Azure is postponed until the build is complete (D54). Code
+quality and UX are judged as seriously as the pipeline.
 
 ---
 
 ## Scope
 
-### Phase 0 — Walking skeleton (deployed before anything else)
+### Phase 0 — Walking skeleton (code done; deployment deferred, D54)
 - Specialties (create, list, search, edit, soft delete) as the first vertical slice
 - Login, JWT access tokens, refresh tokens (one seeded initial user)
 - `/health/live` and `/health/ready`
 - Bilingual UI (Arabic / English) with RTL, from the first component
-- Docker + docker compose, CI/CD, deployment to Azure Container Apps
+- Docker + docker compose and CI (build, tests, image build): done
+- CI/CD to Azure and deployment to Azure Container Apps: deferred until the
+  build is complete (D54, checklist "Deferred until deployment")
 
 ### Phase 1 — Core CRUD and access control
 - Clinics, Doctors (with clinic assignments, working hours and slot
@@ -1325,10 +1327,47 @@ browser (native dialog focus restoration) is the part tests cannot prove.
 
 ---
 
+### D54 — Azure deployment is postponed until the build is complete
+`ACCEPTED` (replaces the old "no feature before Azure" rule of Scope discipline and the "deployment first" ordering of Phase 0; D16 and D17 stay in force as the target)
+
+**Decision.** On 4 October 2026 the project owner decided to postpone deployment
+to Azure until the build is complete, and to deal with any deployment problems
+when that point is reached. The owner accepted the risk below knowingly.
+
+**Why.** A new Azure free account gives credit for 30 days. Creating the account
+now would spend that time before there is anything worth deploying.
+
+**Risk (accepted).** Problems that only appear on Azure (the ingress, identity,
+Key Vault, Azure SQL, migrations) are discovered late and may be more expensive
+to fix: this is the argument of D16. The pipeline is only partly proven today:
+CI builds, tests and builds the Docker image, but nothing is pushed to a
+registry, nothing is deployed, there is no migrations bundle and no Key Vault.
+
+**What stays mandatory meanwhile.**
+- CI stays green on every push to `main` and on every pull request (the
+  triggers of `ci.yml`), and it is green before the next step starts.
+- Every commit builds. The `Dockerfile` and `docker compose up --build` keep
+  working (the `image` job and local runs prove it).
+- No secret enters the repository (rule 6, D19).
+- Each item that is postponed stays on the checklist "Deferred until
+  deployment" below, so nothing is forgotten.
+
+**"The build is complete"** is declared by the owner. No phases or dates are
+invented here. Phases 1 to 5 in "Scope" remain the scope, worked in order;
+Appointments (Phase 2) must not start before Phase 1 is complete. The project is
+not called released until every item of "Deferred until deployment" is done.
+
+**Effect on other decisions.** Phase 0 is done in code and deferred in
+deployment (see "Scope"). O1 and O2 are deferred with the deployment: no feature
+work depends on them. D16 is unchanged: the `Dockerfile` and compose exist and
+run; what is late is the cloud half of the pipeline.
+
+---
 
 ## Open questions
 
-O3, O4 and O5 are closed: see D44 and D43.
+O3, O4 and O5 are closed: see D44 and D43. O1 and O2 are deferred with the
+deployment (D54) and block no feature work.
 
 | # | Question | Status |
 |---|---|---|
@@ -1337,10 +1376,52 @@ O3, O4 and O5 are closed: see D44 and D43.
 
 ---
 
+## Deferred until deployment
+
+Everything postponed by D54, so nothing is forgotten. Tick an item only when it
+is done and working on Azure. The project is not released until all are ticked.
+
+**Definition of Done items that need Azure** (see Instructions.md)
+- [ ] Image build pushed to Azure Container Registry from CI (item 2, D17).
+- [ ] GitHub Actions authenticates to Azure with OIDC federated credentials, no stored service-principal secret (item 2, D40).
+- [ ] Deployed to Azure Container Apps and reachable over HTTPS (item 3, D17).
+- [ ] Migrations applied by the pipeline: an EF migrations bundle run as a Container Apps Job before a new revision gets traffic, never by hand (item 4, D39).
+- [ ] Secrets resolved from Key Vault through a managed identity (item 5, D19).
+- [ ] The app connects to Azure SQL with Entra / managed identity where possible, so no connection string holds a password (D40).
+- [ ] `/health/live` and `/health/ready` are green as the Container Apps probes (item 6, D20); the endpoints exist and are tested locally.
+
+**Running behind the Azure ingress**
+- [ ] Forwarded-headers handling, so rate limiting sees the client address and `Request.Host` is the public host for the Origin check. The startup refresh counts against the refresh rate limit (30 per minute per client address): without this fix every visitor shares the ingress address (D48, D52).
+- [ ] `Auth:AllowedOrigins` contains the deployed host if it differs from the request host (D48, D52).
+- [ ] The Azure SQL connection string does not use `TrustServerCertificate=True`, which is for the local container only (D45).
+- [ ] Probe timeouts for `/health/live` and `/health/ready` are set explicitly: the readiness check takes about 4 s to answer when the database is down (D20, D45).
+- [ ] Scale to zero (D17): confirm a cold start does not exceed the 10 s limit of the startup silent refresh, which would show the login page to a signed-in user (D52).
+- [ ] The structured JSON logs reach Log Analytics and can be queried by field (D21).
+- [ ] If a CSP is added, it needs a hash for the inline pre-paint script in `index.html` (D26).
+
+**Secrets and data**
+- [ ] Remove the `Seed__*` variables from configuration after the first successful deploy, and move the JWT signing key and the seed values to Key Vault (D48).
+- [ ] A change-password flow exists before any real data is stored; it belongs to Phase 1 user management (D48).
+- [ ] An EF retry strategy for Azure SQL transient faults, together with the transaction wrapper D31 requires (D46, D31).
+
+**CI and repository**
+- [ ] Add a deploy job that `needs` `test`, `web` and `image`, and revisit `cancel-in-progress` in the CI concurrency setting so an in-flight deploy is never cancelled (D47).
+- [ ] Add Dependabot for the pinned GitHub Actions and for the NuGet and npm dependencies (D47).
+
+**Decisions and account**
+- [ ] Close O1: choose the region (West Europe or UAE North) after confirming Container Apps, ACR, Key Vault and Azure SQL are all available there.
+- [ ] Close O2: a custom domain with TLS, or the default Container Apps hostname.
+- [ ] Revisit D13 (Azure SQL Basic tier), including whether a free Azure SQL offer is worth using.
+- [ ] Create the Azure account only when ready to deploy, and set a budget alert immediately.
+
+---
+
 ## Scope discipline
 
-**No feature is added after work begins until the application is running on
-Azure with a working pipeline.**
+The scope is Phases 1 to 5 above, worked in order. Deployment to Azure is
+postponed until the build is complete (D54); it no longer gates features. The
+owner declares when the build is complete. Appointments (Phase 2) do not start
+before Phase 1 is complete.
 
 Ideas that arrive mid-build are written below under "Later", not implemented.
 The deadline is real and the scope is the only variable under control.

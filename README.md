@@ -5,21 +5,26 @@
 ClinicBooking is an outpatient appointment booking system for multiple clinics.
 It has two goals: a real, usable product, and a complete deployment pipeline
 (container, registry, cloud, CI/CD) that doubles as a portfolio piece. The
-application is small on purpose, and the pipeline is built first.
+application is small on purpose, and deployment to Azure is postponed until the
+build is complete ([D54](docs/decisions.md)).
 
 ## Status
 
-Early skeleton. What exists today: the four back-end layers, a persistence
-layer (EF Core on SQL Server) with a first `Specialty` entity and migrations,
-authentication (ASP.NET Core Identity, JWT access tokens, rotating refresh
-tokens in an HttpOnly cookie) with permission-based authorization policies,
-structured JSON logging, error responses carrying error keys, health endpoints,
-a Docker image, and a CI workflow with three jobs (back-end build and tests, front-end
-checks, Docker image). The first feature API, Specialties (list,
-Arabic-aware search, create, edit, soft delete), is in place with a committed
-`openapi.json`. The Angular front end is a foundation only: a strict, zoneless
-shell with Tailwind, an Arabic-default language switcher with RTL, and generated
-API types; there are no screens yet.
+Deployment to Azure is postponed until the build is complete (see D54 in
+[docs/decisions.md](docs/decisions.md), which lists what is deferred). CI builds
+and tests on every push to `main` and on pull requests: back-end build and
+tests, front-end checks, and a Docker image build.
+
+What exists today: the four back-end layers, a persistence layer (EF Core on SQL
+Server) with migrations, authentication (ASP.NET Core Identity, JWT access
+tokens, rotating refresh tokens in an HttpOnly cookie) with permission-based
+authorization policies, structured JSON logging, error responses carrying error
+keys, health endpoints, and a Docker image. The first feature, Specialties
+(list, Arabic-aware search, create, edit, soft delete), exists end to end: the API
+with a committed `openapi.json`, and Angular screens. The Angular front end is
+a strict, zoneless app with Tailwind, an Arabic-default language switcher with
+RTL, generated API types, a login screen with silent session restore, and the
+Specialties screens.
 
 ## Architecture
 
@@ -78,4 +83,5 @@ Docker must be running: the tests start a throwaway SQL Server container. Front-
   and the production build.
 - **image**: checks that the Docker image builds.
 
-Nothing is pushed to a registry or deployed yet.
+Nothing is pushed to a registry or deployed: deployment to Azure is postponed until
+the build is complete (D54).

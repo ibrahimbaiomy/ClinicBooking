@@ -13,8 +13,10 @@ It has two goals, both required: a real, usable product, and a complete
 deployment pipeline (container → registry → Azure Container Apps, kept
 deployable through CI/CD) that doubles as a portfolio piece.
 
-**The application is small on purpose.** Deployment is built first (Phase 0),
-then features are added on top of a pipeline that already works.
+**The application is small on purpose.** Deployment to Azure is postponed until
+the build is complete (D54). Until then CI builds, tests and builds the Docker
+image on every push, and the postponed steps are on the checklist "Deferred
+until deployment" in `decisions.md`.
 
 ---
 
@@ -84,8 +86,9 @@ Core Identity.
 **Front end** — Angular (latest stable), TypeScript strict, Tailwind alone
 (no component library), Transloco.
 
-**Infrastructure** — Docker, Azure Container Registry, Azure Container Apps,
-Azure SQL, Key Vault, GitHub Actions (OIDC to Azure).
+**Infrastructure** — Docker and GitHub Actions today; Azure Container Registry,
+Azure Container Apps, Azure SQL, Key Vault and OIDC to Azure are the target,
+deferred until the build is complete (D54).
 
 ---
 
@@ -247,6 +250,7 @@ fails without them, otherwise it warns and skips (the Docker `web` stage).
 
 ## Workflow expectations
 
+- **CI must be green before starting the next step.**
 - **Verify before claiming done.** `dotnet build`, `dotnet test`, and
   `npm run build` must all pass, plus `npm run lint`, `npm test`,
   `npm run check:i18n` and `npm run check:api`. State what actually ran.
@@ -364,13 +368,11 @@ cd src/clinic-booking-web && npm run gen:api
 
 ## Definition of done, for the project as a whole
 
+Deployment to Azure is postponed until the build is complete (D54), so the
+eleven items are split in two. None is dropped.
+
+### Done, and kept green by CI
 1. Runs in Docker locally with one command.
-2. Image builds and pushes to Azure Container Registry from CI (OIDC, no
-   stored Azure secret).
-3. Deploys to Azure Container Apps, reachable over HTTPS.
-4. Migrations applied by the pipeline (migrations bundle), not by hand.
-5. Secrets resolved from Key Vault via managed identity.
-6. `/health/live` and `/health/ready` green.
 7. Integration tests run in CI against a real database.
 8. Both languages complete, RTL correct, no untranslated string; the
    translation-key check passes in CI.
@@ -378,7 +380,18 @@ cd src/clinic-booking-web && npm run gen:api
 10. Lint and front-end tests pass in CI.
 11. `README.md` explains the architecture and shows the pipeline badge.
 
-Anything beyond this list is out of scope until all eleven are true.
+### Required before release (deferred, see D54)
+2. Image builds and pushes to Azure Container Registry from CI (OIDC, no
+   stored Azure secret).
+3. Deploys to Azure Container Apps, reachable over HTTPS.
+4. Migrations applied by the pipeline (migrations bundle), not by hand.
+5. Secrets resolved from Key Vault via managed identity.
+6. `/health/live` and `/health/ready` green. (The endpoints exist and are
+   tested locally; what is deferred is running them as the Azure probes.)
+
+The scope of the project is Phases 1 to 5 of `decisions.md`, worked in order;
+the deferred items above, and the checklist "Deferred until deployment" in
+`decisions.md`, must all be true before the project is called released.
 
 ### What CI covers today (the `test`, `web` and `image` jobs, D47)
 Once the first run is green:
@@ -397,4 +410,4 @@ Once the first run is green:
   the Node script tests), plus the production build. There are no end-to-end or
   browser tests.
 - Item 7 (integration tests against a real database) is the `test` job. Items
-  2–6 need the Azure steps.
+  2–5, and item 6 as the Azure probes, are deferred (D54).
