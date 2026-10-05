@@ -161,11 +161,15 @@ and a 409 `error.concurrency.conflict` shown as "reload"; dates through the
 
 **New-screen checklist (front end).**
 1. Route: lazy, behind `authGuard`; add `permissionGuard(Permissions.X)` when it
-   needs a permission. Use `*cbCan` to hide controls (UX only: the API decides).
+   needs a permission. Use `*cbCan` to hide controls (UX only: the API decides). `authGuard`
+   also sends a user who must change the password to `/change-password` (D59), so every new
+   authenticated route inherits it: never write a route that bypasses it, and never put a
+   second `/change-password`-style exemption anywhere.
 2. Data: one method per endpoint in `src/api/`, types from `src/api/types.ts`
    (`RequestBody`/`ResponseBody`) over `schema.d.ts`; never hand-write a model.
-   A new permission name goes into `core/auth/permissions.ts` (checked by
-   `check:permissions`).
+   A new permission name goes into `core/auth/permissions.ts` (`Permissions` for a global one,
+   `ClinicPermissions` for a clinic-scoped one, asked with `canIn` or `*cbCan` with a clinic;
+   checked by `check:permissions`, which also needs its label in `users/ar.json` and `en.json`, D59).
 3. Errors: catch with `parseApiError`, show `ErrorMessageService.keyFor(error.key)`
    through the `transloco` pipe (comment `i18n-keys: error.unexpected` on that
    line); field errors from `error.fieldErrors`; never show server text or a raw key.
@@ -220,6 +224,20 @@ and a 409 `error.concurrency.conflict` shown as "reload"; dates through the
     360 px in RTL and LTR (jsdom cannot show layout: a by-hand check). Copying
     the Specialties screens copies `list-query.ts`, the session service and the
     list/form logic; do not extract shared code before the third entity (D56).
+11. A field that holds a password or any other secret (D59): read it once, empty it
+    **before** the answer comes back (success or failure), reset the show toggle, keep it out of
+    the URL, router state, storage and any signal that outlives the form, and put server messages
+    for the field in a small keys-only signal (a form reset would clear form errors). The show/hide
+    toggle is a button with a **fixed** label and `aria-pressed`. Tests search the DOM, URL, router
+    state and storage for a recognisable value, and fail if the field is emptied only afterwards.
+12. A dialog that asks for input (not a confirmation): pass `focusSelector` to `cb-confirm-dialog`
+    so the field, not Cancel, takes the focus; Cancel, Esc and any other close must empty the field.
+13. A list of things to assign (permissions) comes from the API, never a second hard-coded list;
+    its wording is one translation object read with `translateObject`, and a script (like
+    `check:permissions`) proves every name has wording. A picker over a paged list searches and
+    shows the first page with a "refine" hint instead of loading every page.
+14. In an Angular template attribute, never write `>` inside an expression (`length > 0`): the
+    `check:i18n` text heuristic ends the tag there. Use `!== 0`, or a computed in the class.
 
 **The back-end error-key check.** `check:i18n` scans `src/ClinicBooking.*/**/*.cs`
 (comments skipped) for `"error.<area>.<reason>"` literals and fails when one is
@@ -234,7 +252,9 @@ fails without them, otherwise it warns and skips (the Docker `web` stage).
 `Doctors.Manage = "doctors.manage"`) and an entry in `Permissions.ClinicScoped`
 (`All` and the policies follow; `Global` stays for permissions held once for the
 whole system). (2) Add the name to `src/clinic-booking-web/src/app/core/auth/permissions.ts`
-when a screen uses it: `check:permissions` compares it with the C#. (3) Nothing else
+(`ClinicPermissions`) when a screen uses it: `check:permissions` compares it with the C#. **Add its
+label and description to `public/i18n/users/ar.json` and `en.json`** (`permissions.<area>.<action>`):
+`check:permissions` fails the build for a name that has none (D59). (3) Nothing else
 is needed for assignment: `GET /api/permissions` and
 `PUT /api/users/{id}/clinics/{clinicId}/permissions` read the same list. The seeder
 never grants clinic-scoped permissions: an administrator grants them through the API.

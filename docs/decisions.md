@@ -74,6 +74,7 @@ D55 | ACCEPTED | Clinics back end | clinic, phone, PhoneNumber, address, E.164, 
 D56 | ACCEPTED | Clinics screens (front end) | clinic screens, phone display, untouched guard, header, optional fields, Not set
 D57 | ACCEPTED | User management and clinic-scoped permissions (back end) | users, clinic-scoped, UserClinicPermissions, doctors.manage, IClinicAccess, IClinicResolver, 404 vs 403, last administrator, seed at most once
 D58 | ACCEPTED | Account state, change-password and admin reset (back end) | IsActive, MustChangePassword, disable, change-password, reset password, password, account gate, sessions, lockout, rate limit, front-end hand-off
+D59 | ACCEPTED | User-management and change-password screens (front end) | users screens, change-password page, forced password change, mustChangePassword, session model, canIn, clinic-scoped UI, permission labels, check:permissions, temporary password, password fields, clinic picker, own account, guards, interceptor 403
 O1 | OPEN | Azure region: West Europe vs UAE North | Azure, region, Container Apps, ACR, Key Vault, Azure SQL, price
 O2 | OPEN | Custom domain and TLS, or the default Container Apps hostname | domain, TLS, hostname, Azure
 ```
@@ -814,8 +815,12 @@ be decided separately and will probably be clinic-scoped.
 `ACCEPTED`
 
 All documentation lives in `ClinicBooking/docs`. A short `CLAUDE.md` in the
-repository root tells AI assistants to read `docs/Instructions.md` and
-`docs/decisions.md` before writing code.
+repository root tells AI assistants what to read before writing code: `docs/Instructions.md`
+in full, the index at the top of `docs/decisions.md`, then in full every decision marked `*` in
+the index, every decision whose keywords match the task and every decision those refer to (and any
+decision they are unsure about). The assistant lists the decision numbers it consulted in its plan,
+so coverage can be checked. `CLAUDE.md` also records the rule that assistants never run `docker`
+or `docker compose` (Instructions.md, "Workflow expectations").
 
 ---
 ### D45 — Build, logging and runtime conventions
@@ -1238,13 +1243,19 @@ It is used only with the router, never `window.location`.
 `/forbidden`, `/` (auth guard), and a catch-all that runs the auth guard first,
 so a signed-out deep link goes to login and returns after sign-in, while a
 signed-in user lands on `/`. `permissionGuard(name)` sends a signed-in user
-without the permission to `/forbidden`.
+without the permission to `/forbidden`. *(D59 refines this: a signed-in user who must change the
+password is sent to `/change-password` by these guards instead, and `/change-password` and the
+Users routes are added.)*
 
 **Permissions** come from `/me` as strings. `permissions.ts` names the ones the
 UI asks about (`users.manage`, `specialties.manage`); `npm run check:permissions`
 (plain Node, part of `lint`) fails when one is not defined in `Permissions.cs`.
 `*cbCan` and `SessionService.can()` are **UX only**: the API enforces every
-permission.
+permission. *(D59 refines the session model: `CurrentUser` gains `mustChangePassword` and
+`clinicPermissions`; `can()` stays global-only and `canIn(permission, clinicId)` answers
+clinic-scoped permissions; `permissions.ts` has two objects, `Permissions` and
+`ClinicPermissions`, and `check:permissions` compares each with its C# list. The interceptor also
+reacts to 403 `error.auth.password_change_required`.)*
 
 **API client and errors.** `src/api/auth-api.ts` has one method per auth
 endpoint; `src/api/types.ts` derives request and response types from
@@ -1953,6 +1964,120 @@ endpoints), `PasswordSecrecyTests`.
 **Not built.** Email or SMS recovery, invitation links, two-factor, a self-service
 "forgot password" (the administrator resets it), a password-history rule, a
 breached-password check, checking the lockout in the gate.
+
+---
+
+### D59 — User-management and change-password screens (front end)
+`ACCEPTED` (implements D57 and D58 on the client; refines D52; follows D53 and D56)
+
+Two lazy areas: `/change-password` (scope `account`, any signed-in user) and `/users`,
+`/users/new`, `/users/:id` (scope `users`, `authGuard` + `permissionGuard(users.manage)` on the
+parent route). Both copy the Specialties/Clinics pattern (D53, D56) and share nothing new. The
+types come from `schema.d.ts` only (`src/api/users-api.ts`, `AuthApi.changePassword`).
+
+**Session model (refines D52).** `CurrentUser` has `mustChangePassword` and `clinicPermissions`
+(per clinic: id, both names, permission names). `SessionService` adds `mustChangePassword`,
+`clinicPermissions` (a map by clinic id), `canIn(permission, clinicId)`, `canInAny(permission)`,
+`isCurrentUser(id)`, `refreshUser()`, `requirePasswordChange()` and
+`clearPasswordChangeRequired()`. **`can()` stays global-only**: a clinic grant never answers it, a
+global permission never answers `canIn` (D57). Ids are `number | string` in the schema (int64), so
+every id comparison goes through `Number()` (`isCurrentUser`, `canIn`); both representations are
+tested. `*cbCan` takes an optional clinic: `*cbCan="'doctors.manage'; clinic: id"`. No clinic-aware
+route guard exists yet (no route has a clinic parameter); `canIn`, `canInAny` and the directive
+input are built and tested for Doctors.
+
+**Forced password change.** While `mustChangePassword` is true the user reaches only
+`/change-password`, sign-out and the language switcher.
+- `authGuard` and `permissionGuard` redirect to `/change-password?returnUrl=<url>` (a plain `/` is
+  omitted), so **every authenticated route, present or future, inherits it**. The page itself uses
+  `changePasswordGuard` (signed-in only, never redirects a forced user): that is what prevents a loop.
+- The interceptor, on a 403 `error.auth.password_change_required` from a same-origin `/api/` call
+  other than login, refresh and logout, calls `requirePasswordChange()`: it sets the flag locally and
+  navigates once (concurrent 403s share one navigation, a user already on the page is left alone). The
+  failing request still fails; the user is not retried or refreshed.
+- Startup restore: `/me` returns the flag, the first navigation hits the guard (`/users/5` becomes
+  `/change-password?returnUrl=/users/5`). Login: the returnUrl goes through the guard and on to the
+  page. A forced user opening `/login` ends on `/change-password` in one hop.
+- After a successful change: `refreshUser()` (GET `/api/auth/me`); if that call fails the flag is
+  cleared locally (the server's next 403 would re-force it), then continue to the `safeReturnUrl` or `/`.
+- The header hides the navigation and the "Change password" link meanwhile.
+
+**Change-password page.** Fields: current, new, confirm. Client checks only: required (the back-end
+keys), at most 128, confirm equals new (`account.mismatch`); the server decides the policy and
+"unchanged". Server errors: `error.auth.current_password_incorrect` on the current field,
+`error.auth.password_unchanged` and every `error.password.*` on the new field, 423 and 429 as a
+form-level alert with "about N minutes", anything else form-level with the correlation id. Forced
+variant: a notice, then continues to the returnUrl. **Voluntary variant** (header link): stays on the
+page and says it worked in a focused `role="status"` region (the other devices were signed out by the
+server). **Policy hint:** a visible line under the new field. **It mirrors D48 and must be updated
+together with it**; it states only "at least 12 characters, with an upper-case letter, a lower-case
+letter and a digit". `autocomplete` is `current-password` / `new-password`.
+
+**Secrets (temporary, new and current passwords).** Read once, sent once. The field is emptied
+**before the answer comes back**, whatever it is (success, refusal, network failure), the show toggle
+is reset, and the form is pristine. A password is never in the URL, router state, `history.state`,
+storage, a signal that outlives the form, a log or an error; tests search the DOM, URL, router state
+and storage for a recognisable value. **Show/hide toggles use one pattern: a fixed label with
+`aria-pressed`**, never a label that changes together with it. Server messages for a field are kept as
+keys in a small signal and cleared when that field is edited; they are not the form's own errors,
+because the form is reset after the request.
+
+**Users list (`/users`).** User name (always left to right), status in words (never colour alone), a
+"password change required" indicator, created date (`intl`), an "Open" link; table from md up, cards
+below. Search by user name (300 ms debounce, Enter at once, IME ignored, 100 characters), status filter
+(all, active, disabled), sort (user name default ascending, date created), page sizes 10, 20, 50. URL
+state `?q=&status=&page=&size=&sort=&dir=`, defaults omitted, invalid values clamped; `list-query.ts`
+is a copy of the Clinics one with the status added (not extracted, D56).
+
+**Create user.** User name (3 to 64, `^[A-Za-z0-9._-]+$`, mirroring the server) and temporary password
+(required, at most 128; the policy is the server's). 409 `error.user.user_name_taken` and the 400
+`userName` keys go on the name; `error.password.*` on the password; the name is kept after a failure,
+the password never. Success opens the new user's page with a one-time message that never contains the
+password. **By-hand check:** a browser may offer to save the temporary password an administrator types
+for someone else. The fields use `autocomplete="new-password"`; if a browser still offers, set
+`autocomplete="off"` on them and report it.
+
+**User detail.** Summary, enable (immediate) and disable (confirm dialog, focus on Cancel), reset
+password (a `confirm-dialog` with its own field: **initial focus on the field**, through the dialog's
+`focusSelector` input; Cancel, Esc and every other close empty it), then the two editors. **Your own row
+has no disable or reset** (the API refuses them with 422); the 422 keys are still shown translated, and
+`error.user.last_administrator` is shown in an alert inside the dialog or the editor. Every save is
+followed by a reload of the detail, and the page shows the server's state (permission replacement is
+last-write-wins, D57); if the reload fails the answer of the PUT is shown. **Saving your own
+permissions** (global or clinic) calls `refreshUser()`; if `users.manage` is gone the page leaves for `/`.
+
+**Permission editors.** The names come from `GET /api/permissions` (`global`, `clinicScoped`); nothing
+is hard-coded twice. **Labels:** one translation object, `users.permissions.<area>.<action>.{label,
+description}` (so `users.manage` is `permissions.users.manage`), read whole with `translateObject`:
+no key is built at runtime and no `i18n-keys` list repeats the names. A name without a label shows the
+bare name left to right. **`check:permissions`** now compares **two lists**: `permissions.ts` exports
+`Permissions` (must be in `Permissions.Global`) and `ClinicPermissions` (must be in
+`Permissions.ClinicScoped`); the script resolves the C# constants through their nested classes. It also
+fails when any name in either C# list lacks a label in `users/ar.json` or `users/en.json`, so a new
+permission cannot ship unlabelled. `check:i18n` exempts `users.permissions.` from the unused-key warning.
+`ClinicPermissions` starts with `DoctorsManage`, so the clinic-scoped half of the check has data.
+
+**Per-clinic editor.** One card per clinic the user already has (both names, the UI language first),
+each with its own Save (a full replace for that clinic) and "Remove all" (an empty set); a Save is
+offered only when something changed. Unsaved edits of one card survive the save of another. **Adding a
+clinic:** a search over `GET /api/clinics` (`PageSize` 20, debounced, the first 20 matches, a hint to
+refine when there are more, clinics already listed are not offered), because the clinics list is paged
+and capped at 100. A picked clinic is an unsaved card with nothing selected; Save needs a selection.
+
+**Deviations from the brief, approved in the plan.** The change-password strings live in their own
+scope `account` (a user without `users.manage` loads no user-management strings); the voluntary variant
+stays on the page instead of navigating.
+
+**Tests (Vitest, `HttpTestingController`, no new package).** Session model, guards (including the
+`guestGuard` loop case), interceptor rule and loop protection, `*cbCan` with a clinic, the
+change-password page, the users API client, list state and list, create, detail with both editors and
+the picker, own-account protections (id as number and as string), permission-aware rendering and the
+header, route guards, `PermissionLabels`; Node tests for the `check:permissions` negatives (a name in
+the wrong list, a missing label in one language) and the `check:i18n` exemption.
+
+**Not verified in a browser.** Every signed-in flow needs a password and was not driven. Verified
+without credentials: the signed-out redirects of `/users` and `/change-password` to the login page with
+their `returnUrl`, and that the four scope files are served. The by-hand list is in the session report.
 
 ---
 
