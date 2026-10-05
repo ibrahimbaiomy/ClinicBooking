@@ -4,6 +4,7 @@ import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Routes } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { CurrentUser } from '../api/auth-api';
 import { authInterceptor } from '../app/core/auth/auth.interceptor';
 import { SessionService } from '../app/core/auth/session.service';
 import { provideTestTransloco } from './transloco-testing';
@@ -40,12 +41,26 @@ export function flushProblem(
   );
 }
 
-/** Signs in through the real login flow (login, then /me). */
-export async function signIn(permissions: string[] = [], token = 'token-1'): Promise<void> {
+/** What GET /api/auth/me returns, with the defaults of an ordinary user; override what a test needs. */
+export const meBody = (overrides: Partial<CurrentUser> = {}): CurrentUser => ({
+  id: 1,
+  userName: 'someone',
+  permissions: [],
+  mustChangePassword: false,
+  clinicPermissions: [],
+  ...overrides,
+});
+
+/** Signs in through the real login flow (login, then /me). `user` overrides fields of the /me answer (D59). */
+export async function signIn(
+  permissions: string[] = [],
+  token = 'token-1',
+  user: Partial<CurrentUser> = {},
+): Promise<void> {
   const session = TestBed.inject(SessionService);
   const http = TestBed.inject(HttpTestingController);
   const done = firstValueFrom(session.login('someone', 'a-test-value'));
   http.expectOne('/api/auth/login').flush(tokenResponse(token));
-  http.expectOne('/api/auth/me').flush({ id: 1, userName: 'someone', permissions });
+  http.expectOne('/api/auth/me').flush(meBody({ permissions, ...user }));
   await done;
 }

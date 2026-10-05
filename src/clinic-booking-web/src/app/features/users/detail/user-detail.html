@@ -1,0 +1,215 @@
+<section class="mx-auto max-w-3xl space-y-4">
+  <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">
+    {{ 'users.detail.title' | transloco }}
+  </h2>
+
+  @switch (loadState()) {
+    @case ('loading') {
+      <p class="text-slate-600" aria-busy="true">{{ 'users.loading' | transloco }}</p>
+    }
+    @case ('notFound') {
+      <div role="alert" class="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-900">
+        <p class="font-medium">{{ 'users.detail.not_found.title' | transloco }}</p>
+        <p>{{ 'users.detail.not_found.message' | transloco }}</p>
+        <a routerLink="/users" [queryParams]="listQuery()" class="inline-block text-blue-700 underline">
+          {{ 'users.detail.not_found.back' | transloco }}
+        </a>
+      </div>
+    }
+    @case ('error') {
+      <div role="alert" class="space-y-3 rounded-lg bg-red-50 p-4 text-red-800">
+        <!-- i18n-keys: error.unexpected -->
+        <p>{{ loadErrorKey() | transloco }}</p>
+        <button
+          type="button"
+          class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+          (click)="load()"
+        >
+          {{ 'users.retry' | transloco }}
+        </button>
+      </div>
+    }
+    @default {
+      @if (detail(); as user) {
+        <div #statusBox tabindex="-1" role="status" aria-live="polite" class="outline-none">
+          @if (flash(); as key) {
+            <!-- i18n-keys: users.flash.created, users.flash.enabled, users.flash.disabled, users.flash.password_reset, users.flash.global_saved, users.flash.clinic_saved -->
+            <p class="rounded-lg bg-green-50 p-3 text-sm text-green-900">{{ key | transloco }}</p>
+          }
+        </div>
+
+        <div class="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+          <dl class="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+            <div>
+              <dt class="text-sm text-slate-500">{{ 'users.table.user_name' | transloco }}</dt>
+              <dd class="font-medium"><bdi dir="ltr">{{ user.userName }}</bdi></dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">{{ 'users.table.status' | transloco }}</dt>
+              <dd>
+                <!-- Status is always words, never colour alone. -->
+                @if (user.isActive) {
+                  <span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-900">{{ 'users.status.active' | transloco }}</span>
+                } @else {
+                  <span class="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-900">{{ 'users.status.disabled' | transloco }}</span>
+                }
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">{{ 'users.detail.password' | transloco }}</dt>
+              <dd>
+                @if (user.mustChangePassword) {
+                  <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-900">{{ 'users.status.must_change' | transloco }}</span>
+                } @else {
+                  {{ 'users.detail.password_ok' | transloco }}
+                }
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">{{ 'users.detail.created' | transloco }}</dt>
+              <dd>{{ user.createdAt | intl: 'date' }}</dd>
+            </div>
+          </dl>
+
+          <div role="alert" aria-live="assertive">
+            @if (actionErrorKey(); as key) {
+              <!-- i18n-keys: error.unexpected -->
+              <p class="rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ key | transloco }}</p>
+            }
+          </div>
+
+          @if (isOwn()) {
+            <p class="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{{ 'users.detail.own_account' | transloco }}</p>
+          } @else {
+            <div class="flex flex-wrap gap-2">
+              @if (user.isActive) {
+                <button
+                  type="button"
+                  class="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+                  (click)="askDisable()"
+                >
+                  {{ 'users.detail.disable.action' | transloco }}
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="rounded-lg bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                  [disabled]="enabling()"
+                  [attr.aria-busy]="enabling()"
+                  (click)="enable()"
+                >
+                  {{ 'users.detail.enable.action' | transloco }}
+                </button>
+              }
+              <button
+                type="button"
+                class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                (click)="askReset()"
+              >
+                {{ 'users.detail.reset.action' | transloco }}
+              </button>
+            </div>
+          }
+        </div>
+
+        @if (assignable(); as lists) {
+          <cb-global-permissions-editor [user]="user" [names]="lists.global" (saved)="onSaved($event)" />
+          <cb-clinic-permissions-editor [user]="user" [names]="lists.clinicScoped" (saved)="onSaved($event)" />
+        } @else if (assignableFailed()) {
+          <div role="alert" class="space-y-3 rounded-lg bg-red-50 p-4 text-red-800">
+            <!-- i18n-keys: error.unexpected -->
+            <p>{{ 'error.unexpected' | transloco }}</p>
+            <button
+              type="button"
+              class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+              (click)="loadAssignable()"
+            >
+              {{ 'users.retry' | transloco }}
+            </button>
+          </div>
+        } @else {
+          <p class="text-slate-600" aria-busy="true">{{ 'users.loading' | transloco }}</p>
+        }
+
+        <a routerLink="/users" [queryParams]="listQuery()" class="inline-block text-blue-700 underline">
+          {{ 'users.detail.back' | transloco }}
+        </a>
+
+        <cb-confirm-dialog
+          [open]="pendingDisable()"
+          [busy]="disabling()"
+          [errorKey]="disableErrorKey()"
+          (confirmed)="confirmDisable()"
+          (cancelled)="cancelDisable()"
+        >
+          <span cbDialogTitle>{{ 'users.detail.disable.title' | transloco }}</span>
+          <p>{{ 'users.detail.disable.message' | transloco: { name: user.userName } }}</p>
+          <span cbDialogCancel>{{ 'users.detail.disable.cancel' | transloco }}</span>
+          <span cbDialogConfirm>
+            @if (disabling()) {
+              {{ 'users.detail.disable.disabling' | transloco }}
+            } @else {
+              {{ 'users.detail.disable.confirm' | transloco }}
+            }
+          </span>
+        </cb-confirm-dialog>
+
+        <cb-confirm-dialog
+          [open]="pendingReset()"
+          [busy]="resetting()"
+          [errorKey]="resetErrorKey()"
+          focusSelector="#reset-password"
+          (confirmed)="confirmReset()"
+          (cancelled)="cancelReset()"
+        >
+          <span cbDialogTitle>{{ 'users.detail.reset.title' | transloco }}</span>
+          <p>{{ 'users.detail.reset.message' | transloco: { name: user.userName } }}</p>
+          <div>
+            <label for="reset-password" class="mb-1 block text-sm font-medium">
+              {{ 'users.detail.reset.password' | transloco }}
+            </label>
+            <input
+              id="reset-password"
+              [type]="resetShown() ? 'text' : 'password'"
+              dir="ltr"
+              autocomplete="new-password"
+              autocapitalize="none"
+              spellcheck="false"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              [value]="resetPassword()"
+              [attr.aria-invalid]="resetFieldErrors().length !== 0"
+              aria-describedby="reset-password-hint reset-password-error"
+              (input)="onResetInput($event)"
+            />
+            <button
+              type="button"
+              class="mt-1 rounded text-sm text-blue-700 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              aria-controls="reset-password"
+              [attr.aria-pressed]="resetShown()"
+              (click)="toggleResetShown()"
+            >
+              {{ 'users.detail.reset.show_password' | transloco }}
+            </button>
+            <p id="reset-password-hint" class="mt-1 text-sm text-slate-600">
+              {{ 'users.form.temporary_password_hint' | transloco }}
+            </p>
+            <div id="reset-password-error" role="alert" aria-live="assertive">
+              @for (key of resetFieldErrors(); track $index) {
+                <!-- i18n-keys: error.password.required, error.password.too_long, error.password.too_short, error.password.requires_digit, error.password.requires_lowercase, error.password.requires_uppercase, error.password.requires_unique_chars, error.validation.invalid, error.unexpected -->
+                <p class="mt-1 text-sm text-red-700">{{ key | transloco }}</p>
+              }
+            </div>
+          </div>
+          <span cbDialogCancel>{{ 'users.detail.reset.cancel' | transloco }}</span>
+          <span cbDialogConfirm>
+            @if (resetting()) {
+              {{ 'users.detail.reset.resetting' | transloco }}
+            } @else {
+              {{ 'users.detail.reset.confirm' | transloco }}
+            }
+          </span>
+        </cb-confirm-dialog>
+      }
+    }
+  }
+</section>

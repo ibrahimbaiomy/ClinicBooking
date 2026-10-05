@@ -26,7 +26,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { scanBackendErrorKeys } from './backend-error-keys.mjs';
 
 const LANGS = ['ar', 'en'];
-const IGNORED_UNUSED_PREFIXES = ['error.'];
+// error.* keys are read from the C# by the back-end check; users.permissions is read as one object at
+// runtime (translateObject), and check:permissions verifies it against Permissions.cs (D59).
+const IGNORED_UNUSED_PREFIXES = ['error.', 'users.permissions.'];
 const USER_FACING_ATTRIBUTES = ['title', 'alt', 'placeholder', 'aria-label', 'aria-description', 'aria-placeholder', 'label', 'summary'];
 
 // ---- helpers ------------------------------------------------------------------------------

@@ -1,0 +1,23 @@
+<ul class="space-y-2">
+  @for (name of names(); track name) {
+    <li class="flex items-start gap-3">
+      <input
+        type="checkbox"
+        class="mt-1 size-4 rounded border-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [id]="idOf(name)"
+        [checked]="selected().has(name)"
+        [disabled]="disabled()"
+        [attr.aria-describedby]="labels.labelOf(name) ? idOf(name) + '-description' : null"
+        (change)="onChange(name)"
+      />
+      <div class="min-w-0">
+        @if (labels.labelOf(name); as text) {
+          <label [for]="idOf(name)" class="block font-medium">{{ text.label }}</label>
+          <p [id]="idOf(name) + '-description'" class="text-sm text-slate-600">{{ text.description }}</p>
+        } @else {
+          <label [for]="idOf(name)" class="block font-medium"><bdi dir="ltr">{{ name }}</bdi></label>
+        }
+      </div>
+    </li>
+  }
+</ul>

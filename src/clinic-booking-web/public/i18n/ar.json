@@ -14,7 +14,9 @@
     "nav": {
       "label": "التنقل الرئيسي",
       "specialties": "التخصصات",
-      "clinics": "العيادات"
+      "clinics": "العيادات",
+      "users": "المستخدمون",
+      "change_password": "تغيير كلمة المرور"
     }
   },
   "pager": {

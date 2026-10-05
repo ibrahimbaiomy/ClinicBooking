@@ -1,0 +1,116 @@
+<section class="mx-auto max-w-xl space-y-4">
+  <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">
+    {{ 'users.form.title' | transloco }}
+  </h2>
+
+  <div #errorBox tabindex="-1" role="alert" aria-live="assertive" class="outline-none">
+    @if (formErrorKey(); as key) {
+      <div class="rounded-lg bg-red-50 p-3 text-sm text-red-800">
+        <!-- i18n-keys: error.unexpected -->
+        <p>{{ key | transloco }}</p>
+        @if (correlationId(); as id) {
+          <p class="mt-1 text-xs" dir="ltr">{{ 'users.correlation' | transloco: { id: id } }}</p>
+        }
+      </div>
+    }
+  </div>
+
+  <form novalidate class="space-y-4" (submit)="onSubmit($event)">
+    <div>
+      <label for="user-name" class="mb-1 block text-sm font-medium">
+        {{ 'users.form.user_name' | transloco }}
+      </label>
+      <input
+        id="user-name"
+        type="text"
+        dir="ltr"
+        autocomplete="off"
+        autocapitalize="none"
+        spellcheck="false"
+        class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [formField]="userForm.userName"
+        [attr.aria-invalid]="(userForm.userName().touched() && userForm.userName().invalid()) || serverErrors().userName.length !== 0"
+        aria-describedby="user-name-hint user-name-error"
+        (input)="clearServerErrors('userName')"
+      />
+      <p id="user-name-hint" class="mt-1 text-sm text-slate-600">{{ 'users.form.user_name_hint' | transloco }}</p>
+      <div id="user-name-error" aria-live="polite">
+        @if (userForm.userName().touched()) {
+          @for (error of userForm.userName().errors(); track $index) {
+            <!-- i18n-keys: error.user.user_name_required, error.user.user_name_too_short, error.user.user_name_too_long, error.user.user_name_invalid, error.unexpected -->
+            <p class="mt-1 text-sm text-red-700">{{ messageKey(error.message) | transloco }}</p>
+          }
+        }
+        @for (key of serverErrors().userName; track $index) {
+          <!-- i18n-keys: error.user.user_name_taken, error.user.user_name_required, error.user.user_name_too_short, error.user.user_name_too_long, error.user.user_name_invalid, error.validation.invalid, error.unexpected -->
+          <p class="mt-1 text-sm text-red-700">{{ messageKey(key) | transloco }}</p>
+        }
+      </div>
+    </div>
+
+    <div>
+      <label for="user-temporary-password" class="mb-1 block text-sm font-medium">
+        {{ 'users.form.temporary_password' | transloco }}
+      </label>
+      <input
+        id="user-temporary-password"
+        [type]="showPassword() ? 'text' : 'password'"
+        dir="ltr"
+        autocomplete="new-password"
+        autocapitalize="none"
+        spellcheck="false"
+        class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [formField]="userForm.temporaryPassword"
+        [attr.aria-invalid]="(userForm.temporaryPassword().touched() && userForm.temporaryPassword().invalid()) || serverErrors().temporaryPassword.length !== 0"
+        aria-describedby="user-password-hint user-password-error"
+        (input)="clearServerErrors('temporaryPassword')"
+      />
+      <button
+        type="button"
+        class="mt-1 rounded text-sm text-blue-700 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        aria-controls="user-temporary-password"
+        [attr.aria-pressed]="showPassword()"
+        (click)="togglePassword()"
+      >
+        {{ 'users.form.show_password' | transloco }}
+      </button>
+      <p id="user-password-hint" class="mt-1 text-sm text-slate-600">
+        {{ 'users.form.temporary_password_hint' | transloco }}
+      </p>
+      <div id="user-password-error" aria-live="polite">
+        @if (userForm.temporaryPassword().touched()) {
+          @for (error of userForm.temporaryPassword().errors(); track $index) {
+            <!-- i18n-keys: error.password.required, error.password.too_long, error.unexpected -->
+            <p class="mt-1 text-sm text-red-700">{{ messageKey(error.message) | transloco }}</p>
+          }
+        }
+        @for (key of serverErrors().temporaryPassword; track $index) {
+          <!-- i18n-keys: error.password.too_short, error.password.requires_digit, error.password.requires_lowercase, error.password.requires_uppercase, error.password.requires_unique_chars, error.password.too_long, error.password.required, error.validation.invalid, error.unexpected -->
+          <p class="mt-1 text-sm text-red-700">{{ messageKey(key) | transloco }}</p>
+        }
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-3">
+      <button
+        type="submit"
+        class="rounded-lg bg-blue-700 px-4 py-2 font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [disabled]="userForm().submitting()"
+        [attr.aria-busy]="userForm().submitting()"
+      >
+        @if (userForm().submitting()) {
+          {{ 'users.form.creating' | transloco }}
+        } @else {
+          {{ 'users.form.create' | transloco }}
+        }
+      </button>
+      <a
+        routerLink="/users"
+        [queryParams]="listQuery()"
+        class="rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      >
+        {{ 'users.form.cancel' | transloco }}
+      </a>
+    </div>
+  </form>
+</section>

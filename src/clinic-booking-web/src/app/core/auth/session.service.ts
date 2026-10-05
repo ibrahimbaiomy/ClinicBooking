@@ -18,6 +18,9 @@ import { AuthApi, CurrentUser } from '../../../api/auth-api';
 import { parseApiError } from './api-error';
 import { safeReturnUrl } from './return-url';
 
+/** The change-password page (D59). */
+export const CHANGE_PASSWORD_URL = '/change-password';
+
 export type SessionState = 'unknown' | 'authenticated' | 'anonymous';
 
 /** The startup restore must never hang the first render (D52). */
@@ -43,6 +46,7 @@ export class SessionService {
   private token: string | null = null;
   private inFlight: Observable<string> | null = null;
   private restoring: Promise<void> | null = null;
+  private redirectingToChangePassword = false;
 
   private readonly stateSignal = signal<SessionState>('unknown');
   private readonly userSignal = signal<CurrentUser | null>(null);
@@ -52,12 +56,38 @@ export class SessionService {
   readonly user = this.userSignal.asReadonly();
   readonly isAuthenticated = computed(() => this.stateSignal() === 'authenticated');
   readonly permissions = computed(() => new Set(this.userSignal()?.permissions ?? []));
+  /** True while the account has a temporary password: only change-password, sign-out and the language switcher work (D58, D59). */
+  readonly mustChangePassword = computed(() => this.userSignal()?.mustChangePassword === true);
+  /** Clinic-scoped permissions by clinic id (ids come as number or string: int64 typing, D59). */
+  readonly clinicPermissions = computed(() => {
+    const byClinic = new Map<number, Set<string>>();
+    for (const entry of this.userSignal()?.clinicPermissions ?? []) {
+      byClinic.set(Number(entry.clinicId), new Set(entry.permissions));
+    }
+    return byClinic;
+  });
   /** True once, after a session ended mid-use; the login page shows a notice and clears it. */
   readonly expired = this.expiredSignal.asReadonly();
 
   /** UX only: the API enforces every permission on every call. */
   can(permission: string): boolean {
     return this.permissions().has(permission);
+  }
+
+  /** UX only: a clinic-scoped permission held in that clinic. A global permission never satisfies it (D57). */
+  canIn(permission: string, clinicId: number | string): boolean {
+    return this.clinicPermissions().get(Number(clinicId))?.has(permission) ?? false;
+  }
+
+  /** UX only: a clinic-scoped permission held in at least one clinic (for navigation and lists). */
+  canInAny(permission: string): boolean {
+    return [...this.clinicPermissions().values()].some((held) => held.has(permission));
+  }
+
+  /** Whether an id from the API (number or string) is the signed-in user's own. */
+  isCurrentUser(id: number | string): boolean {
+    const current = this.userSignal()?.id;
+    return current !== undefined && Number(current) === Number(id);
   }
 
   accessToken(): string | null {
@@ -132,6 +162,49 @@ export class SessionService {
       shareReplay({ bufferSize: 1, refCount: false }),
     );
     return this.inFlight;
+  }
+
+  /**
+   * Reads the current user again, so the session matches the server (after a password change or a
+   * change of the caller's own permissions). Returns false when the call failed; the user is then unchanged.
+   */
+  async refreshUser(): Promise<boolean> {
+    try {
+      this.setUser(await firstValueFrom(this.api.me()));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * The server answered 403 error.auth.password_change_required: remember it and send the user to the
+   * change-password page, remembering where they were. Never navigates when already there (no loop), and
+   * concurrent 403s navigate once (D58, D59).
+   */
+  requirePasswordChange(): void {
+    const user = this.userSignal();
+    if (user !== null && !user.mustChangePassword) {
+      this.userSignal.set({ ...user, mustChangePassword: true });
+    }
+
+    if (this.redirectingToChangePassword || this.router.url.split(/[?#]/)[0] === CHANGE_PASSWORD_URL) {
+      return;
+    }
+
+    this.redirectingToChangePassword = true;
+    const returnUrl = safeReturnUrl(this.router.url);
+    void this.router
+      .navigate([CHANGE_PASSWORD_URL], { queryParams: returnUrl === '/' ? {} : { returnUrl } })
+      .finally(() => (this.redirectingToChangePassword = false));
+  }
+
+  /** After a successful change when /me could not be read: the next call tells the truth (403 re-forces it). */
+  clearPasswordChangeRequired(): void {
+    const user = this.userSignal();
+    if (user !== null && user.mustChangePassword) {
+      this.userSignal.set({ ...user, mustChangePassword: false });
+    }
   }
 
   /** The session has ended while in use: clear it and go to login, remembering where the user was. */

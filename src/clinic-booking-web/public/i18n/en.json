@@ -14,7 +14,9 @@
     "nav": {
       "label": "Main navigation",
       "specialties": "Specialties",
-      "clinics": "Clinics"
+      "clinics": "Clinics",
+      "users": "Users",
+      "change_password": "Change password"
     }
   },
   "pager": {

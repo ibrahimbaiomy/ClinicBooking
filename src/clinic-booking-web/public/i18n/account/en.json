@@ -1,0 +1,17 @@
+{
+  "title": "Change password",
+  "forced_notice": "You are using a temporary password. Choose a new password to continue.",
+  "intro": "Enter your current password and choose a new one.",
+  "current": "Current password",
+  "new": "New password",
+  "confirm": "Confirm the new password",
+  "hint": "At least 12 characters, with an upper-case letter, a lower-case letter and a digit.",
+  "mismatch": "The two passwords do not match.",
+  "show_current": "Show current password",
+  "show_new": "Show new password",
+  "submit": "Change password",
+  "submitting": "Saving…",
+  "retry_after": "You can try again in about {{ minutes }} min.",
+  "correlation": "Reference for support: {{ id }}",
+  "success": "Your password was changed. Your other devices were signed out."
+}

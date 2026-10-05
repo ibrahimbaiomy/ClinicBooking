@@ -12,6 +12,8 @@ import { TranslocoPipe } from '@jsverse/transloco';
 /**
  * A confirmation dialog on the native `<dialog>` (D53): `showModal()` gives the focus trap, the
  * inert background, Esc to close and focus restoration to the opener. Focus starts on Cancel.
+ * For an input dialog (D59) the caller passes `focusSelector`, the control inside the dialog that should
+ * take the focus instead of Cancel.
  * The caller owns the state (`open`) and projects every text, so the component has no strings:
  * `[cbDialogTitle]`, the body (default slot), `[cbDialogCancel]` and `[cbDialogConfirm]`.
  */
@@ -23,6 +25,8 @@ import { TranslocoPipe } from '@jsverse/transloco';
 })
 export class ConfirmDialog {
   readonly open = input(false);
+  /** A CSS selector for the control that takes the initial focus; absent means Cancel (a confirmation). */
+  readonly focusSelector = input<string | null>(null);
   /** True while the confirmed action runs: both buttons and Esc are disabled. */
   readonly busy = input(false);
   /** A translation key for an error to show inside the dialog (already resolved by the caller). */
@@ -39,7 +43,9 @@ export class ConfirmDialog {
       const element = this.dialog().nativeElement;
       if (this.open() && !element.open) {
         element.showModal();
-        this.cancelButton().nativeElement.focus();
+        const selector = this.focusSelector();
+        const target = selector === null ? null : element.querySelector<HTMLElement>(selector);
+        (target ?? this.cancelButton().nativeElement).focus();
       } else if (!this.open() && element.open) {
         element.close();
       }

@@ -166,3 +166,11 @@ test('the intl pipe format name is not literal text, but a literal string next t
   const other = run({ 'src/app/a.html': "<p>{{ value | somepipe: 'Hello there' }}</p>" });
   assert.ok(other.errors.some((e) => e.includes('literal string')), other.errors.join('\n'));
 });
+
+test('the users.permissions object is read as a whole at runtime, so its keys are never reported unused (D59)', () => {
+  const labels = { permissions: { users: { manage: { label: 'x', description: 'y' } } }, other: 'z' };
+  const { errors, warnings } = run({ 'public/i18n/users/ar.json': labels, 'public/i18n/users/en.json': labels });
+  assert.deepEqual(errors, []);
+  assert.ok(warnings.some((w) => w.includes('"users.other"')), warnings.join('\n'));
+  assert.ok(!warnings.some((w) => w.includes('users.permissions.')), warnings.join('\n'));
+});

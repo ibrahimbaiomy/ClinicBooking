@@ -1,0 +1,149 @@
+<section aria-labelledby="clinic-permissions-title" class="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+  <h3 id="clinic-permissions-title" class="text-lg font-semibold">{{ 'users.clinics.title' | transloco }}</h3>
+  <p class="text-sm text-slate-600">{{ 'users.clinics.intro' | transloco }}</p>
+
+  @if (cards().length === 0) {
+    <p class="text-sm text-slate-600">{{ 'users.clinics.none' | transloco }}</p>
+  }
+
+  <ul class="space-y-3">
+    @for (card of cards(); track card.id) {
+      <li class="space-y-3 rounded-lg border border-slate-200 p-3">
+        <fieldset class="min-w-0 space-y-3">
+          <legend class="mb-2">
+            <span class="block font-medium"><bdi [attr.lang]="card.primary.lang" [attr.dir]="card.primary.dir">{{ card.primary.text }}</bdi></span>
+            <span class="block text-sm text-slate-500"><bdi [attr.lang]="card.secondary.lang" [attr.dir]="card.secondary.dir">{{ card.secondary.text }}</bdi></span>
+            @if (!card.stored) {
+              <span class="mt-1 inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-900">{{ 'users.clinics.unsaved' | transloco }}</span>
+            }
+          </legend>
+
+          <cb-permission-checklist
+            [idPrefix]="'clinic-' + card.id"
+            [names]="names()"
+            [selected]="selectionOf(card.id)"
+            [disabled]="busyId() !== null"
+            (toggled)="toggle(card.id, $event)"
+          />
+        </fieldset>
+
+        <div role="alert" aria-live="assertive">
+          @if (errors()[card.id]; as key) {
+            <!-- i18n-keys: error.user.not_found, error.clinic.not_found, error.user.permission_unknown, error.concurrency.conflict, error.unexpected -->
+            <p class="rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ key | transloco }}</p>
+          }
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            [disabled]="busyId() !== null || !canSave(card)"
+            [attr.aria-busy]="busyId() === card.id"
+            (click)="save(card)"
+          >
+            @if (busyId() === card.id) {
+              {{ 'users.clinics.saving' | transloco }}
+            } @else {
+              {{ 'users.clinics.save' | transloco }}
+            }
+          </button>
+          @if (card.stored) {
+            <button
+              type="button"
+              class="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-50 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+              [disabled]="busyId() !== null"
+              (click)="removeAll(card)"
+            >
+              {{ 'users.clinics.remove_all' | transloco }}
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              [disabled]="busyId() !== null"
+              (click)="cancelAdded(card)"
+            >
+              {{ 'users.clinics.cancel_add' | transloco }}
+            </button>
+          }
+        </div>
+      </li>
+    }
+  </ul>
+
+  @if (!picking()) {
+    <button
+      type="button"
+      class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      (click)="openPicker()"
+    >
+      {{ 'users.clinics.add' | transloco }}
+    </button>
+  } @else {
+    <div class="space-y-3 rounded-lg border border-slate-300 bg-slate-50 p-3">
+      <form role="search" (submit)="onSearchSubmit($event)">
+        <label for="clinic-picker-search" class="mb-1 block text-sm font-medium">
+          {{ 'users.clinics.search_label' | transloco }}
+        </label>
+        <input
+          id="clinic-picker-search"
+          type="search"
+          autocomplete="off"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          [attr.maxlength]="maxSearchLength"
+          [placeholder]="'users.clinics.search_placeholder' | transloco"
+          [value]="searchText()"
+          (input)="onSearchInput($event)"
+          (compositionend)="onCompositionEnd($event)"
+        />
+      </form>
+
+      <div aria-live="polite" [attr.aria-busy]="pickerLoading()">
+        @if (pickerFailed()) {
+          <div role="alert" class="space-y-2 text-sm text-red-800">
+            <p>{{ 'users.clinics.search_failed' | transloco }}</p>
+            <button
+              type="button"
+              class="rounded-lg border border-red-300 bg-white px-3 py-1.5 font-medium hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+              (click)="retryPicker()"
+            >
+              {{ 'users.retry' | transloco }}
+            </button>
+          </div>
+        } @else if (pickerLoading() && candidates().length === 0) {
+          <p class="text-sm text-slate-600">{{ 'users.clinics.searching' | transloco }}</p>
+        } @else if (candidates().length === 0) {
+          <p class="text-sm text-slate-600">{{ 'users.clinics.no_matches' | transloco }}</p>
+        } @else {
+          <ul class="space-y-2">
+            @for (candidate of candidates(); track candidate.id) {
+              <li>
+                <button
+                  type="button"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-start hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                  [attr.aria-label]="'users.clinics.pick' | transloco: { name: candidate.primary.text }"
+                  (click)="pick(candidate)"
+                >
+                  <span class="block font-medium"><bdi [attr.lang]="candidate.primary.lang" [attr.dir]="candidate.primary.dir">{{ candidate.primary.text }}</bdi></span>
+                  <span class="block text-sm text-slate-500"><bdi [attr.lang]="candidate.secondary.lang" [attr.dir]="candidate.secondary.dir">{{ candidate.secondary.text }}</bdi></span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+        @if (more(); as hint) {
+          <p class="mt-2 text-sm text-slate-600">{{ 'users.clinics.more' | transloco: { shown: hint.shown, total: hint.total } }}</p>
+        }
+      </div>
+
+      <button
+        type="button"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        (click)="closePicker()"
+      >
+        {{ 'users.clinics.cancel_add' | transloco }}
+      </button>
+    </div>
+  }
+</section>

@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, Routes } from '@angular/router';
-import { authGuard, guestGuard } from './core/auth/auth.guard';
+import { authGuard, changePasswordGuard, guestGuard, permissionGuard } from './core/auth/auth.guard';
+import { Permissions } from './core/auth/permissions';
 import { Login } from './features/auth/login';
 import { Forbidden } from './shell/forbidden';
 import { Home } from './shell/home';
@@ -26,6 +27,17 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadChildren: () =>
       import('./features/specialties/specialties.routes').then((m) => m.SPECIALTIES_ROUTES),
+  },
+  {
+    // Not behind authGuard: a user who must change the password has to be able to reach it (D59).
+    path: 'change-password',
+    canActivate: [changePasswordGuard],
+    loadChildren: () => import('./features/account/account.routes').then((m) => m.ACCOUNT_ROUTES),
+  },
+  {
+    path: 'users',
+    canActivate: [authGuard, permissionGuard(Permissions.UsersManage)],
+    loadChildren: () => import('./features/users/users.routes').then((m) => m.USERS_ROUTES),
   },
   { path: '**', canActivate: [authGuard, unknownRoute], component: Home },
 ];

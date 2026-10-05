@@ -5,6 +5,7 @@ import { parseApiError } from './api-error';
 import { SessionService } from './session.service';
 
 const UNAUTHORIZED_KEY = 'error.auth.unauthorized';
+const PASSWORD_CHANGE_REQUIRED_KEY = 'error.auth.password_change_required';
 const AUTH_ENDPOINTS = new Set(['/api/auth/login', '/api/auth/refresh', '/api/auth/logout']);
 
 /** Only same-origin /api requests carry the token: translation files and other URLs never do. */
@@ -53,10 +54,19 @@ function retryOnce(request: HttpRequest<unknown>, next: HttpHandlerFn, session: 
   );
 }
 
+function isPasswordChangeRequired(error: unknown): boolean {
+  return (
+    error instanceof HttpErrorResponse &&
+    error.status === 403 &&
+    parseApiError(error).key === PASSWORD_CHANGE_REQUIRED_KEY
+  );
+}
+
 /**
  * Adds the bearer token and, on a 401 `error.auth.unauthorized`, refreshes once (shared by every
  * concurrent 401) and retries the request once. login, refresh and logout never get a header and
- * never trigger a refresh (D52).
+ * never trigger a refresh (D52). A 403 `error.auth.password_change_required` sends the user to the
+ * change-password page once (D59).
  */
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   if (!isApiRequest(request.url) || isAuthEndpoint(request.url)) {
@@ -68,6 +78,12 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
 
   return next(usedToken === null ? request : withToken(request, usedToken)).pipe(
     catchError((error: unknown) => {
+      if (isPasswordChangeRequired(error)) {
+        // The account has a temporary password (D58): everything but change-password is refused.
+        // The failure still reaches the caller; the user is sent to the change-password page (D59).
+        session.requirePasswordChange();
+        return throwError(() => error);
+      }
       if (usedToken === null || !isUnauthorized(error)) {
         return throwError(() => error);
       }

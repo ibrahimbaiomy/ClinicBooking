@@ -1,0 +1,223 @@
+<section class="space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">
+      {{ 'users.title' | transloco }}
+    </h2>
+    <a
+      routerLink="/users/new"
+      class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+    >
+      {{ 'users.new' | transloco }}
+    </a>
+  </div>
+
+  <form role="search" class="flex flex-wrap items-end gap-3" (submit)="onSearchSubmit($event)">
+    <div class="grow basis-64">
+      <label for="users-search" class="mb-1 block text-sm font-medium">
+        {{ 'users.search.label' | transloco }}
+      </label>
+      <input
+        id="users-search"
+        type="search"
+        autocomplete="off"
+        autocapitalize="none"
+        spellcheck="false"
+        class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [attr.maxlength]="maxSearchLength"
+        [placeholder]="'users.search.placeholder' | transloco"
+        [value]="searchText()"
+        (input)="onSearchInput($event)"
+        (compositionend)="onCompositionEnd($event)"
+      />
+    </div>
+
+    <div>
+      <label for="users-status" class="mb-1 block text-sm font-medium">
+        {{ 'users.filter.label' | transloco }}
+      </label>
+      <select
+        id="users-status"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [value]="state().status"
+        (change)="onStatus($event)"
+      >
+        <option value="all">{{ 'users.filter.all' | transloco }}</option>
+        <option value="active">{{ 'users.filter.active' | transloco }}</option>
+        <option value="disabled">{{ 'users.filter.disabled' | transloco }}</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="users-sort" class="mb-1 block text-sm font-medium">
+        {{ 'users.sort.label' | transloco }}
+      </label>
+      <select
+        id="users-sort"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [value]="state().sortBy"
+        (change)="onSort($event)"
+      >
+        <option value="userName">{{ 'users.sort.user_name' | transloco }}</option>
+        <option value="createdAt">{{ 'users.sort.created_at' | transloco }}</option>
+      </select>
+    </div>
+
+    <button
+      type="button"
+      class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      (click)="toggleDirection()"
+    >
+      @if (state().sortDirection === 'asc') {
+        {{ 'users.sort.asc' | transloco }}
+      } @else {
+        {{ 'users.sort.desc' | transloco }}
+      }
+    </button>
+
+    <div>
+      <label for="users-size" class="mb-1 block text-sm font-medium">
+        {{ 'users.page_size' | transloco }}
+      </label>
+      <select
+        id="users-size"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        (change)="onPageSize($event)"
+      >
+        @for (size of pageSizes; track size) {
+          <option [value]="size" [selected]="size === state().pageSize">{{ size | intl: 'number' }}</option>
+        }
+      </select>
+    </div>
+  </form>
+
+  <div [attr.aria-busy]="loading()">
+    @switch (view()) {
+      @case ('loading') {
+        <p class="text-slate-600">{{ 'users.loading' | transloco }}</p>
+      }
+      @case ('error') {
+        <div role="alert" class="space-y-3 rounded-lg bg-red-50 p-4 text-red-800">
+          <!-- i18n-keys: error.unexpected -->
+          <p>{{ errorKey() | transloco }}</p>
+          @if (correlationId(); as id) {
+            <p class="text-xs" dir="ltr">{{ 'users.correlation' | transloco: { id: id } }}</p>
+          }
+          <button
+            type="button"
+            class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+            (click)="retry()"
+          >
+            {{ 'users.retry' | transloco }}
+          </button>
+        </div>
+      }
+      @case ('none') {
+        <div class="rounded-lg border border-dashed border-slate-300 p-6 text-center text-slate-600">
+          <p>{{ 'users.empty.none' | transloco }}</p>
+        </div>
+      }
+      @case ('no-results') {
+        <div class="space-y-3 rounded-lg border border-dashed border-slate-300 p-6 text-center text-slate-600">
+          <p>{{ 'users.empty.no_results' | transloco }}</p>
+          <button
+            type="button"
+            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            (click)="clearFilters()"
+          >
+            {{ 'users.search.clear' | transloco }}
+          </button>
+        </div>
+      }
+      @default {
+        <p role="status" aria-live="polite" class="mb-2 text-sm text-slate-600">
+          {{ 'users.results' | transloco: { from: from(), to: to(), total: total() } }}
+        </p>
+
+        <table class="hidden w-full border-collapse overflow-hidden rounded-lg border border-slate-200 bg-white md:table">
+          <caption class="sr-only">{{ 'users.table.caption' | transloco }}</caption>
+          <thead class="bg-slate-100 text-sm text-slate-700">
+            <tr>
+              <th
+                scope="col"
+                class="px-4 py-3 text-start font-semibold"
+                [attr.aria-sort]="state().sortBy === 'userName' ? (state().sortDirection === 'asc' ? 'ascending' : 'descending') : null"
+              >
+                {{ 'users.table.user_name' | transloco }}
+              </th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">
+                {{ 'users.table.status' | transloco }}
+              </th>
+              <th
+                scope="col"
+                class="hidden px-4 py-3 text-start font-semibold lg:table-cell"
+                [attr.aria-sort]="state().sortBy === 'createdAt' ? (state().sortDirection === 'asc' ? 'ascending' : 'descending') : null"
+              >
+                {{ 'users.table.created' | transloco }}
+              </th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">
+                {{ 'users.table.actions' | transloco }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.id) {
+              <tr class="border-t border-slate-200 align-top">
+                <th scope="row" class="px-4 py-3 text-start font-medium">
+                  <bdi dir="ltr">{{ row.userName }}</bdi>
+                </th>
+                <td class="px-4 py-3 text-start text-sm">
+                  <ng-container *ngTemplateOutlet="status; context: { $implicit: row }" />
+                </td>
+                <td class="hidden px-4 py-3 text-start text-sm lg:table-cell">{{ row.createdAt | intl: 'date' }}</td>
+                <td class="px-4 py-3 text-start">
+                  <ng-container *ngTemplateOutlet="actions; context: { $implicit: row }" />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+
+        <ul class="space-y-3 md:hidden">
+          @for (row of rows(); track row.id) {
+            <li class="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
+              <div class="font-medium"><bdi dir="ltr">{{ row.userName }}</bdi></div>
+              <div class="text-sm"><ng-container *ngTemplateOutlet="status; context: { $implicit: row }" /></div>
+              <div class="text-xs text-slate-500">
+                {{ 'users.table.created' | transloco }}: {{ row.createdAt | intl: 'date' }}
+              </div>
+              <ng-container *ngTemplateOutlet="actions; context: { $implicit: row }" />
+            </li>
+          }
+        </ul>
+
+        <div class="mt-4">
+          <cb-pager [page]="state().page" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
+        </div>
+      }
+    }
+  </div>
+</section>
+
+<!-- Status is always words, never colour alone. -->
+<ng-template #status let-row>
+  <div class="flex flex-wrap gap-2">
+    @if (row.isActive) {
+      <span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-900">{{ 'users.status.active' | transloco }}</span>
+    } @else {
+      <span class="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-900">{{ 'users.status.disabled' | transloco }}</span>
+    }
+    @if (row.mustChangePassword) {
+      <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-900">{{ 'users.status.must_change' | transloco }}</span>
+    }
+  </div>
+</ng-template>
+
+<ng-template #actions let-row>
+  <a
+    [routerLink]="['/users', row.id]"
+    class="inline-block rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+    [attr.aria-label]="'users.open_named' | transloco: { name: row.userName }"
+  >
+    {{ 'users.open' | transloco }}
+  </a>
+</ng-template>

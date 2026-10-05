@@ -1,15 +1,36 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { safeReturnUrl } from './return-url';
-import { SessionService } from './session.service';
+import { CHANGE_PASSWORD_URL, SessionService } from './session.service';
 
 function loginTree(router: Router, url: string) {
   const returnUrl = safeReturnUrl(url);
   return router.createUrlTree(['/login'], { queryParams: returnUrl === '/' ? {} : { returnUrl } });
 }
 
-/** Signed-out users go to /login and come back to where they were headed. */
+/** A user with a temporary password can reach only the change-password page (D58, D59). */
+function changePasswordTree(router: Router, url: string) {
+  const returnUrl = safeReturnUrl(url);
+  return router.createUrlTree([CHANGE_PASSWORD_URL], { queryParams: returnUrl === '/' ? {} : { returnUrl } });
+}
+
+/**
+ * Signed-out users go to /login and come back to where they were headed. A signed-in user who must
+ * change the password goes to /change-password and comes back after it (D59). The change-password
+ * route itself uses `changePasswordGuard`, so there is no redirect loop.
+ */
 export const authGuard: CanActivateFn = async (_route, state) => {
+  const session = inject(SessionService);
+  const router = inject(Router);
+  await session.whenReady();
+  if (!session.isAuthenticated()) {
+    return loginTree(router, state.url);
+  }
+  return session.mustChangePassword() ? changePasswordTree(router, state.url) : true;
+};
+
+/** /change-password: any signed-in user, forced or not. It never redirects a forced user (no loop). */
+export const changePasswordGuard: CanActivateFn = async (_route, state) => {
   const session = inject(SessionService);
   const router = inject(Router);
   await session.whenReady();
@@ -34,6 +55,9 @@ export function permissionGuard(permission: string): CanActivateFn {
     await session.whenReady();
     if (!session.isAuthenticated()) {
       return loginTree(router, state.url);
+    }
+    if (session.mustChangePassword()) {
+      return changePasswordTree(router, state.url);
     }
     return session.can(permission) || router.parseUrl('/forbidden');
   };

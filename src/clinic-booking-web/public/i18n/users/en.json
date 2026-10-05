@@ -1,0 +1,149 @@
+{
+  "title": "Users",
+  "new": "New user",
+  "open": "Open",
+  "open_named": "Open {{ name }}",
+  "loading": "Loading…",
+  "retry": "Try again",
+  "correlation": "Reference for support: {{ id }}",
+  "page_size": "Per page",
+  "results": "Showing {{ from }}–{{ to }} of {{ total }}",
+  "search": {
+    "label": "Search",
+    "placeholder": "Search by user name",
+    "clear": "Clear search"
+  },
+  "filter": {
+    "label": "Status",
+    "all": "All",
+    "active": "Active",
+    "disabled": "Disabled"
+  },
+  "sort": {
+    "label": "Sort by",
+    "user_name": "User name",
+    "created_at": "Date created",
+    "asc": "Ascending",
+    "desc": "Descending"
+  },
+  "table": {
+    "caption": "List of users",
+    "user_name": "User name",
+    "status": "Status",
+    "created": "Created",
+    "actions": "Actions"
+  },
+  "status": {
+    "active": "Active",
+    "disabled": "Disabled",
+    "must_change": "Password change required"
+  },
+  "empty": {
+    "none": "There are no users yet.",
+    "no_results": "No users match your search."
+  },
+  "form": {
+    "title": "New user",
+    "user_name": "User name",
+    "user_name_hint": "3 to 64 characters: English letters, digits, dot, hyphen and underscore.",
+    "temporary_password": "Temporary password",
+    "temporary_password_hint": "The user must change it at the first sign-in. Give it to the user yourself; it will not be shown again.",
+    "show_password": "Show the temporary password",
+    "create": "Create user",
+    "creating": "Creating…",
+    "cancel": "Cancel"
+  },
+  "flash": {
+    "created": "The user was created. Give them the temporary password yourself; it is not shown again.",
+    "enabled": "The user was enabled.",
+    "disabled": "The user was disabled.",
+    "password_reset": "The password was reset. Give the user the new temporary password yourself.",
+    "global_saved": "The global permissions were saved.",
+    "clinic_saved": "The permissions for this clinic were saved."
+  },
+  "detail": {
+    "title": "User",
+    "back": "Back to users",
+    "created": "Created",
+    "password": "Password",
+    "password_ok": "Set by the user",
+    "own_account": "This is your account. You cannot disable it or reset its password here.",
+    "not_found": {
+      "title": "User not found",
+      "message": "This user does not exist.",
+      "back": "Back to users"
+    },
+    "disable": {
+      "action": "Disable user",
+      "title": "Disable this user?",
+      "message": "{{ name }} will not be able to sign in and will be signed out at once. You can enable the account again later.",
+      "confirm": "Disable",
+      "disabling": "Disabling…",
+      "cancel": "Cancel"
+    },
+    "enable": {
+      "action": "Enable user"
+    },
+    "reset": {
+      "action": "Reset password",
+      "title": "Reset the password",
+      "message": "Set a new temporary password for {{ name }}. They will be signed out everywhere and must change it at the next sign-in.",
+      "password": "New temporary password",
+      "show_password": "Show the temporary password",
+      "confirm": "Reset password",
+      "resetting": "Resetting…",
+      "cancel": "Cancel"
+    }
+  },
+  "global": {
+    "title": "Global permissions",
+    "intro": "These apply to the whole system.",
+    "none": "This user has no global permissions.",
+    "save": "Save permissions",
+    "saving": "Saving…"
+  },
+  "clinics": {
+    "title": "Clinic permissions",
+    "intro": "These apply only in the clinic they are granted for.",
+    "none": "This user has no clinic permissions yet.",
+    "save": "Save",
+    "saving": "Saving…",
+    "remove_all": "Remove all permissions in this clinic",
+    "unsaved": "Not saved yet",
+    "add": "Add a clinic",
+    "search_label": "Search for a clinic",
+    "search_placeholder": "Search by clinic name (Arabic or English)",
+    "searching": "Searching…",
+    "search_failed": "The clinics could not be loaded.",
+    "no_matches": "No clinic matches your search.",
+    "more": "Showing the first {{ shown }} of {{ total }} clinics. Refine your search to find the others.",
+    "pick": "Add {{ name }}",
+    "cancel_add": "Cancel"
+  },
+  "permissions": {
+    "users": {
+      "manage": {
+        "label": "Manage users",
+        "description": "Create users, disable them, reset their passwords and change their permissions."
+      }
+    },
+    "specialties": {
+      "manage": {
+        "label": "Manage specialties",
+        "description": "Create, edit and delete specialties."
+      }
+    },
+    "clinics": {
+      "manage": {
+        "label": "Manage clinics",
+        "description": "Create, edit and delete clinics."
+      }
+    },
+    "doctors": {
+      "manage": {
+        "label": "Manage doctors",
+        "description": "Manage the doctors of this clinic."
+      }
+    }
+  }
+}

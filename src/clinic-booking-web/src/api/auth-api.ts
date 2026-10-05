@@ -5,9 +5,10 @@ import { RequestBody, ResponseBody } from './types';
 
 export type LoginRequest = RequestBody<'/api/auth/login', 'post'>;
 export type AuthResponse = ResponseBody<'/api/auth/login', 'post', 200>;
+export type ChangePasswordRequest = RequestBody<'/api/auth/change-password', 'post'>;
 export type CurrentUser = ResponseBody<'/api/auth/me', 'get', 200>;
 
-/** One method per auth endpoint (login, refresh, logout, me). Nothing else talks to /api/auth. */
+/** One method per auth endpoint (login, refresh, logout, me, change-password). Nothing else talks to /api/auth. */
 @Injectable({ providedIn: 'root' })
 export class AuthApi {
   private readonly http = inject(HttpClient);
@@ -23,6 +24,14 @@ export class AuthApi {
 
   logout(): Observable<void> {
     return this.http.post<void>('/api/auth/logout', null);
+  }
+
+  /**
+   * Changes the caller's own password (D58). Both passwords travel only in this body; the refresh cookie
+   * (same origin) tells the server which session to keep. 204 on success.
+   */
+  changePassword(request: ChangePasswordRequest): Observable<void> {
+    return this.http.post<void>('/api/auth/change-password', request);
   }
 
   me(): Observable<CurrentUser> {
