@@ -1,24 +1,24 @@
 import { Params, ParamMap } from '@angular/router';
 import { ClinicListQuery } from '../../../../api/clinics-api';
+import {
+  isSamePagedSorted,
+  PagedSortedState,
+  pagedSortedParams,
+  pagedSortedQuery,
+  parsePagedSorted,
+  searchParam,
+  SortDirection,
+} from '../../../shared/list/list-params';
 
-/** Mirror of the API's allowed values (the schema types them as plain strings). */
+export { MAX_SEARCH_LENGTH, normalizeSearch, PAGE_SIZES, SORT_DIRECTIONS } from '../../../shared/list/list-params';
+export type { SortDirection };
+
+/** Mirror of the API's allowed values (the schema types them as plain strings; ListClinicsQuery). */
 export const SORT_FIELDS = ['nameAr', 'nameEn', 'createdAt'] as const;
-export const SORT_DIRECTIONS = ['asc', 'desc'] as const;
-export const PAGE_SIZES = [10, 20, 50] as const;
-
-/** Mirror of ListClinicsQuery.MaxSearchLength. */
-export const MAX_SEARCH_LENGTH = 100;
 
 export type SortField = (typeof SORT_FIELDS)[number];
-export type SortDirection = (typeof SORT_DIRECTIONS)[number];
 
-export interface ListState {
-  search: string;
-  page: number;
-  pageSize: number;
-  sortBy: SortField;
-  sortDirection: SortDirection;
-}
+export type ListState = PagedSortedState<SortField>;
 
 /** The one place the defaults live (Arabic-first UI: Arabic name ascending, D53). */
 export const DEFAULT_LIST_STATE: ListState = {
@@ -29,59 +29,21 @@ export const DEFAULT_LIST_STATE: ListState = {
   sortDirection: 'asc',
 };
 
-const isOneOf = <T extends string | number>(list: readonly T[], value: unknown): value is T =>
-  list.some((item) => item === value);
-
-export function normalizeSearch(text: string | null | undefined): string {
-  return (text ?? '').trim().slice(0, MAX_SEARCH_LENGTH);
-}
-
 /** Reads the URL. Anything invalid falls back to the default, so a bad link never breaks the page. */
 export function parseListState(params: ParamMap): ListState {
-  const defaults = DEFAULT_LIST_STATE;
-  const page = Number(params.get('page'));
-  const size = Number(params.get('size'));
-  const sort = params.get('sort');
-  const dir = params.get('dir');
-
-  return {
-    search: normalizeSearch(params.get('q')),
-    page: Number.isSafeInteger(page) && page >= 1 ? page : defaults.page,
-    pageSize: isOneOf(PAGE_SIZES, size) ? size : defaults.pageSize,
-    sortBy: isOneOf(SORT_FIELDS, sort) ? sort : defaults.sortBy,
-    sortDirection: isOneOf(SORT_DIRECTIONS, dir) ? dir : defaults.sortDirection,
-  };
+  return parsePagedSorted(params, SORT_FIELDS, DEFAULT_LIST_STATE);
 }
 
 /** The URL for a state: defaults are omitted, so the default list has a clean URL. */
 export function toQueryParams(state: ListState): Params {
-  const defaults = DEFAULT_LIST_STATE;
-  const params: Params = {};
-  if (state.search !== '') params['q'] = state.search;
-  if (state.page !== defaults.page) params['page'] = state.page;
-  if (state.pageSize !== defaults.pageSize) params['size'] = state.pageSize;
-  if (state.sortBy !== defaults.sortBy) params['sort'] = state.sortBy;
-  if (state.sortDirection !== defaults.sortDirection) params['dir'] = state.sortDirection;
-  return params;
+  return { ...searchParam(state), ...pagedSortedParams(state, DEFAULT_LIST_STATE) };
 }
 
 /** The API query for a state: always explicit, except an empty search, which is omitted. */
 export function toApiQuery(state: ListState): ClinicListQuery {
-  return {
-    ...(state.search === '' ? {} : { Search: state.search }),
-    Page: state.page,
-    PageSize: state.pageSize,
-    SortBy: state.sortBy,
-    SortDirection: state.sortDirection,
-  };
+  return pagedSortedQuery(state);
 }
 
 export function isSameListState(a: ListState, b: ListState): boolean {
-  return (
-    a.search === b.search &&
-    a.page === b.page &&
-    a.pageSize === b.pageSize &&
-    a.sortBy === b.sortBy &&
-    a.sortDirection === b.sortDirection
-  );
+  return isSamePagedSorted(a, b);
 }
