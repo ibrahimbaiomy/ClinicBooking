@@ -1,0 +1,247 @@
+<section class="mx-auto max-w-3xl space-y-4">
+  <a
+    [routerLink]="['/doctors', doctorId]"
+    class="inline-block rounded text-sm text-blue-700 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+  >
+    {{ 'doctors.hours.back' | transloco }}
+  </a>
+
+  <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">{{ 'doctors.hours.title' | transloco }}</h2>
+
+  @switch (loadState()) {
+    @case ('loading') {
+      <p class="text-slate-600" aria-busy="true">{{ 'doctors.loading' | transloco }}</p>
+    }
+    @case ('notFound') {
+      <div id="hours-not-found" role="alert" class="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-900">
+        @if (loadErrorKey(); as key) {
+          <!-- i18n-keys: error.doctor.not_found, error.clinic.not_found, error.doctor.clinic_not_assigned, error.unexpected -->
+          <p>{{ key | transloco }}</p>
+        } @else {
+          <p>{{ 'doctors.not_found.message' | transloco }}</p>
+        }
+        <a routerLink="/doctors" class="inline-block text-blue-700 underline">{{ 'doctors.not_found.back' | transloco }}</a>
+      </div>
+    }
+    @case ('error') {
+      <div role="alert" class="space-y-3 rounded-lg bg-red-50 p-4 text-red-800">
+        <!-- i18n-keys: error.unexpected -->
+        <p>{{ loadErrorKey() | transloco }}</p>
+        <button
+          type="button"
+          class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+          (click)="load()"
+        >
+          {{ 'doctors.retry' | transloco }}
+        </button>
+      </div>
+    }
+    @default {
+      @if (names(); as name) {
+        <div id="hours-names" class="space-y-1">
+          <p class="font-medium">
+            <bdi [attr.lang]="name.doctor.primary.lang" [attr.dir]="name.doctor.primary.dir">{{ name.doctor.primary.text }}</bdi>
+            <span class="text-sm font-normal text-slate-500">
+              (<bdi [attr.lang]="name.doctor.secondary.lang" [attr.dir]="name.doctor.secondary.dir">{{ name.doctor.secondary.text }}</bdi>)
+            </span>
+          </p>
+          @if (name.clinic; as clinic) {
+            <p>
+              <bdi [attr.lang]="clinic.primary.lang" [attr.dir]="clinic.primary.dir">{{ clinic.primary.text }}</bdi>
+              <span class="text-sm text-slate-500">
+                (<bdi [attr.lang]="clinic.secondary.lang" [attr.dir]="clinic.secondary.dir">{{ clinic.secondary.text }}</bdi>)
+              </span>
+            </p>
+          }
+        </div>
+      }
+
+      @if (hours()?.isActive === false) {
+        <p id="hours-inactive" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{{ 'doctors.hours.inactive' | transloco }}</p>
+      }
+      @if (!canEdit()) {
+        <p id="hours-read-only" class="rounded-lg bg-slate-100 p-3 text-sm text-slate-700">{{ 'doctors.hours.read_only' | transloco }}</p>
+      }
+
+      <div role="status" aria-live="polite">
+        @if (flash(); as key) {
+          <!-- i18n-keys: doctors.flash.hours_saved -->
+          <p class="rounded-lg bg-green-50 p-3 text-sm text-green-900">{{ key | transloco }}</p>
+        }
+      </div>
+
+      <div #banner tabindex="-1" role="alert" aria-live="assertive" class="outline-none">
+        @if (conflict()) {
+          <div id="hours-conflict" class="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-900">
+            <p class="font-medium">{{ 'doctors.conflict.title' | transloco }}</p>
+            <p>{{ 'doctors.conflict.message' | transloco }}</p>
+            <button
+              id="hours-reload"
+              type="button"
+              class="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+              [disabled]="reloading()"
+              [attr.aria-busy]="reloading()"
+              (click)="reload()"
+            >
+              @if (reloading()) {
+                {{ 'doctors.conflict.reloading' | transloco }}
+              } @else {
+                {{ 'doctors.conflict.reload' | transloco }}
+              }
+            </button>
+          </div>
+        }
+        @if (formErrorKey(); as key) {
+          <div id="hours-error" class="rounded-lg bg-red-50 p-3 text-sm text-red-800">
+            <!-- i18n-keys: doctors.hours.invalid, doctors.hours.other_clinic, error.doctor.periods_overlap, error.doctor.period_overlaps_other_clinic, error.doctor.period_shorter_than_slot, error.unexpected -->
+            <p>{{ key | transloco: { clinic: formErrorClinic() } }}</p>
+            @if (correlationId(); as id) {
+              <p class="mt-1 text-xs" dir="ltr">{{ 'doctors.correlation' | transloco: { id: id } }}</p>
+            }
+          </div>
+        }
+      </div>
+
+      @if (earlier(); as mine) {
+        <div id="hours-earlier" class="space-y-2 rounded-lg border border-slate-300 bg-slate-50 p-4 text-sm">
+          <p class="font-medium">{{ 'doctors.conflict.earlier_title' | transloco }}</p>
+          <p class="text-slate-600">{{ 'doctors.conflict.earlier_hint' | transloco }}</p>
+          <ul>
+            @for (day of mine; track day.dayOfWeek) {
+              @if (day.periods.length !== 0) {
+                <li>
+                    <!-- i18n-keys: doctors.days.sunday, doctors.days.monday, doctors.days.tuesday, doctors.days.wednesday, doctors.days.thursday, doctors.days.friday, doctors.days.saturday -->
+                  {{ dayKeys[day.dayOfWeek] | transloco }}:
+                  @for (period of day.periods; track period.key) {
+                    <bdi dir="ltr" class="whitespace-nowrap">{{ period.start }}–{{ period.end }}</bdi>@if (!$last) {<span>، </span>}
+                  }
+                </li>
+              }
+            }
+          </ul>
+          <button type="button" class="text-blue-700 underline" (click)="dismissEarlier()">{{ 'doctors.conflict.dismiss' | transloco }}</button>
+        </div>
+      }
+
+      <form id="hours-form" novalidate class="space-y-4" [attr.aria-busy]="saving()" (submit)="save($event)">
+        @for (day of week(); track day.dayOfWeek) {
+          <fieldset class="space-y-2 rounded-lg border border-slate-200 bg-white p-4" [attr.data-day]="day.dayOfWeek">
+                    <!-- i18n-keys: doctors.days.sunday, doctors.days.monday, doctors.days.tuesday, doctors.days.wednesday, doctors.days.thursday, doctors.days.friday, doctors.days.saturday -->
+            <legend class="px-1 font-medium">{{ dayKeys[day.dayOfWeek] | transloco }}</legend>
+
+            @if (day.periods.length === 0) {
+              <p class="text-sm text-slate-500">{{ 'doctors.hours.no_periods' | transloco }}</p>
+            }
+
+            @for (period of day.periods; track period.key; let number = $index) {
+              <div class="space-y-1" [attr.data-period]="period.key">
+                <div class="flex flex-wrap items-end gap-3">
+                  <div>
+                    <label [for]="'period-' + period.key + '-start'" class="mb-1 block text-sm">
+                      {{ 'doctors.hours.start' | transloco }}
+                    <!-- i18n-keys: doctors.days.sunday, doctors.days.monday, doctors.days.tuesday, doctors.days.wednesday, doctors.days.thursday, doctors.days.friday, doctors.days.saturday -->
+                      <span class="sr-only">{{ 'doctors.hours.period_label' | transloco: { day: (dayKeys[day.dayOfWeek] | transloco), number: number + 1 } }}</span>
+                    </label>
+                    <input
+                      type="time"
+                      step="60"
+                      dir="ltr"
+                      class="rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:bg-slate-100"
+                      [id]="'period-' + period.key + '-start'"
+                      [value]="period.start"
+                      [disabled]="!canEdit()"
+                      [attr.aria-invalid]="errorsOf(period.key).start.length !== 0 || errorsOf(period.key).rule !== null"
+                      [attr.aria-describedby]="'period-' + period.key + '-errors'"
+                      (input)="setTime(day.dayOfWeek, period.key, 'start', $event)"
+                    />
+                  </div>
+                  <div>
+                    <label [for]="'period-' + period.key + '-end'" class="mb-1 block text-sm">
+                      {{ 'doctors.hours.end' | transloco }}
+                    <!-- i18n-keys: doctors.days.sunday, doctors.days.monday, doctors.days.tuesday, doctors.days.wednesday, doctors.days.thursday, doctors.days.friday, doctors.days.saturday -->
+                      <span class="sr-only">{{ 'doctors.hours.period_label' | transloco: { day: (dayKeys[day.dayOfWeek] | transloco), number: number + 1 } }}</span>
+                    </label>
+                    <input
+                      type="time"
+                      step="60"
+                      dir="ltr"
+                      class="rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:bg-slate-100"
+                      [id]="'period-' + period.key + '-end'"
+                      [value]="period.end"
+                      [disabled]="!canEdit()"
+                      [attr.aria-invalid]="errorsOf(period.key).end.length !== 0"
+                      [attr.aria-describedby]="'period-' + period.key + '-errors'"
+                      (input)="setTime(day.dayOfWeek, period.key, 'end', $event)"
+                    />
+                  </div>
+                  @if (canEdit()) {
+                    <button
+                      type="button"
+                      class="remove rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                      (click)="removePeriod(day.dayOfWeek, period.key)"
+                    >
+                      {{ 'doctors.hours.remove' | transloco }}
+                      <!-- i18n-keys: doctors.days.sunday, doctors.days.monday, doctors.days.tuesday, doctors.days.wednesday, doctors.days.thursday, doctors.days.friday, doctors.days.saturday -->
+                      <span class="sr-only">{{ 'doctors.hours.period_label' | transloco: { day: (dayKeys[day.dayOfWeek] | transloco), number: number + 1 } }}</span>
+                    </button>
+                  }
+                </div>
+                <div [id]="'period-' + period.key + '-errors'" class="period-errors" aria-live="polite">
+                  @for (key of errorsOf(period.key).start; track $index) {
+                    <!-- i18n-keys: doctors.hours.required, error.doctor.period_start_required, error.doctor.period_time_invalid, error.doctor.period_day_invalid, error.validation.invalid, error.unexpected -->
+                    <p class="text-sm text-red-700">{{ messageKey(key) | transloco }}</p>
+                  }
+                  @for (key of errorsOf(period.key).end; track $index) {
+                    <!-- i18n-keys: doctors.hours.required, error.doctor.period_end_required, error.doctor.period_time_invalid, error.doctor.period_end_not_after_start, error.validation.invalid, error.unexpected -->
+                    <p class="text-sm text-red-700">{{ messageKey(key) | transloco }}</p>
+                  }
+                  @if (errorsOf(period.key).rule; as rule) {
+                    <!-- i18n-keys: doctors.hours.other_clinic, error.doctor.periods_overlap, error.doctor.period_overlaps_other_clinic, error.doctor.period_shorter_than_slot, error.unexpected -->
+                    <p class="text-sm text-red-700">{{ rule.key | transloco: { clinic: rule.clinic } }}</p>
+                  }
+                </div>
+              </div>
+            }
+
+            @if (canEdit()) {
+              <button
+                type="button"
+                class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                [id]="'add-' + day.dayOfWeek"
+                (click)="addPeriod(day.dayOfWeek)"
+              >
+                {{ 'doctors.hours.add' | transloco }}
+                <!-- i18n-keys: doctors.days.sunday, doctors.days.monday, doctors.days.tuesday, doctors.days.wednesday, doctors.days.thursday, doctors.days.friday, doctors.days.saturday -->
+                <span class="sr-only">{{ dayKeys[day.dayOfWeek] | transloco }}</span>
+              </button>
+            }
+          </fieldset>
+        }
+
+        @if (canEdit()) {
+          <div class="flex flex-wrap gap-3">
+            <button
+              id="hours-save"
+              type="submit"
+              class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              [disabled]="saving() || conflict()"
+              [attr.aria-busy]="saving()"
+            >
+              @if (saving()) {
+                {{ 'doctors.hours.saving' | transloco }}
+              } @else {
+                {{ 'doctors.hours.save' | transloco }}
+              }
+            </button>
+            <a
+              [routerLink]="['/doctors', doctorId]"
+              class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            >
+              {{ 'doctors.hours.cancel' | transloco }}
+            </a>
+          </div>
+        }
+      </form>
+    }
+  }
+</section>

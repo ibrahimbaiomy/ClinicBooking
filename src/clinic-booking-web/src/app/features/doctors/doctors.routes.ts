@@ -4,6 +4,7 @@ import { clinicPermissionInAnyGuard } from '../../core/auth/auth.guard';
 import { ClinicPermissions } from '../../core/auth/permissions';
 import { DoctorDetail } from './detail/doctor-detail';
 import { DoctorForm } from './form/doctor-form';
+import { WorkingHoursPage } from './hours/working-hours';
 import { DoctorsList } from './list/doctors-list';
 import { DOCTORS_SCOPE, doctorsScopeResolver } from './doctors.scope';
 
@@ -26,6 +27,8 @@ export const DOCTORS_ROUTES: Routes = [
       { path: ':id', component: DoctorDetail },
       // Editing is allowed after loading, by canIn on the doctor's clinics (D62): no route guard can know them.
       { path: ':id/edit', component: DoctorForm },
+      // Read by anyone signed in; editable with doctors.manage in that clinic, decided on the page (D62).
+      { path: ':id/clinics/:clinicId/hours', component: WorkingHoursPage },
     ],
   },
 ];

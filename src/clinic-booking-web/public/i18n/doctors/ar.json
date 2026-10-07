@@ -152,16 +152,13 @@
     "end": "إلى",
     "period_label": "{{ day }}، الفترة {{ number }}",
     "add": "إضافة فترة",
-    "add_named": "إضافة فترة يوم {{ day }}",
     "remove": "حذف",
-    "remove_named": "حذف {{ day }}، الفترة {{ number }}",
     "save": "حفظ مواعيد العمل",
     "saving": "جارٍ الحفظ…",
     "cancel": "إلغاء",
     "invalid": "بعض الفترات تحتاج إلى مراجعة. راجع الحقول المحددة.",
     "required": "أدخل الوقت.",
-    "other_clinic": "تتداخل مع مواعيد الطبيب في {{ clinic }}.",
-    "other_clinic_unknown": "تتداخل مع مواعيد الطبيب في عيادة أخرى."
+    "other_clinic": "تتداخل مع مواعيد الطبيب في {{ clinic }}."
   },
   "days": {
     "sunday": "الأحد",
