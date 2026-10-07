@@ -8,7 +8,7 @@ namespace ClinicBooking.Domain.Entities;
 /// normalised columns are set together with the names (<see cref="SetNames"/>). The address and the
 /// phone number are optional contact details (<see cref="SetContact"/>, D55).
 /// </summary>
-public class Clinic : SoftDeletableEntity
+public class Clinic : SoftDeletableEntity, IBilingualName
 {
     public const int NameMaxLength = 100;
     public const int AddressMaxLength = 300;

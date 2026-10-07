@@ -6,7 +6,7 @@ namespace ClinicBooking.Domain.Entities;
 /// Reference data with an Arabic and an English name. The two normalised columns are set
 /// together with the names (<see cref="SetNames"/>), so they can never be forgotten (D49).
 /// </summary>
-public class Specialty : SoftDeletableEntity
+public class Specialty : SoftDeletableEntity, IBilingualName
 {
     public const int NameMaxLength = 100;
 

@@ -3,7 +3,6 @@ using ClinicBooking.Application.Features.Common;
 using ClinicBooking.Application.Interfaces;
 using ClinicBooking.Domain.Entities;
 using ClinicBooking.Domain.Exceptions;
-using ClinicBooking.Domain.ValueObjects;
 
 namespace ClinicBooking.Application.Features.Clinics;
 
@@ -17,26 +16,11 @@ public sealed class ClinicService : IClinicService
         _db = db;
     }
 
-    public async Task<PagedResponse<ClinicResponse>> ListAsync(ListClinicsQuery query, CancellationToken cancellationToken)
-    {
-        var clinics = _db.Clinics.AsQueryable();
-
-        // Every word of the search must match one of the two names (D49). Address and phone are not searched.
-        foreach (var token in SearchText.Normalize(query.Search).Split(' ', StringSplitOptions.RemoveEmptyEntries))
-        {
-            clinics = clinics.Where(c => c.NameArNormalized.Contains(token) || c.NameEnNormalized.Contains(token));
-        }
-
-        var totalCount = await clinics.CountAsync(cancellationToken);
-
-        var items = await Order(clinics, query)
-            .Skip((query.Page - 1) * query.PageSize)
-            .Take(query.PageSize)
-            .Select(ClinicMapping.ToResponseExpression)
-            .ToListAsync(cancellationToken);
-
-        return new PagedResponse<ClinicResponse>(items, query.Page, query.PageSize, totalCount);
-    }
+    // Address and phone are not searched (D55).
+    public Task<PagedResponse<ClinicResponse>> ListAsync(ListClinicsQuery query, CancellationToken cancellationToken) =>
+        _db.Clinics
+            .MatchingEveryWord(query.Search)
+            .ToPageAsync(query, ClinicMapping.ToResponseExpression, cancellationToken);
 
     public async Task<ClinicResponse> GetAsync(long id, CancellationToken cancellationToken)
     {
@@ -61,19 +45,13 @@ public sealed class ClinicService : IClinicService
     public async Task<ClinicResponse> UpdateAsync(long id, UpdateClinicRequest request, CancellationToken cancellationToken)
     {
         var clinic = await FindAsync(id, cancellationToken);
-
-        // The client edited a version it read earlier; if the row has moved on, it must reload.
-        // The save below is guarded too (EF compares the version it loaded).
-        if (!RowVersionCodec.TryDecode(request.RowVersion, out var sent) || !sent.AsSpan().SequenceEqual(clinic.RowVersion))
-        {
-            throw new ConflictException(ConcurrencyErrors.Conflict);
-        }
+        ConcurrencyGuard.EnsureCurrent(clinic, request.RowVersion);
 
         clinic.SetNames(request.NameAr!, request.NameEn!);
         clinic.SetContact(request.Address, request.Phone);
         await EnsureNamesAreFreeAsync(clinic, clinic.Id, cancellationToken);
 
-        await SaveGuardedAsync(cancellationToken);
+        await _db.SaveGuardedAsync(cancellationToken);
 
         return clinic.ToResponse();
     }
@@ -83,7 +61,7 @@ public sealed class ClinicService : IClinicService
         var clinic = await FindAsync(id, cancellationToken);
 
         _db.Clinics.Remove(clinic);
-        await SaveGuardedAsync(cancellationToken);
+        await _db.SaveGuardedAsync(cancellationToken);
     }
 
     private async Task<Clinic> FindAsync(long id, CancellationToken cancellationToken) =>
@@ -106,47 +84,5 @@ public sealed class ClinicService : IClinicService
         {
             throw new ConflictException(ClinicErrors.NameEnTaken);
         }
-    }
-
-    private async Task SaveGuardedAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            throw new ConflictException(ConcurrencyErrors.Conflict);
-        }
-    }
-
-    // Sorting by the normalised text gives Arabic alphabetical order, ignoring hamza forms and
-    // diacritics. Id breaks ties so pages are stable.
-    private static IOrderedQueryable<Clinic> Order(IQueryable<Clinic> clinics, ListClinicsQuery query)
-    {
-        var descending = string.Equals(query.SortDirection, "desc", StringComparison.OrdinalIgnoreCase);
-
-        IOrderedQueryable<Clinic> ordered;
-        if (string.Equals(query.SortBy, ClinicSortFields.NameAr, StringComparison.OrdinalIgnoreCase))
-        {
-            ordered = descending
-                ? clinics.OrderByDescending(c => c.NameArNormalized)
-                : clinics.OrderBy(c => c.NameArNormalized);
-        }
-        else if (string.Equals(query.SortBy, ClinicSortFields.CreatedAt, StringComparison.OrdinalIgnoreCase))
-        {
-            // Newest first also means the highest id first when rows share a timestamp.
-            return descending
-                ? clinics.OrderByDescending(c => c.CreatedAt).ThenByDescending(c => c.Id)
-                : clinics.OrderBy(c => c.CreatedAt).ThenBy(c => c.Id);
-        }
-        else
-        {
-            ordered = descending
-                ? clinics.OrderByDescending(c => c.NameEnNormalized)
-                : clinics.OrderBy(c => c.NameEnNormalized);
-        }
-
-        return ordered.ThenBy(c => c.Id);
     }
 }
