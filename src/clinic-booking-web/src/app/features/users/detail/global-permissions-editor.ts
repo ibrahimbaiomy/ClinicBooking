@@ -15,7 +15,7 @@ import {
 import { TranslocoPipe } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { UserDetail, UsersApi } from '../../../../api/users-api';
-import { parseApiError } from '../../../core/auth/api-error';
+import { parseApiError, supportReference } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
 import { PermissionChecklist } from './permission-checklist';
 
@@ -86,7 +86,7 @@ export class GlobalPermissionsEditor {
     } catch (error: unknown) {
       const failure = parseApiError(error);
       this.errorKey.set(this.messages.forError(failure));
-      this.correlationId.set(failure.correlationId);
+      this.correlationId.set(supportReference(failure));
       afterNextRender(() => this.errorBox()?.nativeElement.focus(), { injector: this.injector });
     } finally {
       this.saving.set(false);

@@ -25,7 +25,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { Doctor, DoctorsApi } from '../../../../api/doctors-api';
-import { ApiError, NETWORK_ERROR_KEY, parseApiError, UNEXPECTED_ERROR_KEY } from '../../../core/auth/api-error';
+import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
 import { ClinicPermissions } from '../../../core/auth/permissions';
 import { SessionService } from '../../../core/auth/session.service';
@@ -344,8 +344,7 @@ export class DoctorForm {
     } else if (errors.length === 0) {
       // 403 (a clinic not managed any more) and everything unexplained: form-level (D62).
       this.formErrorKey.set(this.messages.forError(error));
-      // A reference to quote only when nobody can explain the failure (D52).
-      this.correlationId.set(error.key === UNEXPECTED_ERROR_KEY || error.key === NETWORK_ERROR_KEY ? error.correlationId : null);
+      this.correlationId.set(supportReference(error));
     } else {
       afterNextRender(() => this.focusFirstInvalid(), { injector: this.injector });
     }

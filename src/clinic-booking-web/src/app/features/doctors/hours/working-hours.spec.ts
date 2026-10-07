@@ -230,6 +230,11 @@ describe('WorkingHoursPage (D62)', () => {
       await settle();
 
       expect(text('#hours-error')).toBe(ar.error.doctor.periods_overlap);
+      // A keyed failure shows no reference to quote (D52); an unexpected one does.
+      expect(text('#hours-error')).not.toContain('corr-123');
+      flushProblem((await save())!, 500, 'error.unexpected');
+      await settle();
+      expect(text('#hours-error')).toContain('corr-123');
       expect(all('.period-errors').every((e) => e.textContent?.trim() === '')).toBe(true);
     });
 

@@ -15,7 +15,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { firstValueFrom, forkJoin } from 'rxjs';
 import { Doctor, DoctorsApi, WorkingHours } from '../../../../api/doctors-api';
-import { ApiError, NETWORK_ERROR_KEY, parseApiError, UNEXPECTED_ERROR_KEY } from '../../../core/auth/api-error';
+import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
 import { ClinicPermissions } from '../../../core/auth/permissions';
 import { SessionService } from '../../../core/auth/session.service';
@@ -282,8 +282,7 @@ export class WorkingHoursPage {
     } else if (Object.keys(found).length === 0) {
       this.formErrorKey.set(rule.key);
       this.formErrorClinic.set(rule.clinic);
-      // A reference to quote only when nobody can explain the failure (D52).
-      this.correlationId.set(error.key === UNEXPECTED_ERROR_KEY || error.key === NETWORK_ERROR_KEY ? error.correlationId : null);
+      this.correlationId.set(supportReference(error));
     } else {
       this.formErrorKey.set('doctors.hours.invalid');
       this.focusFirstError();

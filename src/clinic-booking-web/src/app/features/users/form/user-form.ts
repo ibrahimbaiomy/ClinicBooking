@@ -13,7 +13,7 @@ import { Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { UsersApi } from '../../../../api/users-api';
-import { ApiError, parseApiError } from '../../../core/auth/api-error';
+import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
 import { UsersSession } from '../users-session';
 
@@ -157,7 +157,7 @@ export class UserForm {
     }
 
     this.formErrorKey.set(this.messages.forError(error));
-    this.correlationId.set(error.correlationId);
+    this.correlationId.set(supportReference(error));
     afterNextRender(() => this.errorBox()?.nativeElement.focus(), { injector: this.injector });
   }
 }

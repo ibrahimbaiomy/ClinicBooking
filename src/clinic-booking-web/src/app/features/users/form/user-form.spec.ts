@@ -326,6 +326,17 @@ describe('UserForm (create a user, D57, D59)', () => {
       root().remove();
     });
 
+    it('a form-level message that has its own key shows no reference to quote (D52)', async () => {
+      await fill();
+
+      await submit();
+      flushProblem(http.expectOne(USERS_URL), 403, 'error.auth.forbidden');
+      await settle();
+
+      expect(text('[role=alert]')).toContain(ar.error.auth.forbidden);
+      expect(text('[role=alert]')).not.toContain('corr-123');
+    });
+
     it('a network failure is shown as such', async () => {
       await fill();
 

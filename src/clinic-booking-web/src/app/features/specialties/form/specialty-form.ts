@@ -24,7 +24,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { SpecialtiesApi, Specialty } from '../../../../api/specialties-api';
-import { ApiError, parseApiError } from '../../../core/auth/api-error';
+import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
 import { IntlPipe } from '../../../core/format/intl.pipe';
 import { SpecialtiesSession } from '../specialties-session';
@@ -229,7 +229,7 @@ export class SpecialtyForm {
       this.loadState.set('notFound');
     } else if (errors.length === 0) {
       this.formErrorKey.set(this.messages.forError(error));
-      this.correlationId.set(error.correlationId);
+      this.correlationId.set(supportReference(error));
     }
 
     return errors;

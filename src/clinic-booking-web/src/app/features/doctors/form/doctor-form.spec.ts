@@ -184,6 +184,13 @@ describe('DoctorForm (D62)', () => {
       flushProblem(http.expectOne({ method: 'POST', url: DOCTORS_URL }), 403, 'error.auth.forbidden');
       await settle();
       expect(text('#doctor-form-error')).toContain(ar.error.auth.forbidden);
+      expect(text('#doctor-form-error')).not.toContain('corr-123'); // a keyed failure has no reference (D52)
+
+      await submit();
+      flushProblem(http.expectOne({ method: 'POST', url: DOCTORS_URL }), 500, 'error.unexpected');
+      await settle();
+      expect(text('#doctor-form-error')).toContain(ar.error.unexpected);
+      expect(text('#doctor-form-error')).toContain('corr-123');
     });
   });
 

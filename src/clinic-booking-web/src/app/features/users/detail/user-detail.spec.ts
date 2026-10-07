@@ -649,6 +649,25 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       http.expectNone(USER_URL);
     });
 
+    it('a keyed refusal shows no reference to quote; an unexpected failure does (D52)', async () => {
+      await open(detail(5, 'ann', { globalPermissions: ['users.manage'] }), { meId: 5 });
+      boxes()[0].click();
+      await settle();
+
+      save().click();
+      await settle();
+      flushProblem(http.expectOne(`${USER_URL}/global-permissions`), 422, 'error.user.last_administrator');
+      await settle();
+      expect(text('cb-global-permissions-editor')).not.toContain('corr-123');
+
+      save().click();
+      await settle();
+      flushProblem(http.expectOne(`${USER_URL}/global-permissions`), 500, 'error.unexpected');
+      await settle();
+      expect(text('cb-global-permissions-editor [role=alert]')).toContain(ar.error.unexpected);
+      expect(text('cb-global-permissions-editor')).toContain('corr-123');
+    });
+
     it('a 404 is shown translated', async () => {
       await open();
       boxes()[0].click();

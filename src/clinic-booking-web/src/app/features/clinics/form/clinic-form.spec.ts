@@ -246,6 +246,13 @@ describe('ClinicForm', () => {
       expect(errorsOf('ar')).toBe('');
     });
 
+    it('a form-level message that has its own key shows no reference to quote (D52)', async () => {
+      await failWith(403, 'error.auth.forbidden');
+
+      expect(text('[role=alert]')).toContain(ar.error.auth.forbidden);
+      expect(text('[role=alert]')).not.toContain('corr-123');
+    });
+
     it('never shows a key nobody translated', async () => {
       await failWith(409, 'error.brand.new_conflict');
 

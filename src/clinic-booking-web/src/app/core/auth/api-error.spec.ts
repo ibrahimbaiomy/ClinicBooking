@@ -1,5 +1,5 @@
 import { HttpErrorResponse, HttpHeaders } from '@angular/common/http';
-import { parseApiError } from './api-error';
+import { parseApiError, supportReference } from './api-error';
 
 const response = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new HttpErrorResponse({ status, error: body, headers: new HttpHeaders(headers) });
@@ -99,4 +99,14 @@ describe('parseApiError', () => {
       );
     },
   );
+
+  describe('supportReference (D52)', () => {
+    it('gives the correlation id only for an unexpected or network failure', () => {
+      expect(supportReference(parseApiError(response(500, { title: 'error.unexpected', correlationId: 'c-1' })))).toBe('c-1');
+      expect(supportReference(parseApiError(response(500, { title: 'Server text', correlationId: 'c-2' })))).toBe('c-2');
+      expect(supportReference(parseApiError(response(403, { title: 'error.auth.forbidden', correlationId: 'c-3' })))).toBeNull();
+      expect(supportReference(parseApiError(response(422, { title: 'error.doctor.periods_overlap', correlationId: 'c-4' })))).toBeNull();
+      expect(supportReference(parseApiError(new HttpErrorResponse({ status: 0 })))).toBeNull(); // no id without a response
+    });
+  });
 });

@@ -90,3 +90,11 @@ function parseRetryAfter(header: string | null): number | null {
   }
   return Number(header.trim());
 }
+
+/**
+ * The reference to quote to support, shown only for failures nobody can explain to the user (D52): an
+ * unexpected or network error. A failure with its own key never shows one.
+ */
+export function supportReference(error: ApiError): string | null {
+  return error.key === UNEXPECTED_ERROR_KEY || error.key === NETWORK_ERROR_KEY ? error.correlationId : null;
+}
