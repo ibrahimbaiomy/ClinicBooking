@@ -25,7 +25,7 @@ Things in place or promised for the screens:
 - Doctors is the **third entity** for the front end too: decide what to extract
   from the copied Specialties/Clinics screen code (list state, session service,
   scope resolver, form error mapping) by looking at what the three copies share
-  (D56). The back-end extraction is done (D61, extent to be confirmed by the owner).
+  (D56). The back-end extraction is done (D61).
 
 **Then: Patients** (name and phone only, `PhoneNumber` reused, duplicate-phone
 warning, global `patients.*`, D38, D44). Patient search needs a prefix or

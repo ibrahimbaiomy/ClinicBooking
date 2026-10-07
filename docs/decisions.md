@@ -1257,12 +1257,19 @@ rejected alternatives (an assistant would propose them again).
 - **Shared code** (the third copy, D55): `CommonRules` (name, row version, list
   rules), `NamedListQuery` + `NameSortFields`, `NamedListing` (every-word search,
   ordering, paging) over the Domain interface `IBilingualName`, `ConcurrencyGuard`
-  (row-version check, guarded save). The owner did not answer this question; it is
-  the assistant's recommended default, **to be confirmed by the owner**.
-- **Persistence.** No cascade from `Doctor` (a soft delete keeps every row); split
-  queries are the default (`UseQuerySplittingBehavior`), because a doctor projects
-  three collections; EF warning 10622 (a filtered principal of a required
-  navigation) is ignored on purpose: a deleted clinic or specialty hides its rows.
+  (row-version check, guarded save). Confirmed by the owner.
+- **Persistence.** No cascade from `Doctor` (a soft delete keeps every row).
+- **Split queries are the global default** (`UseQuerySplittingBehavior(SplitQuery)`
+  in Infrastructure), because a doctor projects three collections. This changed
+  the behaviour of **every existing query** that loads or projects a collection,
+  not only Doctors; the full test suite passed after the change.
+- **EF warning 10622 is ignored** (`PossibleIncorrectRequiredNavigationWithQuery
+  FilterInteractionWarning`: a soft-delete-filtered principal at the required end
+  of a relationship). Accepted **only** for `DoctorClinic → Clinic` and
+  `DoctorSpecialty → Specialty`, where hiding the row of a deleted clinic or
+  specialty is the intended rule (D57). The ignore is global, so **any new
+  relationship that would raise this warning must be reviewed** on its own; it is
+  not assumed covered by this decision.
 
 **Why:** a doctor's history (where they worked, which hours, which durations) must
 survive; authorization over every assignment keeps a doctor manageable whatever its
