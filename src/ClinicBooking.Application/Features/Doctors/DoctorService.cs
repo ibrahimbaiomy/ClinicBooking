@@ -175,6 +175,74 @@ public sealed class DoctorService : IDoctorService
         await _db.SaveGuardedAsync(cancellationToken);
     }
 
+    public async Task<DoctorResponse> AddClinicAsync(long id, long clinicId, CancellationToken cancellationToken)
+    {
+        // Serializable: a clinic deleted at the same moment either sees this assignment (409 in_use) or wins.
+        await _db.InSerializableTransactionAsync(
+            async () =>
+            {
+                await EnsureDoctorExistsAsync(id, cancellationToken);
+
+                // Active or not: a returning doctor is reactivated, never assigned twice (D61). The unique
+                // index is the real guard and answers with the same key.
+                if (await _db.DoctorClinics.AnyAsync(c => c.DoctorId == id && c.ClinicId == clinicId, cancellationToken))
+                {
+                    throw new ConflictException(DoctorErrors.ClinicAlreadyAssigned);
+                }
+
+                _db.DoctorClinics.Add(new DoctorClinic { DoctorId = id, ClinicId = clinicId, IsActive = true });
+                await _db.SaveChangesAsync(cancellationToken);
+                return true;
+            },
+            cancellationToken);
+
+        return await GetAsync(id, cancellationToken);
+    }
+
+    public async Task<DoctorResponse> ActivateClinicAsync(long id, long clinicId, CancellationToken cancellationToken)
+    {
+        // Serializable, like saving hours: the cross-clinic check and the switch happen together (D32).
+        await _db.InSerializableTransactionAsync(
+            async () =>
+            {
+                await EnsureDoctorExistsAsync(id, cancellationToken);
+                var assignment = await FindAssignmentAsync(id, clinicId, cancellationToken);
+                if (assignment.IsActive)
+                {
+                    return true;
+                }
+
+                // The stored periods were ignored while inactive; they must fit again now (D61).
+                WeeklyPeriod.EnsureNoOverlapWithOtherClinics(
+                    assignment.WorkingHours.Select(p => p.ToWeeklyPeriod()).ToList(),
+                    await OtherActivePeriodsAsync(id, assignment.Id, cancellationToken));
+
+                assignment.IsActive = true;
+                await _db.SaveGuardedAsync(cancellationToken);
+                return true;
+            },
+            cancellationToken);
+
+        return await GetAsync(id, cancellationToken);
+    }
+
+    public async Task<DoctorResponse> DeactivateClinicAsync(long id, long clinicId, CancellationToken cancellationToken)
+    {
+        await EnsureDoctorExistsAsync(id, cancellationToken);
+        var assignment = await FindAssignmentAsync(id, clinicId, cancellationToken);
+
+        if (assignment.IsActive)
+        {
+            // Future appointments in that clinic are a Phase 2 concern (D61).
+            await _guard.EnsureCanDeactivateAsync(id, clinicId, cancellationToken);
+
+            assignment.IsActive = false;
+            await _db.SaveGuardedAsync(cancellationToken);
+        }
+
+        return await GetAsync(id, cancellationToken);
+    }
+
     public async Task<WorkingHoursResponse> GetWorkingHoursAsync(long id, long clinicId, CancellationToken cancellationToken)
     {
         await EnsureDoctorExistsAsync(id, cancellationToken);

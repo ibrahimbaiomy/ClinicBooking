@@ -84,6 +84,37 @@ public sealed class DoctorsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Assigns the doctor to a clinic, active. Needs doctors.manage in that clinic.</summary>
+    [HttpPost("{id:long}/clinics/{clinicId:long}")]
+    [Authorize(Policy = Permissions.Doctors.Manage)]
+    [ProducesResponseType(typeof(DoctorResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict, "application/problem+json")]
+    public async Task<ActionResult<DoctorResponse>> AddClinic(long id, long clinicId, CancellationToken cancellationToken) =>
+        Ok(await _doctors.AddClinicAsync(id, clinicId, cancellationToken));
+
+    /// <summary>The doctor works at the clinic again (idempotent). Needs doctors.manage in that clinic.</summary>
+    [HttpPost("{id:long}/clinics/{clinicId:long}/activate")]
+    [Authorize(Policy = Permissions.Doctors.Manage)]
+    [ProducesResponseType(typeof(DoctorResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    public async Task<ActionResult<DoctorResponse>> ActivateClinic(long id, long clinicId, CancellationToken cancellationToken) =>
+        Ok(await _doctors.ActivateClinicAsync(id, clinicId, cancellationToken));
+
+    /// <summary>The doctor stopped working at the clinic (idempotent). Needs doctors.manage in that clinic.</summary>
+    [HttpPost("{id:long}/clinics/{clinicId:long}/deactivate")]
+    [Authorize(Policy = Permissions.Doctors.Manage)]
+    [ProducesResponseType(typeof(DoctorResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict, "application/problem+json")]
+    public async Task<ActionResult<DoctorResponse>> DeactivateClinic(long id, long clinicId, CancellationToken cancellationToken) =>
+        Ok(await _doctors.DeactivateClinicAsync(id, clinicId, cancellationToken));
+
     /// <summary>The week of one assignment, active or not. Open to any signed-in user (no policy).</summary>
     [HttpGet("{id:long}/clinics/{clinicId:long}/working-hours")]
     [Authorize]
