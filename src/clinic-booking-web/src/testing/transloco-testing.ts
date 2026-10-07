@@ -11,6 +11,8 @@ import usersAr from '../../public/i18n/users/ar.json';
 import usersEn from '../../public/i18n/users/en.json';
 import specialtiesAr from '../../public/i18n/specialties/ar.json';
 import specialtiesEn from '../../public/i18n/specialties/en.json';
+import doctorsAr from '../../public/i18n/doctors/ar.json';
+import doctorsEn from '../../public/i18n/doctors/en.json';
 import { DEFAULT_LANGUAGE, LANGUAGES } from '../app/core/i18n/language';
 
 const TRANSLATIONS: Record<string, Translation> = {
@@ -24,6 +26,8 @@ const TRANSLATIONS: Record<string, Translation> = {
   'account/en': accountEn,
   'users/ar': usersAr,
   'users/en': usersEn,
+  'doctors/ar': doctorsAr,
+  'doctors/en': doctorsEn,
 };
 
 /** Serves the real translation files from memory, so specs run against what ships. */
@@ -57,4 +61,6 @@ export {
   accountEn as accountEnglish,
   usersAr as usersArabic,
   usersEn as usersEnglish,
+  doctorsAr as doctorsArabic,
+  doctorsEn as doctorsEnglish,
 };

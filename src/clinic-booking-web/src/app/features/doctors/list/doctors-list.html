@@ -1,0 +1,280 @@
+<section class="space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">
+      {{ 'doctors.title' | transloco }}
+    </h2>
+    @if (canCreate()) {
+      <a
+        routerLink="/doctors/new"
+        class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      >
+        {{ 'doctors.new' | transloco }}
+      </a>
+    }
+  </div>
+
+  <div role="status" aria-live="polite">
+    @if (status(); as key) {
+      <!-- i18n-keys: doctors.flash.deleted, doctors.flash.already_deleted -->
+      <p class="rounded-lg bg-green-50 p-3 text-sm text-green-900">{{ key | transloco }}</p>
+    }
+  </div>
+
+  <form role="search" class="flex flex-wrap items-end gap-3" (submit)="onSearchSubmit($event)">
+    <div class="grow basis-64">
+      <label for="doctors-search" class="mb-1 block text-sm font-medium">{{ 'doctors.search.label' | transloco }}</label>
+      <input
+        id="doctors-search"
+        type="search"
+        autocomplete="off"
+        class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [attr.maxlength]="maxSearchLength"
+        [placeholder]="'doctors.search.placeholder' | transloco"
+        [value]="searchText()"
+        (input)="onSearchInput($event)"
+        (compositionend)="onCompositionEnd($event)"
+      />
+    </div>
+
+    <div>
+      <label for="doctors-specialty" class="mb-1 block text-sm font-medium">{{ 'doctors.filter.specialty' | transloco }}</label>
+      <select
+        id="doctors-specialty"
+        class="max-w-56 rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        (change)="onSpecialty($event)"
+      >
+        <option value="" [selected]="state().specialty === ''">{{ 'doctors.filter.every_specialty' | transloco }}</option>
+        @for (option of specialtyOptions(); track option.id) {
+          <option [value]="option.id" [selected]="option.id === state().specialty">{{ option.label }}</option>
+        }
+      </select>
+    </div>
+
+    <div>
+      <label for="doctors-clinic" class="mb-1 block text-sm font-medium">{{ 'doctors.filter.clinic' | transloco }}</label>
+      <select
+        id="doctors-clinic"
+        class="max-w-56 rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        (change)="onClinic($event)"
+      >
+        <option value="" [selected]="state().clinic === ''">{{ 'doctors.filter.every_clinic' | transloco }}</option>
+        @for (option of clinicOptions(); track option.id) {
+          <option [value]="option.id" [selected]="option.id === state().clinic">{{ option.label }}</option>
+        }
+      </select>
+    </div>
+
+    <div>
+      <label for="doctors-status" class="mb-1 block text-sm font-medium">{{ 'doctors.filter.status' | transloco }}</label>
+      <select
+        id="doctors-status"
+        [attr.aria-describedby]="statusEnabled() ? null : 'doctors-status-hint'"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:bg-slate-100 disabled:text-slate-500"
+        [disabled]="!statusEnabled()"
+        (change)="onStatus($event)"
+      >
+        @for (filter of statusFilters; track filter) {
+          <!-- i18n-keys: doctors.filter.status_all, doctors.filter.status_active, doctors.filter.status_inactive -->
+          <option [value]="filter" [selected]="filter === state().status">{{ 'doctors.filter.status_' + filter | transloco }}</option>
+        }
+      </select>
+      @if (!statusEnabled()) {
+        <p id="doctors-status-hint" class="mt-1 text-xs text-slate-600">{{ 'doctors.filter.status_hint' | transloco }}</p>
+      }
+    </div>
+
+    <div>
+      <label for="doctors-sort" class="mb-1 block text-sm font-medium">{{ 'doctors.sort.label' | transloco }}</label>
+      <select
+        id="doctors-sort"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [value]="state().sortBy"
+        (change)="onSort($event)"
+      >
+        <option value="nameAr">{{ 'doctors.sort.name_ar' | transloco }}</option>
+        <option value="nameEn">{{ 'doctors.sort.name_en' | transloco }}</option>
+        <option value="createdAt">{{ 'doctors.sort.created_at' | transloco }}</option>
+      </select>
+    </div>
+
+    <button
+      type="button"
+      class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      (click)="toggleDirection()"
+    >
+      @if (state().sortDirection === 'asc') {
+        {{ 'doctors.sort.asc' | transloco }}
+      } @else {
+        {{ 'doctors.sort.desc' | transloco }}
+      }
+    </button>
+
+    <div>
+      <label for="doctors-size" class="mb-1 block text-sm font-medium">{{ 'doctors.page_size' | transloco }}</label>
+      <select
+        id="doctors-size"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        (change)="onPageSize($event)"
+      >
+        @for (size of pageSizes; track size) {
+          <option [value]="size" [selected]="size === state().pageSize">{{ size | intl: 'number' }}</option>
+        }
+      </select>
+    </div>
+  </form>
+
+  @if (optionsIncomplete()) {
+    <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{{ 'doctors.filter.incomplete' | transloco }}</p>
+  }
+  @if (optionsFailed()) {
+    <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{{ 'doctors.filter.options_failed' | transloco }}</p>
+  }
+
+  <div [attr.aria-busy]="loading()">
+    @switch (view()) {
+      @case ('loading') {
+        <p class="text-slate-600">{{ 'doctors.loading' | transloco }}</p>
+      }
+      @case ('error') {
+        <div role="alert" class="space-y-3 rounded-lg bg-red-50 p-4 text-red-800">
+          <!-- i18n-keys: error.unexpected -->
+          <p>{{ errorKey() | transloco }}</p>
+          @if (correlationId(); as id) {
+            <p class="text-xs" dir="ltr">{{ 'doctors.correlation' | transloco: { id: id } }}</p>
+          }
+          <button
+            type="button"
+            class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+            (click)="retry()"
+          >
+            {{ 'doctors.retry' | transloco }}
+          </button>
+        </div>
+      }
+      @case ('none') {
+        <div class="rounded-lg border border-dashed border-slate-300 p-6 text-center text-slate-600">
+          <p>{{ 'doctors.empty.none' | transloco }}</p>
+        </div>
+      }
+      @case ('no-results') {
+        <div class="space-y-3 rounded-lg border border-dashed border-slate-300 p-6 text-center text-slate-600">
+          <p>{{ 'doctors.empty.no_results' | transloco }}</p>
+          <button
+            id="doctors-clear"
+            type="button"
+            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            (click)="clearFilters()"
+          >
+            {{ 'doctors.search.clear' | transloco }}
+          </button>
+        </div>
+      }
+      @default {
+        <p role="status" aria-live="polite" class="mb-2 text-sm text-slate-600">
+          {{ 'doctors.results' | transloco: { from: from(), to: to(), total: total() } }}
+        </p>
+
+        <table class="hidden w-full border-collapse overflow-hidden rounded-lg border border-slate-200 bg-white md:table">
+          <caption class="sr-only">{{ 'doctors.table.caption' | transloco }}</caption>
+          <thead class="bg-slate-100 text-sm text-slate-700">
+            <tr>
+              <th
+                scope="col"
+                class="px-4 py-3 text-start font-semibold"
+                [attr.aria-sort]="state().sortBy !== 'createdAt' ? (state().sortDirection === 'asc' ? 'ascending' : 'descending') : null"
+              >
+                {{ 'doctors.table.doctor' | transloco }}
+              </th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'doctors.table.specialties' | transloco }}</th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'doctors.table.clinics' | transloco }}</th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'doctors.table.slot' | transloco }}</th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'doctors.table.actions' | transloco }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.id) {
+              <tr class="border-t border-slate-200 align-top">
+                <th scope="row" class="px-4 py-3 text-start font-normal">
+                  <ng-container *ngTemplateOutlet="names; context: { $implicit: row }" />
+                </th>
+                <td class="px-4 py-3 text-start text-sm">
+                  <ng-container *ngTemplateOutlet="specialties; context: { $implicit: row }" />
+                </td>
+                <td class="px-4 py-3 text-start text-sm">
+                  <ng-container *ngTemplateOutlet="clinics; context: { $implicit: row }" />
+                </td>
+                <td class="whitespace-nowrap px-4 py-3 text-start text-sm">
+                  {{ 'doctors.minutes' | transloco: { count: (row.slotMinutes | intl: 'number') } }}
+                </td>
+                <td class="px-4 py-3 text-start">
+                  <ng-container *ngTemplateOutlet="actions; context: { $implicit: row }" />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+
+        <ul class="space-y-3 md:hidden">
+          @for (row of rows(); track row.id) {
+            <li class="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
+              <ng-container *ngTemplateOutlet="names; context: { $implicit: row }" />
+              <div class="text-sm">
+                <span class="text-xs text-slate-500">{{ 'doctors.table.specialties' | transloco }}:</span>
+                <ng-container *ngTemplateOutlet="specialties; context: { $implicit: row }" />
+              </div>
+              <div class="text-sm">
+                <span class="text-xs text-slate-500">{{ 'doctors.table.clinics' | transloco }}:</span>
+                <ng-container *ngTemplateOutlet="clinics; context: { $implicit: row }" />
+              </div>
+              <p class="text-sm">
+                <span class="text-xs text-slate-500">{{ 'doctors.table.slot' | transloco }}:</span>
+                {{ 'doctors.minutes' | transloco: { count: (row.slotMinutes | intl: 'number') } }}
+              </p>
+              <ng-container *ngTemplateOutlet="actions; context: { $implicit: row }" />
+            </li>
+          }
+        </ul>
+
+        <div class="mt-4">
+          <cb-pager [page]="state().page" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
+        </div>
+      }
+    }
+  </div>
+</section>
+
+<ng-template #names let-row>
+  <div class="font-medium"><bdi [attr.lang]="row.primary.lang" [attr.dir]="row.primary.dir">{{ row.primary.text }}</bdi></div>
+  <div class="text-sm text-slate-500"><bdi [attr.lang]="row.secondary.lang" [attr.dir]="row.secondary.dir">{{ row.secondary.text }}</bdi></div>
+</ng-template>
+
+<ng-template #specialties let-row>
+  <ul class="flex flex-wrap gap-x-3 gap-y-1">
+    @for (name of row.specialties; track $index) {
+      <li><bdi [attr.lang]="name.lang" [attr.dir]="name.dir">{{ name.text }}</bdi></li>
+    }
+  </ul>
+</ng-template>
+
+<ng-template #clinics let-row>
+  <ul class="space-y-1">
+    @for (clinic of row.clinics; track clinic.id) {
+      <li>
+        <bdi [attr.lang]="clinic.name.lang" [attr.dir]="clinic.name.dir">{{ clinic.name.text }}</bdi>
+        @if (!clinic.isActive) {
+          <span class="ms-1 text-xs text-slate-600">({{ 'doctors.assignment.inactive' | transloco }})</span>
+        }
+      </li>
+    }
+  </ul>
+</ng-template>
+
+<ng-template #actions let-row>
+  <a
+    [routerLink]="['/doctors', row.id]"
+    class="inline-block rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+    [attr.aria-label]="'doctors.open_named' | transloco: { name: row.primary.text }"
+  >
+    {{ 'doctors.open' | transloco }}
+  </a>
+</ng-template>

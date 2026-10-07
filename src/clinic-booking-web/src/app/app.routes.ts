@@ -23,6 +23,11 @@ export const routes: Routes = [
     loadChildren: () => import('./features/clinics/clinics.routes').then((m) => m.CLINICS_ROUTES),
   },
   {
+    path: 'doctors',
+    canActivate: [authGuard],
+    loadChildren: () => import('./features/doctors/doctors.routes').then((m) => m.DOCTORS_ROUTES),
+  },
+  {
     path: 'specialties',
     canActivate: [authGuard],
     loadChildren: () =>

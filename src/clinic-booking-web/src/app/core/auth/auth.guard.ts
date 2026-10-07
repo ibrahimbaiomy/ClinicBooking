@@ -62,3 +62,22 @@ export function permissionGuard(permission: string): CanActivateFn {
     return session.can(permission) || router.parseUrl('/forbidden');
   };
 }
+
+/**
+ * UX only (D62): passes when the user holds a clinic-scoped permission in at least one live clinic
+ * (`canInAny`), otherwise /forbidden. Keeps authGuard's redirects, the forced password change included.
+ */
+export function clinicPermissionInAnyGuard(permission: string): CanActivateFn {
+  return async (_route, state) => {
+    const session = inject(SessionService);
+    const router = inject(Router);
+    await session.whenReady();
+    if (!session.isAuthenticated()) {
+      return loginTree(router, state.url);
+    }
+    if (session.mustChangePassword()) {
+      return changePasswordTree(router, state.url);
+    }
+    return session.canInAny(permission) || router.parseUrl('/forbidden');
+  };
+}

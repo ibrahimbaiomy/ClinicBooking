@@ -36,18 +36,25 @@ describe('header navigation (D59)', () => {
 
   afterEach(() => http.verify());
 
-  it('every signed-in user sees Specialties, Clinics and Change password, and no Users link', async () => {
+  it('every signed-in user sees Specialties, Clinics, Doctors and Change password, and no Users link', async () => {
     const fixture = await render([]);
 
-    expect(links(fixture)).toEqual(['/specialties', '/clinics', '/change-password']);
+    expect(links(fixture)).toEqual(['/specialties', '/clinics', '/doctors', '/change-password']);
   });
 
-  it('a user with users.manage also sees the Users link, between Clinics and Change password', async () => {
+  it('a user with users.manage also sees the Users link, between Doctors and Change password', async () => {
     const fixture = await render(['users.manage']);
 
-    expect(links(fixture)).toEqual(['/specialties', '/clinics', '/users', '/change-password']);
+    expect(links(fixture)).toEqual(['/specialties', '/clinics', '/doctors', '/users', '/change-password']);
     const users = (fixture.nativeElement as HTMLElement).querySelector('header a[href="/users"]')!;
     expect(users.textContent?.trim()).toBe(ar.shell.nav.users);
+  });
+
+  it('the Doctors link follows Clinics for every signed-in user, with or without doctors.manage (D62)', async () => {
+    const fixture = await render([]);
+
+    const doctors = (fixture.nativeElement as HTMLElement).querySelector('header a[href="/doctors"]')!;
+    expect(doctors.textContent?.trim()).toBe(ar.shell.nav.doctors);
   });
 
   it('other permissions do not show the Users link', async () => {
@@ -121,7 +128,7 @@ describe('header navigation (D59)', () => {
       TestBed.inject(SessionService).clearPasswordChangeRequired();
       await fixture.whenStable();
 
-      expect(links(fixture)).toEqual(['/specialties', '/clinics', '/change-password']);
+      expect(links(fixture)).toEqual(['/specialties', '/clinics', '/doctors', '/change-password']);
     });
   });
 });

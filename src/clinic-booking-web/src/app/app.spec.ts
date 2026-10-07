@@ -124,7 +124,7 @@ describe('App shell', () => {
     fixture.detectChanges();
 
     const links = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('nav a')];
-    expect(links.map((l) => l.getAttribute('href'))).toEqual(['/specialties', '/clinics']);
+    expect(links.map((l) => l.getAttribute('href'))).toEqual(['/specialties', '/clinics', '/doctors']);
     expect(links[1].textContent?.trim()).toBe(arabicTranslations.shell.nav.clinics);
     expect(links[1].getAttribute('aria-current')).toBe('page');
     expect(links[0].hasAttribute('aria-current')).toBe(false);
