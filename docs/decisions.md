@@ -1350,7 +1350,9 @@ per query (needs the relational EF package in Application, rule 8).
   other days" or templates.
 - **Errors.** `parseApiError` reads `periodIndex` and `conflictingClinicId`
   (non-negative integers, number or digit string; anything else absent). A
-  correlation id is shown only for unexplained failures (D52).
+  correlation id is shown only for unexplained failures (D52), through
+  `supportReference(error)` in every form (Specialties, Clinics, Users, the global
+  permissions editor, Doctors); lists, login and change-password already followed it.
 
 **Why:** every control follows the clinic it concerns, so the screen never offers
 what the API refuses; the API keeps its own weekday numbering and the screen owns
