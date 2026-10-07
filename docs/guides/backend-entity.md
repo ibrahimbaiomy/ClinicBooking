@@ -23,6 +23,11 @@ clinic-scoped entity (Doctors) also read `clinic-permissions.md`.
    (never return an entity), error keys as constants. Updates take a
    `rowVersion` and answer 409 `error.concurrency.conflict` when it is stale.
    Duplicates: a friendly pre-check, the index is the real guard (D50).
+   For an entity with two names, reuse the shared pieces (D61): `IBilingualName`
+   (Domain), `NamedListQuery` and `NamedListing` (search, order, page),
+   `CommonRules` (`BeAName`, `BeARowVersion`, `AddNamedListRules`) and
+   `ConcurrencyGuard` (`EnsureCurrent`, `SaveGuardedAsync`). Doctors
+   (`DoctorService`) is the example of a clinic-scoped entity.
 4. **Api.** Attribute-routed controller; `[Authorize]` / `[Authorize(Policy =
    ...)]` on every action; `[ProducesResponseType]` for the success response
    (200/201 with its type, or the OpenAPI document has no schema) and the error

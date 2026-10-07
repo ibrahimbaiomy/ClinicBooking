@@ -94,6 +94,7 @@ D57 | ACCEPTED | User management and clinic-scoped permissions (back end) | user
 D58 | ACCEPTED | Account state, change-password and admin reset (back end) | IsActive, MustChangePassword, disable, change-password, reset password, password, account gate, sessions, lockout, rate limit
 D59 | ACCEPTED | User-management and change-password screens (front end) | users screens, change-password page, forced password change, mustChangePassword, session model, canIn, clinic-scoped UI, permission labels, check:permissions, temporary password, password fields, clinic picker, own account, guards, interceptor 403
 D60 | ACCEPTED | Documentation layout for several assistants | AGENTS.md, CLAUDE.md, Codex, STATUS.md, release.md, guides, archive, decision format
+D61 | ACCEPTED | Doctors back end | doctor, DoctorClinic, assignment, IsActive, DoctorSpecialty, working hours, WeeklyPeriod, slot duration, pending change, Cairo date, doctors.manage, all_clinics_required, in_use, IDoctorScheduleGuard, Phase 2 seam, shared code, NamedListQuery, split queries
 O1 | OPEN | Azure region: West Europe vs UAE North | Azure, region, Container Apps, ACR, Key Vault, Azure SQL, price
 O2 | OPEN | Custom domain and TLS, or the default Container Apps hostname | domain, TLS, hostname, Azure
 ```
@@ -1167,6 +1168,109 @@ read the same rules, and a session should load only what its task needs.
 **Rejected:** instructions only in `CLAUDE.md` (Codex does not read it); importing
 every document into `CLAUDE.md` (imports load in full every session); dropping the
 rejected alternatives (an assistant would propose them again).
+
+### D61 — Doctors back end
+`ACCEPTED` (refines D32, D35, D43, D50, D55, D57)
+
+- **Doctor.** `NameAr`, `NameEn`: required, trimmed, ≤ 100, normalised copies for
+  search (D49), **no unique constraint** (people share names). No phone, no other
+  personal field, no link to a user account. Soft-deletable, audited, `RowVersion`.
+  `PUT` is a full replace of names and specialties (D55); clinics have their own
+  endpoints.
+- **Endpoints** `/api/doctors`: `GET` list, `GET {id}`, `POST`, `PUT {id}`,
+  `DELETE {id}`; `POST {id}/clinics/{clinicId}` (add), `POST
+  {id}/clinics/{clinicId}/activate` and `/deactivate` (idempotent), `GET` and `PUT
+  {id}/clinics/{clinicId}/working-hours`, `POST {id}/slot-durations`. Add,
+  activate, deactivate and slot change return the doctor (200).
+- **Reading** (list, get, working-hours `GET`) is open to any signed-in user (D57);
+  the working-hours `GET` does not go through the policy.
+- **List** as Specialties (D50), plus `ClinicId`, `SpecialtyId` and `IsActive`.
+  `IsActive` applies only with `ClinicId` (that assignment's state); alone it is
+  400 `error.doctor.is_active_requires_clinic`, never ignored. List and detail
+  share one shape: id, both names, `specialties` (id, both names), `clinics`
+  (clinicId, both names, isActive; live clinics only), `slotMinutes` (in effect
+  today), `pendingSlotChange` (slotMinutes, effectiveFrom, or null), createdAt,
+  updatedAt, rowVersion. Working hours are not in it.
+- **Specialties** many-to-many (`DoctorSpecialties`, rows hard-deleted, D35): 1 to
+  10, set by the doctor's `POST`/`PUT`. An unknown or soft-deleted specialty: 400
+  `error.doctor.specialty_unavailable` on `specialtyIds`. Duplicate ids in any list
+  are collapsed. Deleting a specialty used by a live doctor: 409
+  `error.specialty.in_use` (D50).
+- **Clinic assignments** (`DoctorClinics`, `IsActive`). **Rows are never deleted**
+  (refines D35 for this join table): deactivating means the doctor stopped working
+  there, reactivating that they returned; a wrong assignment is deactivated. New
+  assignments start active. An existing assignment, active or not: 409
+  `error.doctor.clinic_already_assigned`. Deleting a clinic with any assignment of a
+  live doctor, active or inactive: 409 `error.clinic.in_use` (D55). Soft-deleted
+  clinics are ignored everywhere (D57).
+- **Authorization** (`doctors.manage`, clinic-scoped). Create: 1 to 20 clinics,
+  the permission in **every** one (unknown, deleted or not held: 403
+  `error.auth.forbidden`). Add, activate, deactivate, working-hours `PUT`: in that
+  clinic (policy, route value `clinicId`). Edit names and specialties, slot change:
+  in **any** of the doctor's clinics (`IClinicAccess`: 404 `error.doctor.not_found`
+  when none). Delete: in **all** of them; only some: 403
+  `error.doctor.all_clinics_required`. "The doctor's clinics" means every
+  assignment, active and inactive, so a doctor with every assignment inactive stays
+  manageable and can be reactivated.
+- **404 order on `{id}/clinics/{clinicId}` routes**, after authorization: unknown
+  or deleted doctor 404 `error.doctor.not_found`; unknown or deleted clinic 404
+  `error.clinic.not_found` (working-hours `GET` only; the policy gives 403 on the
+  others); not assigned 404 `error.doctor.clinic_not_assigned` (activate,
+  deactivate, working hours).
+- **Working hours** (D12, D32) per assignment and weekday, several periods a day,
+  Cairo `TimeOnly`, whole minutes, start before end, never crossing midnight;
+  breaks are the gaps (no break model). Body `{ periods: [{ dayOfWeek, start, end
+  }], rowVersion }`, at most 50 periods, empty = no hours. **`dayOfWeek` is .NET
+  `DayOfWeek` (0 = Sunday)**; the screens order the week from Saturday, a
+  front-end concern. Times "09:00" or "09:00:00". Input faults are 400 on the
+  field (`error.doctor.periods_required|periods_too_many|period_day_invalid|
+  period_start_required|period_end_required|period_time_invalid|
+  period_end_not_after_start`). 422: `error.doctor.periods_overlap` (same day,
+  same clinic), `error.doctor.period_overlaps_other_clinic` (the doctor's periods in
+  any **other active** assignment, same weekday), `error.doctor.
+  period_shorter_than_slot` (against the duration **in effect today**, Cairo).
+  Periods that only touch do not overlap. Saving is allowed on an inactive
+  assignment and skips the cross-clinic check there; its periods are kept and
+  ignored by that check. **Reactivating re-runs it** and is 422 when the kept
+  periods now overlap. Full replace, rows hard-deleted; checks run in a
+  serializable transaction.
+- **Slot duration** (D43): history rows `(DoctorId, SlotMinutes, EffectiveFrom)`,
+  5 to 120 minutes in steps of 5 (`error.doctor.slot_minutes_required|invalid`).
+  Required at creation, effective from the Cairo creation day. A change needs a
+  date **after today** in Cairo (422 `error.doctor.effective_from_not_future`;
+  missing: 400 `error.doctor.effective_from_required`). **At most one pending
+  change**; a new one replaces it by a hard delete. There is no cancel (Later).
+  **Existing working-hour periods are not revalidated against a new duration.**
+- **Concurrency.** Doctor `PUT`: the doctor's `rowVersion`; a change to the
+  specialties alone still moves it (`IAppDbContext.MarkModified`). Working-hours
+  `PUT`: the **assignment's** `rowVersion` (from the working-hours `GET`); saving
+  hours, activating and deactivating move it. Add, activate, deactivate and slot
+  change are `POST`s without a row version. Create, edit, hours, add, activate,
+  slot change and the specialty/clinic deletes run read-then-write rules in
+  serializable transactions (D57).
+- **Phase 2 seam** `IDoctorScheduleGuard` (Phase 1: `NoAppointmentsScheduleGuard`,
+  allows everything): deleting a doctor with upcoming appointments (D35),
+  deactivating an assignment with future appointments, a slot change before the
+  last active appointment (D43), a working-hours change leaving a future
+  appointment outside its period or off the grid (D43). **Leave days** come with
+  Appointments.
+- **Shared code** (the third copy, D55): `CommonRules` (name, row version, list
+  rules), `NamedListQuery` + `NameSortFields`, `NamedListing` (every-word search,
+  ordering, paging) over the Domain interface `IBilingualName`, `ConcurrencyGuard`
+  (row-version check, guarded save). The owner did not answer this question; it is
+  the assistant's recommended default, **to be confirmed by the owner**.
+- **Persistence.** No cascade from `Doctor` (a soft delete keeps every row); split
+  queries are the default (`UseQuerySplittingBehavior`), because a doctor projects
+  three collections; EF warning 10622 (a filtered principal of a required
+  navigation) is ignored on purpose: a deleted clinic or specialty hides its rows.
+
+**Why:** a doctor's history (where they worked, which hours, which durations) must
+survive; authorization over every assignment keeps a doctor manageable whatever its
+state.
+**Rejected:** unique doctor names (people share names); deleting assignments (loses
+history; a wrong one is deactivated); a separate break model (gaps are breaks);
+several pending slot changes (one is enough until a need appears); `AsSplitQuery`
+per query (needs the relational EF package in Application, rule 8).
 
 ---
 
