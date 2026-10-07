@@ -17,8 +17,30 @@ describe('parseApiError', () => {
       fieldErrors: {},
       correlationId: 'c-1',
       retryAfterSeconds: 900,
+      periodIndex: null,
+      conflictingClinicId: null,
     });
   });
+
+  it('reads the period index and the conflicting clinic of a working-hours 422 (D61)', () => {
+    const error = parseApiError(
+      response(422, { title: 'error.doctor.period_overlaps_other_clinic', periodIndex: 3, conflictingClinicId: '42' }),
+    );
+
+    expect(error.key).toBe('error.doctor.period_overlaps_other_clinic');
+    expect(error.periodIndex).toBe(3);
+    expect(error.conflictingClinicId).toBe(42);
+  });
+
+  it.each([[-1], [1.5], ['x'], ['-2'], [null], [true], [{}], ['99999999999999999']])(
+    'treats a period index or clinic id that is not a non-negative integer (%j) as absent',
+    (value) => {
+      const error = parseApiError(response(422, { title: 'error.doctor.periods_overlap', periodIndex: value, conflictingClinicId: value }));
+
+      expect(error.periodIndex).toBeNull();
+      expect(error.conflictingClinicId).toBeNull();
+    },
+  );
 
   it('reads field errors as keys and replaces anything else with error.validation.invalid', () => {
     const error = parseApiError(

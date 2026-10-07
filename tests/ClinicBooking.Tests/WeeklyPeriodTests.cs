@@ -27,36 +27,43 @@ public class WeeklyPeriodTests
     }
 
     [Fact]
-    public void A_week_with_two_overlapping_periods_is_refused_wherever_they_are_listed()
+    public void A_week_with_two_overlapping_periods_is_refused_and_the_later_one_is_named()
     {
         var periods = new[] { P(0, "08:00", "09:00"), P(3, "09:00", "12:00"), P(5, "09:00", "10:00"), P(3, "11:00", "13:00") };
 
         var failure = Assert.Throws<BusinessRuleException>(() => WeeklyPeriod.EnsureNoOverlap(periods));
 
         Assert.Equal("error.doctor.periods_overlap", failure.ErrorKey);
+        Assert.Equal(new Dictionary<string, long> { ["periodIndex"] = 3 }, failure.Details);
         WeeklyPeriod.EnsureNoOverlap(periods[..3]);
     }
 
     [Fact]
-    public void Other_clinics_are_compared_period_by_period()
+    public void Other_clinics_are_compared_period_by_period_and_the_clinic_is_named()
     {
-        var mine = new[] { P(0, "09:00", "12:00") };
+        var mine = new[] { P(1, "08:00", "09:00"), P(0, "09:00", "12:00") };
 
-        WeeklyPeriod.EnsureNoOverlapWithOtherClinics(mine, [P(0, "12:00", "14:00"), P(1, "09:00", "12:00")]);
+        WeeklyPeriod.EnsureNoOverlapWithOtherClinics(mine, [(P(0, "12:00", "14:00"), 7), (P(1, "09:00", "12:00"), 8)]);
         var failure = Assert.Throws<BusinessRuleException>(
-            () => WeeklyPeriod.EnsureNoOverlapWithOtherClinics(mine, [P(1, "09:00", "12:00"), P(0, "11:00", "11:30")]));
+            () => WeeklyPeriod.EnsureNoOverlapWithOtherClinics(mine, [(P(1, "09:00", "12:00"), 7), (P(0, "11:00", "11:30"), 9)]));
+        var withoutIndex = Assert.Throws<BusinessRuleException>(
+            () => WeeklyPeriod.EnsureNoOverlapWithOtherClinics(mine, [(P(0, "11:00", "11:30"), 9)], withPeriodIndex: false));
 
         Assert.Equal("error.doctor.period_overlaps_other_clinic", failure.ErrorKey);
+        Assert.Equal(new Dictionary<string, long> { ["conflictingClinicId"] = 9, ["periodIndex"] = 1 }, failure.Details);
+        Assert.Equal(new Dictionary<string, long> { ["conflictingClinicId"] = 9 }, withoutIndex.Details);
     }
 
     [Fact]
-    public void Each_period_must_hold_one_slot()
+    public void Each_period_must_hold_one_slot_and_the_first_short_one_is_named()
     {
         WeeklyPeriod.EnsureEachHoldsASlot([P(0, "09:00", "09:15")], 15);
 
-        var failure = Assert.Throws<BusinessRuleException>(() => WeeklyPeriod.EnsureEachHoldsASlot([P(0, "09:00", "09:14")], 15));
+        var failure = Assert.Throws<BusinessRuleException>(
+            () => WeeklyPeriod.EnsureEachHoldsASlot([P(0, "09:00", "10:00"), P(1, "09:00", "09:14"), P(2, "09:00", "09:01")], 15));
 
         Assert.Equal("error.doctor.period_shorter_than_slot", failure.ErrorKey);
+        Assert.Equal(new Dictionary<string, long> { ["periodIndex"] = 1 }, failure.Details);
     }
 
     [Theory]

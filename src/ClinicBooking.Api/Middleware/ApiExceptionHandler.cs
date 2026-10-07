@@ -68,9 +68,19 @@ public sealed class ApiExceptionHandler : IExceptionHandler
             AccountLockedException e => Create(StatusCodes.Status423Locked, e.ErrorKey),
             NotFoundException e => Create(StatusCodes.Status404NotFound, e.ErrorKey),
             ConflictException e => Create(StatusCodes.Status409Conflict, e.ErrorKey),
-            BusinessRuleException e => Create(StatusCodes.Status422UnprocessableEntity, e.ErrorKey),
+            BusinessRuleException e => WithDetails(Create(StatusCodes.Status422UnprocessableEntity, e.ErrorKey), e.Details),
             _ => Create(StatusCodes.Status500InternalServerError, UnexpectedKey)
         };
+    }
+
+    private static ProblemDetails WithDetails(ProblemDetails problem, IReadOnlyDictionary<string, long> details)
+    {
+        foreach (var (name, value) in details)
+        {
+            problem.Extensions[name] = value;
+        }
+
+        return problem;
     }
 
     private static ProblemDetails Create(int status, string errorKey)

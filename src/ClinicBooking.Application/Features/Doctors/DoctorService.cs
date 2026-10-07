@@ -258,7 +258,8 @@ public sealed class DoctorService : IDoctorService
                 // The stored periods were ignored while inactive; they must fit again now (D61).
                 WeeklyPeriod.EnsureNoOverlapWithOtherClinics(
                     assignment.WorkingHours.Select(p => p.ToWeeklyPeriod()).ToList(),
-                    await OtherActivePeriodsAsync(id, assignment.Id, cancellationToken));
+                    await OtherActivePeriodsAsync(id, assignment.Id, cancellationToken),
+                    withPeriodIndex: false); // no list was sent: only the other clinic is named
 
                 assignment.IsActive = true;
                 await _db.SaveGuardedAsync(cancellationToken);
@@ -379,14 +380,17 @@ public sealed class DoctorService : IDoctorService
     }
 
     // The doctor's periods in every other active assignment of a live clinic (D32, D61).
-    private async Task<List<WeeklyPeriod>> OtherActivePeriodsAsync(long id, long assignmentId, CancellationToken cancellationToken)
+    private async Task<List<(WeeklyPeriod Period, long ClinicId)>> OtherActivePeriodsAsync(
+        long id,
+        long assignmentId,
+        CancellationToken cancellationToken)
     {
         var rows = await _db.DoctorClinics
             .Where(c => c.DoctorId == id && c.Id != assignmentId && c.IsActive && !c.Clinic.IsDeleted)
-            .SelectMany(c => c.WorkingHours)
+            .SelectMany(c => c.WorkingHours, (c, p) => new { c.ClinicId, Period = p })
             .ToListAsync(cancellationToken);
 
-        return rows.Select(p => p.ToWeeklyPeriod()).ToList();
+        return rows.Select(r => (r.Period.ToWeeklyPeriod(), r.ClinicId)).ToList();
     }
 
     private static WorkingHoursResponse ToWorkingHoursResponse(DoctorClinic assignment) =>

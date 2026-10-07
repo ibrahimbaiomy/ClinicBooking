@@ -16,6 +16,13 @@ export interface ApiError {
   fieldErrors: Record<string, string[]>;
   correlationId: string | null;
   retryAfterSeconds: number | null;
+  /**
+   * Working-hours 422s (D61, D62): the index, in the request that was sent, of the period the rule
+   * names; null when the response names none.
+   */
+  periodIndex: number | null;
+  /** The other clinic an overlapping period collides with (its id), or null. */
+  conflictingClinicId: number | null;
 }
 
 export function isErrorKey(value: unknown): value is string {
@@ -38,6 +45,8 @@ export function parseApiError(error: unknown): ApiError {
 
   result.correlationId = typeof problem['correlationId'] === 'string' ? problem['correlationId'] : null;
   result.retryAfterSeconds = parseRetryAfter(error.headers.get('Retry-After'));
+  result.periodIndex = readCount(problem['periodIndex']);
+  result.conflictingClinicId = readCount(problem['conflictingClinicId']);
 
   const errors = problem['errors'];
   if (isRecord(errors)) {
@@ -51,7 +60,23 @@ export function parseApiError(error: unknown): ApiError {
 }
 
 function build(kind: ApiError['kind'], status: number, key: string): ApiError {
-  return { kind, status, key, fieldErrors: {}, correlationId: null, retryAfterSeconds: null };
+  return {
+    kind,
+    status,
+    key,
+    fieldErrors: {},
+    correlationId: null,
+    retryAfterSeconds: null,
+    periodIndex: null,
+    conflictingClinicId: null,
+  };
+}
+
+/** A non-negative safe integer, sent as a number or (int64) as a digit string; anything else is absent. */
+function readCount(value: unknown): number | null {
+  const parsed =
+    typeof value === 'number' ? value : typeof value === 'string' && /^\d{1,16}$/.test(value) ? Number(value) : NaN;
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

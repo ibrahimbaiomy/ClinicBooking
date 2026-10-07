@@ -147,6 +147,9 @@ public class DoctorsAssignmentsTests : IClassFixture<AuthApiFixture>
         var refused = await PostAsync(s.ManagerAB, s.DoctorId, s.B, "/activate");
 
         await AssertProblemAsync(refused, HttpStatusCode.UnprocessableEntity, "error.doctor.period_overlaps_other_clinic");
+        var refusedBody = await ProblemAsync(refused);
+        Assert.Equal(s.A, refusedBody.GetProperty("conflictingClinicId").GetInt64());
+        Assert.False(refusedBody.TryGetProperty("periodIndex", out _)); // no list was sent
         Assert.Contains((s.B, false), Assignments(await GetDoctorAsync(_client, s.ManagerAB, s.DoctorId)));
 
         // Once B's kept hours no longer clash, reactivation succeeds.

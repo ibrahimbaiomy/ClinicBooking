@@ -96,6 +96,18 @@ public class DoctorsWorkingHoursTests : IClassFixture<AuthApiFixture>
         Assert.Equal(0, await db.WorkingHourPeriods.CountAsync(p => db.DoctorClinics.Any(c => c.Id == p.DoctorClinicId && c.DoctorId == s.DoctorId)));
     }
 
+    // The screens send "HH:mm" (D62): this proves the real API accepts exactly that and stores the minute.
+    [Fact]
+    public async Task The_request_accepts_times_as_HH_mm()
+    {
+        var s = await SetupAsync(slotMinutes: 5);
+
+        var response = await SaveHoursAsync(_client, s.Manager, s.DoctorId, s.A, Period(4, "07:05", "23:55"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(["4 07:05:00-23:55:00"], PeriodTexts(await GetHoursOkAsync(_client, s.Manager, s.DoctorId, s.A)));
+    }
+
     [Fact]
     public async Task Times_with_seconds_written_out_are_accepted_too()
     {
@@ -241,8 +253,12 @@ public class DoctorsWorkingHoursTests : IClassFixture<AuthApiFixture>
     {
         var s = await SetupAsync();
 
-        var overlap = await SaveHoursAsync(_client, s.Manager, s.DoctorId, s.A, Period(1, "09:00", "13:00"), Period(1, "12:30", "15:00"));
+        var overlap = await SaveHoursAsync(_client, s.Manager, s.DoctorId, s.A,
+            Period(1, "09:00", "13:00"), Period(2, "09:00", "10:00"), Period(1, "12:30", "15:00"));
         await AssertProblemAsync(overlap, HttpStatusCode.UnprocessableEntity, "error.doctor.periods_overlap");
+        var overlapBody = await ProblemAsync(overlap);
+        Assert.Equal(2, overlapBody.GetProperty("periodIndex").GetInt32()); // the later of the pair, in request order
+        Assert.False(overlapBody.TryGetProperty("conflictingClinicId", out _));
 
         var touching = await SaveHoursAsync(_client, s.Manager, s.DoctorId, s.A,
             Period(1, "09:00", "13:00"), Period(1, "13:00", "15:00"), Period(2, "09:00", "13:00"));
@@ -254,8 +270,9 @@ public class DoctorsWorkingHoursTests : IClassFixture<AuthApiFixture>
     {
         var s = await SetupAsync(slotMinutes: 30);
 
-        var tooShort = await SaveHoursAsync(_client, s.Manager, s.DoctorId, s.A, Period(1, "09:00", "09:25"));
+        var tooShort = await SaveHoursAsync(_client, s.Manager, s.DoctorId, s.A, Period(0, "09:00", "11:00"), Period(1, "09:00", "09:25"));
         await AssertProblemAsync(tooShort, HttpStatusCode.UnprocessableEntity, "error.doctor.period_shorter_than_slot");
+        Assert.Equal(1, (await ProblemAsync(tooShort)).GetProperty("periodIndex").GetInt32());
 
         var exact = await SaveHoursAsync(_client, s.Manager, s.DoctorId, s.A, Period(1, "09:00", "09:30"));
         Assert.Equal(HttpStatusCode.OK, exact.StatusCode);
@@ -267,8 +284,11 @@ public class DoctorsWorkingHoursTests : IClassFixture<AuthApiFixture>
         var s = await SetupAsync();
         Assert.Equal(HttpStatusCode.OK, (await SaveHoursAsync(_client, s.Manager, s.DoctorId, s.A, Period(0, "09:00", "13:00"))).StatusCode);
 
-        var clash = await SaveHoursAsync(_client, s.Manager, s.DoctorId, s.B, Period(0, "12:00", "14:00"));
+        var clash = await SaveHoursAsync(_client, s.Manager, s.DoctorId, s.B, Period(6, "09:00", "10:00"), Period(0, "12:00", "14:00"));
         await AssertProblemAsync(clash, HttpStatusCode.UnprocessableEntity, "error.doctor.period_overlaps_other_clinic");
+        var clashBody = await ProblemAsync(clash);
+        Assert.Equal(1, clashBody.GetProperty("periodIndex").GetInt32());
+        Assert.Equal(s.A, clashBody.GetProperty("conflictingClinicId").GetInt64());
 
         var after = await SaveHoursAsync(_client, s.Manager, s.DoctorId, s.B, Period(0, "13:00", "15:00"), Period(1, "09:00", "13:00"));
         Assert.Equal(HttpStatusCode.OK, after.StatusCode);
