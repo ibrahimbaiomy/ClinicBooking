@@ -29,6 +29,33 @@ describe('Doctors routes (D62)', () => {
     expect(router.url).toBe('/doctors');
   });
 
+  it('/doctors/new needs doctors.manage in some clinic; global permissions do not count', async () => {
+    await signIn(['users.manage', 'clinics.manage']);
+
+    await router.navigateByUrl('/doctors/new');
+
+    expect(router.url).toBe('/forbidden');
+  });
+
+  it('/doctors/new opens for a manager of any one clinic', async () => {
+    await signIn([], 'token-1', {
+      clinicPermissions: [{ clinicId: 4, clinicNameAr: 'ع', clinicNameEn: 'C', permissions: ['doctors.manage'] }],
+    });
+
+    await router.navigateByUrl('/doctors/new');
+
+    expect(router.url).toBe('/doctors/new');
+  });
+
+  it('the detail and edit pages need only a signed-in user (the page decides after loading)', async () => {
+    await signIn([]);
+
+    await router.navigateByUrl('/doctors/7/edit');
+    expect(router.url).toBe('/doctors/7/edit');
+    await router.navigateByUrl('/doctors/7');
+    expect(router.url).toBe('/doctors/7');
+  });
+
   it('a user who must change the password goes to /change-password first', async () => {
     await signIn([], 'token-1', { mustChangePassword: true });
 
