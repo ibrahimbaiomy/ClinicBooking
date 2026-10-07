@@ -70,3 +70,8 @@ public sealed record WorkingHourPeriodRequest(int? DayOfWeek, TimeOnly? Start, T
 /// <summary>The whole week for one (doctor, clinic), a full replace; an empty list means no hours there.</summary>
 /// <param name="Periods">At most 50.</param>
 public sealed record ReplaceWorkingHoursRequest(IReadOnlyList<WorkingHourPeriodRequest>? Periods, string? RowVersion);
+
+/// <summary>Schedules a new slot duration (D43). Replaces any change that has not taken effect yet.</summary>
+/// <param name="SlotMinutes">5 to 120 in steps of 5.</param>
+/// <param name="EffectiveFrom">A Cairo calendar date after today.</param>
+public sealed record ChangeSlotDurationRequest(int? SlotMinutes, DateOnly? EffectiveFrom);

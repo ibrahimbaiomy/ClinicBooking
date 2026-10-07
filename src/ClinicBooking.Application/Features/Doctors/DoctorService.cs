@@ -175,6 +175,49 @@ public sealed class DoctorService : IDoctorService
         await _db.SaveGuardedAsync(cancellationToken);
     }
 
+    public async Task<DoctorResponse> ChangeSlotDurationAsync(
+        long id,
+        ChangeSlotDurationRequest request,
+        CancellationToken cancellationToken)
+    {
+        await EnsureDoctorExistsAsync(id, cancellationToken);
+        await _access.RequireAsync(await LiveClinicIdsAsync(id, cancellationToken), Manage, DoctorErrors.NotFound, cancellationToken);
+
+        var effectiveFrom = request.EffectiveFrom!.Value;
+        var today = CairoTime.Today(_clock);
+        if (effectiveFrom <= today)
+        {
+            throw new BusinessRuleException(DoctorErrors.EffectiveFromNotFuture);
+        }
+
+        // "After the doctor's last active appointment" (D43) needs Appointments: the Phase 2 seam (D61).
+        await _guard.EnsureSlotChangeAllowedAsync(id, effectiveFrom, cancellationToken);
+
+        var row = DoctorSlotDuration.Create(id, request.SlotMinutes!.Value, effectiveFrom);
+
+        // At most one pending change: a new one replaces it (history rows are hard-deleted, D35, D61).
+        // Existing working hours are not revalidated against the new duration (D61).
+        await _db.InSerializableTransactionAsync(
+            async () =>
+            {
+                var pending = await _db.DoctorSlotDurations
+                    .Where(s => s.DoctorId == id && s.EffectiveFrom > today)
+                    .ToListAsync(cancellationToken);
+                if (pending.Count > 0)
+                {
+                    _db.DoctorSlotDurations.RemoveRange(pending);
+                    await _db.SaveChangesAsync(cancellationToken); // before the insert: the date may be the same
+                }
+
+                _db.DoctorSlotDurations.Add(row);
+                await _db.SaveChangesAsync(cancellationToken);
+                return true;
+            },
+            cancellationToken);
+
+        return await GetAsync(id, cancellationToken);
+    }
+
     public async Task<DoctorResponse> AddClinicAsync(long id, long clinicId, CancellationToken cancellationToken)
     {
         // Serializable: a clinic deleted at the same moment either sees this assignment (409 in_use) or wins.

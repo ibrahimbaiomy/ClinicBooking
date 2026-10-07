@@ -84,6 +84,23 @@ public sealed class DoctorsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Schedules a new slot duration from a date after today (Cairo), replacing a pending one. Needs
+    /// doctors.manage in any of the doctor's clinics.
+    /// </summary>
+    [HttpPost("{id:long}/slot-durations")]
+    [Authorize]
+    [ProducesResponseType(typeof(DoctorResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    public async Task<ActionResult<DoctorResponse>> ChangeSlotDuration(
+        long id,
+        [FromBody] ChangeSlotDurationRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await _doctors.ChangeSlotDurationAsync(id, request, cancellationToken));
+
     /// <summary>Assigns the doctor to a clinic, active. Needs doctors.manage in that clinic.</summary>
     [HttpPost("{id:long}/clinics/{clinicId:long}")]
     [Authorize(Policy = Permissions.Doctors.Manage)]

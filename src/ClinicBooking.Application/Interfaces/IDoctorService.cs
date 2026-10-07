@@ -18,6 +18,9 @@ public interface IDoctorService
     /// <summary>Soft delete (D35); needs doctors.manage in all of the doctor's clinics.</summary>
     Task DeleteAsync(long id, CancellationToken cancellationToken);
 
+    /// <summary>Schedules a slot duration after today; needs doctors.manage in any of the doctor's clinics.</summary>
+    Task<DoctorResponse> ChangeSlotDurationAsync(long id, ChangeSlotDurationRequest request, CancellationToken cancellationToken);
+
     /// <summary>A new, active assignment; the caller already holds doctors.manage in the clinic (policy).</summary>
     Task<DoctorResponse> AddClinicAsync(long id, long clinicId, CancellationToken cancellationToken);
 

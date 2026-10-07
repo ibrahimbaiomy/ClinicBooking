@@ -99,3 +99,14 @@ public sealed class ReplaceWorkingHoursRequestValidator : AbstractValidator<Repl
         RuleFor(r => r.RowVersion).Cascade(CascadeMode.Stop).BeARowVersion();
     }
 }
+
+public sealed class ChangeSlotDurationRequestValidator : AbstractValidator<ChangeSlotDurationRequest>
+{
+    public ChangeSlotDurationRequestValidator()
+    {
+        RuleFor(r => r.SlotMinutes).Cascade(CascadeMode.Stop).BeASlotDuration();
+
+        // Whether the date is after today is a rule of the clock, checked in the service (422).
+        RuleFor(r => r.EffectiveFrom).Must(date => date is not null).WithMessage(DoctorErrors.EffectiveFromRequired);
+    }
+}
