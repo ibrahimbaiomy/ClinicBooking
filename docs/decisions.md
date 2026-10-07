@@ -94,7 +94,8 @@ D57 | ACCEPTED | User management and clinic-scoped permissions (back end) | user
 D58 | ACCEPTED | Account state, change-password and admin reset (back end) | IsActive, MustChangePassword, disable, change-password, reset password, password, account gate, sessions, lockout, rate limit
 D59 | ACCEPTED | User-management and change-password screens (front end) | users screens, change-password page, forced password change, mustChangePassword, session model, canIn, clinic-scoped UI, permission labels, check:permissions, temporary password, password fields, clinic picker, own account, guards, interceptor 403
 D60 | ACCEPTED | Documentation layout for several assistants | AGENTS.md, CLAUDE.md, Codex, STATUS.md, release.md, guides, archive, decision format
-D61 | ACCEPTED | Doctors back end | doctor, DoctorClinic, assignment, IsActive, DoctorSpecialty, working hours, WeeklyPeriod, slot duration, pending change, Cairo date, doctors.manage, all_clinics_required, in_use, IDoctorScheduleGuard, Phase 2 seam, shared code, NamedListQuery, split queries
+D61 | ACCEPTED | Doctors back end | doctor, DoctorClinic, assignment, IsActive, DoctorSpecialty, working hours, WeeklyPeriod, slot duration, pending change, Cairo date, doctors.manage, all_clinics_required, in_use, IDoctorScheduleGuard, Phase 2 seam, shared code, NamedListQuery, split queries, periodIndex, conflictingClinicId
+D62 | ACCEPTED | Doctors screens (front end) | doctor screens, list filters, IsActive filter, clinicPermissionInAnyGuard, canIn, canInAny, refreshUser, clinic picker, checkbox group, slot change, Cairo tomorrow, working hours editor, DayOfWeek, Saturday first, HH:mm, periodIndex, FeatureSession, scopeResolver, list-params, reference lists, incomplete note
 O1 | OPEN | Azure region: West Europe vs UAE North | Azure, region, Container Apps, ACR, Key Vault, Azure SQL, price
 O2 | OPEN | Custom domain and TLS, or the default Container Apps hostname | domain, TLS, hostname, Azure
 ```
@@ -1170,7 +1171,7 @@ every document into `CLAUDE.md` (imports load in full every session); dropping t
 rejected alternatives (an assistant would propose them again).
 
 ### D61 — Doctors back end
-`ACCEPTED` (refines D32, D35, D43, D50, D55, D57)
+`ACCEPTED` (refines D32, D35, D43, D50, D55, D57; refined by D62)
 
 - **Doctor.** `NameAr`, `NameEn`: required, trimmed, ≤ 100, normalised copies for
   search (D49), **no unique constraint** (people share names). No phone, no other
@@ -1234,6 +1235,13 @@ rejected alternatives (an assistant would propose them again).
   ignored by that check. **Reactivating re-runs it** and is 422 when the kept
   periods now overlap. Full replace, rows hard-deleted; checks run in a
   serializable transaction.
+- **Refinement (D62): the working-hours 422s name what they refuse.**
+  `BusinessRuleException` carries numeric extension members only (no text can
+  leak). `periodIndex` is the index in the request: the later of the first
+  overlapping pair, the first period shorter than a slot, the first period
+  overlapping another clinic. `conflictingClinicId` names the other clinic of an
+  overlap. Reactivation sends only `conflictingClinicId` (no list was sent). The
+  request accepts times as "HH:mm" (tested against the API).
 - **Slot duration** (D43): history rows `(DoctorId, SlotMinutes, EffectiveFrom)`,
   5 to 120 minutes in steps of 5 (`error.doctor.slot_minutes_required|invalid`).
   Required at creation, effective from the Cairo creation day. A change needs a
@@ -1278,6 +1286,80 @@ state.
 history; a wrong one is deactivated); a separate break model (gaps are breaks);
 several pending slot changes (one is enough until a need appears); `AsSplitQuery`
 per query (needs the relational EF package in Application, rule 8).
+
+### D62 — Doctors screens (front end)
+`ACCEPTED` (follows D53, D56, D59; implements D61 on the client; refines D61)
+
+- **Shared code at the third entity (D56).** Extracted only what Specialties,
+  Clinics and Users had identically: `FeatureSession` (each feature keeps its own
+  injectable subclass), `scopeResolver(scope)` (account too), and `list-params`
+  (search, page, size, sort, direction, constants). Each feature keeps its own
+  state, sort fields, filters and API mapping. Form error mapping differs between
+  the copies and is not extracted.
+- **Routes (UX only; the API decides).** `/doctors` (authGuard); `/doctors/new`
+  with the new `clinicPermissionInAnyGuard(permission)` (`canInAny`, otherwise
+  `/forbidden`; keeps the forced password change); `/doctors/:id`,
+  `/doctors/:id/edit` and `/doctors/:id/clinics/:clinicId/hours` behind authGuard
+  only, the page deciding after loading. A "Doctors" header link after Clinics.
+- **Who sees what.** Edit and slot change: `canIn(doctors.manage, c)` for at least
+  one of the doctor's clinics. Delete: for all of them. Per assignment row
+  (working-hours link, Deactivate, Activate): for that clinic. Working hours are
+  editable only with it for that clinic, otherwise read-only. The edit page for a
+  user without it says so and shows no form.
+- **List.** Columns: both names (D53), specialties, clinics (an inactive
+  assignment marked in words), today's slot; cards below md; an "Open" link, no
+  edit or delete in rows. URL `?q=&specialty=&clinic=&active=&page=&size=&sort=&dir=`;
+  `active` is `all|active|inactive` (`all` omitted), enabled only with a clinic,
+  reset when the clinic is cleared, never sent alone.
+- **Reference lists.** Specialty and clinic selects are loaded once with
+  `PageSize` 100, sorted by the UI-language name; when the API holds more, a
+  visible "incomplete list" note (a searchable picker is under Later). The same
+  applies to the specialties in the forms; the doctor's own specialties are always
+  offered.
+- **Clinic options** (create and "add a clinic") come from the session's
+  `clinicPermissions` with `doctors.manage` (live clinics, both names), not from
+  `/api/clinics`. **`refreshUser()` is called when the create page or the picker
+  opens**, so a grant made after sign-in is offered at once. The picker leaves out
+  clinics the doctor already has, active or inactive.
+- **Create** (names, specialties and clinics as checkbox groups, slot select 5 to
+  120 step 5, default 15): field keys on their fields
+  (`error.doctor.specialty_unavailable` on specialties), 403 form-level; success
+  opens the new doctor's detail with a one-time message. **Edit** (names and
+  specialties, full replace with `rowVersion`, D53 conflict flow) returns to the
+  detail with a one-time message.
+- **Detail.** Summary with dates (`intl`); specialties and clinics sorted by the
+  UI-language name (`Intl.Collator`, display order only: it does not fold hamza
+  forms like the server's search). Activate is immediate; Deactivate has a
+  confirm dialog (focus on Cancel). A refused reactivation (422) shows in its row
+  and names the other clinic (`conflictingClinicId`, names from the doctor's
+  clinics or the session; otherwise the generic message). Slot change: an inline
+  form (minutes select, a date with `min` = tomorrow in Cairo from the browser
+  clock), stating that it replaces the pending change; a 422 for the date goes on
+  the date field. Delete: confirm dialog; `error.doctor.all_clinics_required` and
+  other errors stay in it; success returns to the remembered list.
+- **Working hours.** Doctor and clinic names; an "inactive" notice. **The API
+  keeps .NET `DayOfWeek` (0 = Sunday); the screen shows Saturday to Friday**,
+  mapped in one tested module (`week.ts`). Periods use `<input type="time">`
+  (`dir="ltr"`, step 60) with add and remove; times are sent as **"HH:mm"**. The
+  request is built in the displayed order (Saturday first, then by start), and
+  one tested function maps request index to displayed period for both
+  `periods[i].start|end` field errors and `periodIndex`. A 422 sits next to the
+  period it names (an overlap names the other clinic); without an index it is
+  form-level; 409 follows D53. The only client rule is "a time is entered". The
+  dynamic list is kept in plain signals, not a Signal Forms tree. No "copy to
+  other days" or templates.
+- **Errors.** `parseApiError` reads `periodIndex` and `conflictingClinicId`
+  (non-negative integers, number or digit string; anything else absent). A
+  correlation id is shown only for unexplained failures (D52).
+
+**Why:** every control follows the clinic it concerns, so the screen never offers
+what the API refuses; the API keeps its own weekday numbering and the screen owns
+the local week order.
+**Rejected:** a searchable picker for specialties and clinics now (100 is enough
+today; Later); clinic options from `/api/clinics` (would offer clinics the user
+cannot use); a native `<select multiple>` (poor on phones and with screen readers);
+a route guard for edit (only the loaded doctor knows its clinics); form-level-only
+422s (the owner wanted them next to the period).
 
 ---
 

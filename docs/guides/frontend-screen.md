@@ -1,8 +1,12 @@
 # Guide — front-end screens
 
 Build the API first (`backend-entity.md`). Copy the Specialties screens (D53);
-Clinics (D56) and Users (D59) show the variations. Do not extract shared code
-before the third entity (Doctors), and then only what the three copies share (D56).
+Clinics (D56), Users (D59) and Doctors (D62) show the variations. Shared since
+Doctors (D62): `shared/feature/feature-session.ts` (a feature's session is a
+subclass), `shared/feature/scope-resolver.ts`, and `shared/list/list-params.ts`
+(search, page, size, sort, direction); a feature adds its own filters. A page whose
+access depends on the loaded record's clinics decides after loading (`canIn`); a
+page that needs a clinic-scoped permission anywhere uses `clinicPermissionInAnyGuard`.
 
 ## Every new screen
 

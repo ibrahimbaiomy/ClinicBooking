@@ -2,36 +2,19 @@
 
 Read at the start of every session; update at the end. Keep it short: what is
 done in one line per step (the detail is in the decisions), what is next, and
-what the owner must check by hand. Last updated: 2026-10-07.
+what the owner must check by hand. Last updated: 2026-10-07 (Doctors screens).
 
 ---
 
 ## Now
 
-**Phase 1, next step: Doctors screens** (the back end is done, D61).
+**Phase 1, next step: Patients** (name and phone only, `PhoneNumber` reused,
+duplicate-phone warning, global `patients.*`, D38, D44). Patient search needs a
+prefix or full-text approach, not a leading wildcard (D49). Reuse the shared
+pieces: back end `CommonRules`, `NamedListing`-style paging, `ConcurrencyGuard`
+(D61); front end `FeatureSession`, `scopeResolver`, `list-params` (D62).
 
-Things in place or promised for the screens:
-- API: `/api/doctors` list (search, paging, sort, `ClinicId`, `SpecialtyId`,
-  `IsActive` with `ClinicId` only), detail, create, edit, delete; assignments
-  (add, activate, deactivate); working hours per clinic (`GET` open, `PUT` with the
-  assignment's `rowVersion`); slot-duration change (D61). Types are in `schema.d.ts`.
-- Permissions: create needs `doctors.manage` in every chosen clinic; edit and slot
-  change in any of the doctor's clinics; delete in all of them (403
-  `error.doctor.all_clinics_required` otherwise); assignment and hours changes in
-  that clinic. `canIn`, `canInAny` and `*cbCan` with a clinic exist; no
-  clinic-aware route guard yet (D59).
-- `dayOfWeek` is 0 = Sunday in the API; the screens order the week from Saturday.
-- Every back-end key is translated in the root `ar.json`/`en.json`.
-- Doctors is the **third entity** for the front end too: decide what to extract
-  from the copied Specialties/Clinics screen code (list state, session service,
-  scope resolver, form error mapping) by looking at what the three copies share
-  (D56). The back-end extraction is done (D61).
-
-**Then: Patients** (name and phone only, `PhoneNumber` reused, duplicate-phone
-warning, global `patients.*`, D38, D44). Patient search needs a prefix or
-full-text approach, not a leading wildcard (D49).
-
-Phase 1 is complete after Doctors and Patients. Appointments (Phase 2) do not
+Phase 1 is complete after Patients. Appointments (Phase 2) do not
 start before that (D54).
 
 **Phase 2 seams waiting for Appointments** (`IDoctorScheduleGuard`, D61; Phase 1
@@ -63,7 +46,11 @@ registers `NoAppointmentsScheduleGuard`, which allows everything):
 - Shared back-end code for named entities: name rules, list query, search and
   paging, concurrency guard (D61).
 - Doctors back end: doctors, specialties, clinic assignments, working hours, slot
-  duration, `in_use` for specialties and clinics (D61).
+  duration, `in_use` for specialties and clinics (D61); working-hours 422s name the
+  period and the other clinic (D61 refinement).
+- Shared front-end code: session memory, scope resolver, list URL helpers (D62).
+- Doctors screens: list with filters, create, edit, detail (clinics, slot change,
+  delete), working-hours editor; `clinicPermissionInAnyGuard` (D62).
 
 ---
 
@@ -78,22 +65,32 @@ password). Covered by unit tests; still to check by hand:
       focus restored after the dialog closes (D53).
 - [ ] Clinics: the same, plus clearing phone and address, phone digits staying
       left to right in Arabic, a long Arabic address at phone width (D56).
-- [ ] Header at 360 px wide, signed in, Arabic and English: wraps with no
-      horizontal overflow (D56).
 - [ ] Users and change-password flows, including the forced change (D59).
 - [ ] Create user: the browser does not offer to save the temporary password; if
       it does, set `autocomplete="off"` on the field and report it (D59).
-- [ ] Doctors back end (D61) against the real container: the `AddDoctors`
-      migration applies at start-up and the API starts cleanly.
+- [ ] Doctors through the screens, against the real container (D61, D62):
       ```
       docker compose up --build
       ```
-      Then, signed in as the seeded admin (see `docs/guides/build-and-run.md`):
-      grant yourself `doctors.manage` in a clinic
-      (`PUT /api/users/{id}/clinics/{clinicId}/permissions`), create a doctor
-      (`POST /api/doctors`), save working hours, deactivate and reactivate the
-      assignment, and confirm that deleting that clinic or the doctor's specialty
-      answers 409 `in_use`.
+      The `AddDoctors` migration applies and the API starts cleanly. Signed in as the
+      seeded admin, grant yourself `doctors.manage` in two clinics on the Users page,
+      then under Doctors: create a doctor in both (the clinics appear without signing
+      out), filter the list by clinic and status, edit names and specialties, save
+      working hours in one clinic, try an overlapping period in the other (the message
+      sits next to that period and names the first clinic), deactivate and reactivate
+      (a clash shows in the row), schedule a slot change (the date picker starts
+      tomorrow), and confirm that deleting that clinic or the doctor's specialty is
+      refused with the in-use message.
+- [ ] A user holding `doctors.manage` in only one of a doctor's two clinics: can edit,
+      cannot delete (no button; the API answers `all_clinics_required`), has no
+      working-hours link for the other clinic, and that page opened by its URL is
+      read-only.
+- [ ] Header at 360 px wide with four links (Specialties, Clinics, Doctors, Users),
+      Arabic and English: wraps with no horizontal overflow (D56, D62).
+- [ ] Doctors pages at 360 px in Arabic: cards below md, the working-hours editor
+      (time inputs left to right, add and remove buttons wrap).
+- [ ] Review the Arabic wording of `public/i18n/doctors/ar.json` and the new
+      `error.doctor.*` texts.
 - [ ] `docker compose build` still succeeds (the Docker `web` stage runs
       `check:i18n` without the C# sources and only warns).
 
@@ -124,3 +121,5 @@ under control: ideas that arrive mid-build go under "Later", not into code.
 - Filter the Clinics list by the caller's clinics, if D6's "inaccessible means
   404" is wanted for lists (D55, D57).
 - Cancel a pending slot-duration change without replacing it (D61).
+- A searchable picker for specialties and clinics in the Doctors filters and forms,
+  if either list grows past 100 (D62; today a note says the list is incomplete).
