@@ -9,6 +9,7 @@ public static class ClinicErrors
     public const string NameArTaken = "error.clinic.name_ar_taken";
     public const string NameEnTaken = "error.clinic.name_en_taken";
     public const string AddressTooLong = "error.clinic.address_too_long";
+    public const string InUse = "error.clinic.in_use";
 
     /// <summary>The key lives in Domain, where the entity itself reports a bad number.</summary>
     public const string PhoneInvalid = Clinic.PhoneInvalidKey;

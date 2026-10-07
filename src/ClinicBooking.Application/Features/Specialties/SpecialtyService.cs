@@ -58,13 +58,24 @@ public sealed class SpecialtyService : ISpecialtyService
         return specialty.ToResponse();
     }
 
-    public async Task DeleteAsync(long id, CancellationToken cancellationToken)
-    {
-        var specialty = await FindAsync(id, cancellationToken);
+    public Task DeleteAsync(long id, CancellationToken cancellationToken) =>
+        // Serializable: a doctor given this specialty at the same moment either is seen here or fails (D61).
+        _db.InSerializableTransactionAsync(
+            async () =>
+            {
+                var specialty = await FindAsync(id, cancellationToken);
 
-        _db.Specialties.Remove(specialty);
-        await _db.SaveGuardedAsync(cancellationToken);
-    }
+                // No cascade; soft-deleted doctors keep their reference and do not count (D50).
+                if (await _db.Doctors.AnyAsync(d => d.Specialties.Any(s => s.SpecialtyId == id), cancellationToken))
+                {
+                    throw new ConflictException(SpecialtyErrors.InUse);
+                }
+
+                _db.Specialties.Remove(specialty);
+                await _db.SaveGuardedAsync(cancellationToken);
+                return true;
+            },
+            cancellationToken);
 
     private async Task<Specialty> FindAsync(long id, CancellationToken cancellationToken) =>
         await _db.Specialties.SingleOrDefaultAsync(s => s.Id == id, cancellationToken)

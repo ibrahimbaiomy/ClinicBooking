@@ -69,12 +69,45 @@
       "name_en_taken": "Another clinic already has this English name.",
       "not_found": "The clinic was not found.",
       "address_too_long": "The address is too long (300 characters at most).",
-      "phone_invalid": "The phone number is not valid. Enter a valid number."
+      "phone_invalid": "The phone number is not valid. Enter a valid number.",
+      "in_use": "This clinic cannot be deleted because doctors are assigned to it."
     },
     "concurrency": {
       "conflict": "Someone else has changed this record. Reload it and try again.",
       "row_version_required": "The record version is missing. Reload the record.",
       "row_version_invalid": "The record version is not valid. Reload the record."
+    },
+    "doctor": {
+      "not_found": "The doctor was not found.",
+      "name_ar_required": "Enter the doctor's Arabic name.",
+      "name_ar_too_long": "The doctor's Arabic name is too long (100 characters at most).",
+      "name_ar_invalid": "The doctor's Arabic name is not valid.",
+      "name_en_required": "Enter the doctor's English name.",
+      "name_en_too_long": "The doctor's English name is too long (100 characters at most).",
+      "name_en_invalid": "The doctor's English name is not valid.",
+      "specialties_required": "Choose at least one specialty.",
+      "specialties_too_many": "Choose at most 10 specialties.",
+      "specialty_unavailable": "One of the chosen specialties no longer exists. Reload and choose again.",
+      "clinics_required": "Choose at least one clinic.",
+      "clinics_too_many": "Choose at most 20 clinics.",
+      "slot_minutes_required": "Enter the appointment length.",
+      "slot_minutes_invalid": "The appointment length must be between 5 and 120 minutes, in steps of 5.",
+      "effective_from_required": "Enter the date the new appointment length starts.",
+      "effective_from_not_future": "The new appointment length can only start on a date after today.",
+      "is_active_requires_clinic": "Choose a clinic to filter by active or inactive doctors.",
+      "clinic_already_assigned": "The doctor is already assigned to this clinic.",
+      "clinic_not_assigned": "The doctor is not assigned to this clinic.",
+      "all_clinics_required": "Only someone who manages doctors in every clinic of this doctor can delete them.",
+      "periods_required": "The working hours are missing.",
+      "periods_too_many": "There are too many working periods (50 per week at most).",
+      "period_day_invalid": "The day of a working period is not valid.",
+      "period_start_required": "Enter the start time of every working period.",
+      "period_end_required": "Enter the end time of every working period.",
+      "period_time_invalid": "Working periods must start and end on a whole minute.",
+      "period_end_not_after_start": "A working period must end after it starts, on the same day.",
+      "periods_overlap": "Two working periods on the same day overlap.",
+      "period_overlaps_other_clinic": "A working period overlaps the doctor's hours in another clinic on the same day.",
+      "period_shorter_than_slot": "A working period is shorter than one appointment."
     },
     "health": {
       "not_ready": "The service is not ready yet. Please try again shortly."
@@ -107,7 +140,8 @@
       "name_en_too_long": "The English name is too long (100 characters at most).",
       "name_en_invalid": "The English name is not valid.",
       "name_en_taken": "Another specialty already has this English name.",
-      "not_found": "The specialty was not found."
+      "not_found": "The specialty was not found.",
+      "in_use": "This specialty cannot be deleted because doctors have it."
     },
     "user": {
       "not_found": "The user was not found.",

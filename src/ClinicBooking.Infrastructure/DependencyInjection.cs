@@ -3,6 +3,7 @@ using ClinicBooking.Infrastructure.Health;
 using ClinicBooking.Infrastructure.Identity;
 using ClinicBooking.Infrastructure.Interceptors;
 using ClinicBooking.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace ClinicBooking.Infrastructure;
 
@@ -19,8 +20,12 @@ public static class DependencyInjection
 
         // No retry strategy yet: it needs the transaction wrapper from D31 (see D46).
         services.AddDbContext<AppDbContext>((provider, options) => options
-            .UseSqlServer(configuration.GetConnectionString("Default"))
-            .AddInterceptors(provider.GetRequiredService<AuditSaveChangesInterceptor>()));
+            // Split queries: a doctor projects three collections (D61); one joined query would multiply rows.
+            .UseSqlServer(configuration.GetConnectionString("Default"), sql => sql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery))
+            .AddInterceptors(provider.GetRequiredService<AuditSaveChangesInterceptor>())
+            // Deliberate: a soft-deleted clinic or specialty hides the assignment rows that point to it
+            // (D57, D61), which is what this warning describes.
+            .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning)));
         services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
 
         // UserManager only: SignInManager is cookie-oriented and not used (D29, D48).

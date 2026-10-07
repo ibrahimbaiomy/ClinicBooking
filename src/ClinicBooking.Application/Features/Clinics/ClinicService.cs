@@ -56,13 +56,24 @@ public sealed class ClinicService : IClinicService
         return clinic.ToResponse();
     }
 
-    public async Task DeleteAsync(long id, CancellationToken cancellationToken)
-    {
-        var clinic = await FindAsync(id, cancellationToken);
+    public Task DeleteAsync(long id, CancellationToken cancellationToken) =>
+        // Serializable: a doctor assigned here at the same moment either is seen here or fails (D61).
+        _db.InSerializableTransactionAsync(
+            async () =>
+            {
+                var clinic = await FindAsync(id, cancellationToken);
 
-        _db.Clinics.Remove(clinic);
-        await _db.SaveGuardedAsync(cancellationToken);
-    }
+                // Any assignment of a live doctor, active or inactive, keeps the clinic (D55, D61).
+                if (await _db.Doctors.AnyAsync(d => d.Clinics.Any(c => c.ClinicId == id), cancellationToken))
+                {
+                    throw new ConflictException(ClinicErrors.InUse);
+                }
+
+                _db.Clinics.Remove(clinic);
+                await _db.SaveGuardedAsync(cancellationToken);
+                return true;
+            },
+            cancellationToken);
 
     private async Task<Clinic> FindAsync(long id, CancellationToken cancellationToken) =>
         await _db.Clinics.SingleOrDefaultAsync(c => c.Id == id, cancellationToken)

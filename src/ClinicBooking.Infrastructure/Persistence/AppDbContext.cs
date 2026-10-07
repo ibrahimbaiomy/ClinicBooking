@@ -28,6 +28,18 @@ public class AppDbContext : IdentityUserContext<ApplicationUser, long>, IAppDbCo
 
     public DbSet<UserClinicPermission> UserClinicPermissions => Set<UserClinicPermission>();
 
+    public DbSet<Doctor> Doctors => Set<Doctor>();
+
+    public DbSet<DoctorSpecialty> DoctorSpecialties => Set<DoctorSpecialty>();
+
+    public DbSet<DoctorClinic> DoctorClinics => Set<DoctorClinic>();
+
+    public DbSet<DoctorSlotDuration> DoctorSlotDurations => Set<DoctorSlotDuration>();
+
+    public DbSet<WorkingHourPeriod> WorkingHourPeriods => Set<WorkingHourPeriod>();
+
+    public void MarkModified(AuditableEntity entity) => Entry(entity).State = EntityState.Modified;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Identity's own tables first (users and their claims; no roles, permissions are claims).
