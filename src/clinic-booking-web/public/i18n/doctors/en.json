@@ -125,7 +125,7 @@
     "slot_replaces": "A new change replaces the change that is already scheduled.",
     "slot_save": "Schedule the change",
     "slot_saving": "Saving…",
-    "slot_cancel": "Cancel",
+    "cancel": "Cancel",
     "delete": "Delete doctor",
     "deactivate_dialog": {
       "title": "Deactivate at this clinic?",

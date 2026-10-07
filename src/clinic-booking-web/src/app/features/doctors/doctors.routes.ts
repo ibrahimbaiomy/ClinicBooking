@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { provideTranslocoScope } from '@jsverse/transloco';
+import { DoctorDetail } from './detail/doctor-detail';
 import { DoctorsList } from './list/doctors-list';
 import { DOCTORS_SCOPE, doctorsScopeResolver } from './doctors.scope';
 
@@ -12,6 +13,9 @@ export const DOCTORS_ROUTES: Routes = [
     path: '',
     providers: [provideTranslocoScope(DOCTORS_SCOPE)],
     resolve: { scope: doctorsScopeResolver },
-    children: [{ path: '', pathMatch: 'full', component: DoctorsList }],
+    children: [
+      { path: '', pathMatch: 'full', component: DoctorsList },
+      { path: ':id', component: DoctorDetail },
+    ],
   },
 ];
