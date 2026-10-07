@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using ClinicBooking.Application.DTOs;
 using ClinicBooking.Application.Features.Doctors;
 using ClinicBooking.Domain.Entities;
+using ClinicBooking.Domain.ValueObjects;
 using FluentValidation;
 
 namespace ClinicBooking.Application.Validators;
@@ -69,5 +70,32 @@ public sealed class ListDoctorsQueryValidator : AbstractValidator<ListDoctorsQue
         RuleFor(q => q.IsActive)
             .Must((query, isActive) => isActive is null || query.ClinicId is not null)
             .WithMessage(DoctorErrors.IsActiveRequiresClinic);
+    }
+}
+
+public sealed class ReplaceWorkingHoursRequestValidator : AbstractValidator<ReplaceWorkingHoursRequest>
+{
+    public const int MaxPeriods = 50;
+
+    public ReplaceWorkingHoursRequestValidator()
+    {
+        RuleFor(r => r.Periods).Cascade(CascadeMode.Stop)
+            .Must(periods => periods is not null).WithMessage(DoctorErrors.PeriodsRequired)
+            .Must(periods => periods!.Count <= MaxPeriods).WithMessage(DoctorErrors.PeriodsTooMany);
+
+        RuleForEach(r => r.Periods).ChildRules(period =>
+        {
+            period.RuleFor(p => p.DayOfWeek)
+                .Must(day => day is >= 0 and <= 6).WithMessage(DoctorErrors.PeriodDayInvalid);
+            period.RuleFor(p => p.Start).Cascade(CascadeMode.Stop)
+                .Must(start => start is not null).WithMessage(DoctorErrors.PeriodStartRequired)
+                .Must(start => WeeklyPeriod.IsWholeMinute(start!.Value)).WithMessage(DoctorErrors.PeriodTimeInvalid);
+            period.RuleFor(p => p.End).Cascade(CascadeMode.Stop)
+                .Must(end => end is not null).WithMessage(DoctorErrors.PeriodEndRequired)
+                .Must(end => WeeklyPeriod.IsWholeMinute(end!.Value)).WithMessage(DoctorErrors.PeriodTimeInvalid)
+                .Must((p, end) => p.Start is null || end > p.Start).WithMessage(DoctorErrors.PeriodEndNotAfterStart);
+        }).When(r => r.Periods is { Count: <= MaxPeriods });
+
+        RuleFor(r => r.RowVersion).Cascade(CascadeMode.Stop).BeARowVersion();
     }
 }

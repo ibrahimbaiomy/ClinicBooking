@@ -1,10 +1,12 @@
 using ClinicBooking.Application.DTOs;
+using ClinicBooking.Application.Features.Clinics;
 using ClinicBooking.Application.Features.Common;
 using ClinicBooking.Application.Features.Users;
 using ClinicBooking.Application.Interfaces;
 using ClinicBooking.Domain.Entities;
 using ClinicBooking.Domain.Exceptions;
 using ClinicBooking.Domain.Permissions;
+using ClinicBooking.Domain.ValueObjects;
 
 namespace ClinicBooking.Application.Features.Doctors;
 
@@ -172,6 +174,121 @@ public sealed class DoctorService : IDoctorService
         _db.Doctors.Remove(doctor);
         await _db.SaveGuardedAsync(cancellationToken);
     }
+
+    public async Task<WorkingHoursResponse> GetWorkingHoursAsync(long id, long clinicId, CancellationToken cancellationToken)
+    {
+        await EnsureDoctorExistsAsync(id, cancellationToken);
+
+        // The read is open to everyone, so the clinic is checked here (the policy does it on the writes).
+        if (!await _db.Clinics.AnyAsync(c => c.Id == clinicId, cancellationToken))
+        {
+            throw new NotFoundException(ClinicErrors.NotFound);
+        }
+
+        var assignment = await _db.DoctorClinics
+                             .Include(c => c.WorkingHours)
+                             .AsNoTracking()
+                             .SingleOrDefaultAsync(c => c.DoctorId == id && c.ClinicId == clinicId, cancellationToken)
+                         ?? throw new NotFoundException(DoctorErrors.ClinicNotAssigned);
+
+        return ToWorkingHoursResponse(assignment);
+    }
+
+    public async Task<WorkingHoursResponse> ReplaceWorkingHoursAsync(
+        long id,
+        long clinicId,
+        ReplaceWorkingHoursRequest request,
+        CancellationToken cancellationToken)
+    {
+        var periods = request.Periods!
+            .Select(p => WeeklyPeriod.Create(p.DayOfWeek!.Value, p.Start!.Value, p.End!.Value))
+            .ToList();
+
+        // Serializable: two clinics saving overlapping hours for the same doctor at once cannot both pass (D32).
+        var assignment = await _db.InSerializableTransactionAsync(
+            async () =>
+            {
+                await EnsureDoctorExistsAsync(id, cancellationToken);
+                var assignment = await FindAssignmentAsync(id, clinicId, cancellationToken);
+                ConcurrencyGuard.EnsureCurrent(assignment, request.RowVersion);
+
+                WeeklyPeriod.EnsureNoOverlap(periods);
+
+                // Today's duration (Cairo); a scheduled change does not revalidate stored periods (D61).
+                WeeklyPeriod.EnsureEachHoldsASlot(periods, await SlotMinutesTodayAsync(id, cancellationToken));
+
+                // An inactive assignment's periods are ignored by the cross-clinic check until it is
+                // reactivated, which runs the check then (D61).
+                if (assignment.IsActive)
+                {
+                    WeeklyPeriod.EnsureNoOverlapWithOtherClinics(
+                        periods, await OtherActivePeriodsAsync(id, assignment.Id, cancellationToken));
+                }
+
+                await _guard.EnsureWorkingHoursChangeAllowedAsync(id, clinicId, periods, cancellationToken);
+
+                _db.WorkingHourPeriods.RemoveRange(assignment.WorkingHours.ToList());
+                foreach (var period in periods)
+                {
+                    assignment.WorkingHours.Add(WorkingHourPeriod.Create(period));
+                }
+
+                // The week is part of the assignment: its row version moves with every save (D61).
+                _db.MarkModified(assignment);
+                await _db.SaveGuardedAsync(cancellationToken);
+                return assignment;
+            },
+            cancellationToken);
+
+        return ToWorkingHoursResponse(assignment);
+    }
+
+    private async Task EnsureDoctorExistsAsync(long id, CancellationToken cancellationToken)
+    {
+        if (!await _db.Doctors.AnyAsync(d => d.Id == id, cancellationToken))
+        {
+            throw new NotFoundException(DoctorErrors.NotFound);
+        }
+    }
+
+    private async Task<DoctorClinic> FindAssignmentAsync(long id, long clinicId, CancellationToken cancellationToken) =>
+        await _db.DoctorClinics
+            .Include(c => c.WorkingHours)
+            .SingleOrDefaultAsync(c => c.DoctorId == id && c.ClinicId == clinicId, cancellationToken)
+        ?? throw new NotFoundException(DoctorErrors.ClinicNotAssigned);
+
+    private async Task<int> SlotMinutesTodayAsync(long id, CancellationToken cancellationToken)
+    {
+        var today = CairoTime.Today(_clock);
+        return await _db.DoctorSlotDurations
+            .Where(s => s.DoctorId == id && s.EffectiveFrom <= today)
+            .OrderByDescending(s => s.EffectiveFrom)
+            .Select(s => s.SlotMinutes)
+            .FirstAsync(cancellationToken);
+    }
+
+    // The doctor's periods in every other active assignment of a live clinic (D32, D61).
+    private async Task<List<WeeklyPeriod>> OtherActivePeriodsAsync(long id, long assignmentId, CancellationToken cancellationToken)
+    {
+        var rows = await _db.DoctorClinics
+            .Where(c => c.DoctorId == id && c.Id != assignmentId && c.IsActive && !c.Clinic.IsDeleted)
+            .SelectMany(c => c.WorkingHours)
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(p => p.ToWeeklyPeriod()).ToList();
+    }
+
+    private static WorkingHoursResponse ToWorkingHoursResponse(DoctorClinic assignment) =>
+        new(
+            assignment.DoctorId,
+            assignment.ClinicId,
+            assignment.IsActive,
+            assignment.WorkingHours
+                .OrderBy(p => p.DayOfWeek)
+                .ThenBy(p => p.Start)
+                .Select(p => new WorkingHourPeriodResponse((int)p.DayOfWeek, p.Start, p.End))
+                .ToList(),
+            RowVersionCodec.Encode(assignment.RowVersion));
 
     // Every assignment, active or inactive, in a clinic that is not soft-deleted (D57, D61).
     private async Task<long[]> LiveClinicIdsAsync(long doctorId, CancellationToken cancellationToken) =>

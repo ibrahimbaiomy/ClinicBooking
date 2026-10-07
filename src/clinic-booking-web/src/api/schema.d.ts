@@ -848,6 +848,151 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/doctors/{id}/clinics/{clinicId}/working-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    clinicId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkingHoursResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    clinicId: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ReplaceWorkingHoursRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkingHoursResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unprocessable Entity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/permissions": {
         parameters: {
             query?: never;
@@ -1894,6 +2039,10 @@ export interface components {
         ReplaceGlobalPermissionsRequest: {
             permissions: null | string[];
         };
+        ReplaceWorkingHoursRequest: {
+            periods: null | components["schemas"]["WorkingHourPeriodRequest"][];
+            rowVersion: null | string;
+        };
         ResetPasswordRequest: {
             temporaryPassword: null | string;
         };
@@ -1952,6 +2101,31 @@ export interface components {
             mustChangePassword: boolean;
             /** Format: date-time */
             createdAt: string;
+        };
+        WorkingHourPeriodRequest: {
+            /** Format: int32 */
+            dayOfWeek: null | number | string;
+            /** Format: time */
+            start: null | string;
+            /** Format: time */
+            end: null | string;
+        };
+        WorkingHourPeriodResponse: {
+            /** Format: int32 */
+            dayOfWeek: number | string;
+            /** Format: time */
+            start: string;
+            /** Format: time */
+            end: string;
+        };
+        WorkingHoursResponse: {
+            /** Format: int64 */
+            doctorId: number | string;
+            /** Format: int64 */
+            clinicId: number | string;
+            isActive: boolean;
+            periods: components["schemas"]["WorkingHourPeriodResponse"][];
+            rowVersion: string;
         };
     };
     responses: never;

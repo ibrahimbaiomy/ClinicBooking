@@ -1,5 +1,6 @@
 using ClinicBooking.Application.DTOs;
 using ClinicBooking.Application.Interfaces;
+using ClinicBooking.Domain.Permissions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -82,4 +83,30 @@ public sealed class DoctorsController : ControllerBase
 
         return NoContent();
     }
+
+    /// <summary>The week of one assignment, active or not. Open to any signed-in user (no policy).</summary>
+    [HttpGet("{id:long}/clinics/{clinicId:long}/working-hours")]
+    [Authorize]
+    [ProducesResponseType(typeof(WorkingHoursResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<ActionResult<WorkingHoursResponse>> GetWorkingHours(
+        long id,
+        long clinicId,
+        CancellationToken cancellationToken) =>
+        Ok(await _doctors.GetWorkingHoursAsync(id, clinicId, cancellationToken));
+
+    /// <summary>Replaces the whole week of one assignment. Needs doctors.manage in that clinic.</summary>
+    [HttpPut("{id:long}/clinics/{clinicId:long}/working-hours")]
+    [Authorize(Policy = Permissions.Doctors.Manage)]
+    [ProducesResponseType(typeof(WorkingHoursResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    public async Task<ActionResult<WorkingHoursResponse>> ReplaceWorkingHours(
+        long id,
+        long clinicId,
+        [FromBody] ReplaceWorkingHoursRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await _doctors.ReplaceWorkingHoursAsync(id, clinicId, request, cancellationToken));
 }

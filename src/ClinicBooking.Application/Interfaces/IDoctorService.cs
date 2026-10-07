@@ -17,4 +17,14 @@ public interface IDoctorService
 
     /// <summary>Soft delete (D35); needs doctors.manage in all of the doctor's clinics.</summary>
     Task DeleteAsync(long id, CancellationToken cancellationToken);
+
+    /// <summary>The week of one assignment, active or not. Open to any signed-in user.</summary>
+    Task<WorkingHoursResponse> GetWorkingHoursAsync(long id, long clinicId, CancellationToken cancellationToken);
+
+    /// <summary>Full weekly replace; the caller already holds doctors.manage in the clinic (policy).</summary>
+    Task<WorkingHoursResponse> ReplaceWorkingHoursAsync(
+        long id,
+        long clinicId,
+        ReplaceWorkingHoursRequest request,
+        CancellationToken cancellationToken);
 }

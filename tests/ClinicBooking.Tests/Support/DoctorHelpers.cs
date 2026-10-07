@@ -136,4 +136,57 @@ internal static class DoctorHelpers
         await AssertProblemAsync(response, HttpStatusCode.BadRequest, "error.validation.failed");
         return (await ProblemAsync(response)).GetProperty("errors").GetProperty(field)[0].GetString()!;
     }
+
+    // ---- working hours ---------------------------------------------------------------------
+
+    /// <summary>A period as the API takes it: day 0 (Sunday) to 6, times "HH:mm".</summary>
+    public static object Period(int dayOfWeek, string start, string end) => new { dayOfWeek, start, end };
+
+    public static string HoursUrl(long doctorId, long clinicId) => $"/api/doctors/{doctorId}/clinics/{clinicId}/working-hours";
+
+    public static Task<HttpResponseMessage> GetHoursAsync(HttpClient client, string token, long doctorId, long clinicId) =>
+        SendAsync(client, HttpMethod.Get, HoursUrl(doctorId, clinicId), token);
+
+    public static async Task<JsonElement> GetHoursOkAsync(HttpClient client, string token, long doctorId, long clinicId)
+    {
+        var response = await GetHoursAsync(client, token, doctorId, clinicId);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return await ProblemAsync(response);
+    }
+
+    public static Task<HttpResponseMessage> PutHoursAsync(
+        HttpClient client,
+        string token,
+        long doctorId,
+        long clinicId,
+        object?[]? periods,
+        string? rowVersion) =>
+        SendAsync(client, HttpMethod.Put, HoursUrl(doctorId, clinicId), token, new { periods, rowVersion });
+
+    /// <summary>Reads the current row version, then replaces the week.</summary>
+    public static async Task<HttpResponseMessage> SaveHoursAsync(
+        HttpClient client,
+        string token,
+        long doctorId,
+        long clinicId,
+        params object[] periods)
+    {
+        var current = await GetHoursOkAsync(client, token, doctorId, clinicId);
+        return await PutHoursAsync(client, token, doctorId, clinicId, periods, current.GetProperty("rowVersion").GetString());
+    }
+
+    public static string[] PeriodTexts(JsonElement hours) =>
+        hours.GetProperty("periods").EnumerateArray()
+            .Select(p => $"{p.GetProperty("dayOfWeek").GetInt32()} {p.GetProperty("start").GetString()}-{p.GetProperty("end").GetString()}")
+            .ToArray();
+
+    /// <summary>Sets an assignment's IsActive directly in the database.</summary>
+    public static async Task SetAssignmentActiveAsync(IServiceProvider services, long doctorId, long clinicId, bool isActive)
+    {
+        using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var assignment = await db.DoctorClinics.SingleAsync(c => c.DoctorId == doctorId && c.ClinicId == clinicId);
+        assignment.IsActive = isActive;
+        await db.SaveChangesAsync();
+    }
 }

@@ -49,3 +49,24 @@ public sealed class ListDoctorsQuery : NamedListQuery
     /// <summary>With <see cref="ClinicId"/> only: whether that assignment is active.</summary>
     public bool? IsActive { get; set; }
 }
+
+/// <param name="DayOfWeek">.NET DayOfWeek: 0 = Sunday ... 6 = Saturday (D61).</param>
+/// <param name="Start">Cairo wall-clock time, whole minutes.</param>
+/// <param name="End">After <paramref name="Start"/> on the same day.</param>
+public sealed record WorkingHourPeriodResponse(int DayOfWeek, TimeOnly Start, TimeOnly End);
+
+/// <param name="IsActive">Whether the assignment is active; an inactive one keeps its hours (D61).</param>
+/// <param name="RowVersion">The assignment's concurrency token: send it back with the replacement.</param>
+public sealed record WorkingHoursResponse(
+    long DoctorId,
+    long ClinicId,
+    bool IsActive,
+    IReadOnlyList<WorkingHourPeriodResponse> Periods,
+    string RowVersion);
+
+/// <param name="DayOfWeek">0 = Sunday ... 6 = Saturday.</param>
+public sealed record WorkingHourPeriodRequest(int? DayOfWeek, TimeOnly? Start, TimeOnly? End);
+
+/// <summary>The whole week for one (doctor, clinic), a full replace; an empty list means no hours there.</summary>
+/// <param name="Periods">At most 50.</param>
+public sealed record ReplaceWorkingHoursRequest(IReadOnlyList<WorkingHourPeriodRequest>? Periods, string? RowVersion);
