@@ -1,19 +1,37 @@
-# ClinicBooking — Decisions Log
+# ClinicBooking — Decisions
 
-Living document. Every architectural decision is recorded here with its rationale.
-Rejected alternatives are recorded too — the reasoning is the point, not the outcome.
+Every decision binds. The decision text is the rule; **Why** is one or two lines
+so the rule is applied in its spirit; **Rejected** names the alternatives that
+were considered and must not be proposed again without a new decision.
+
+The full, older text (implementation history, test lists, session notes) is in
+`docs/archive/decisions-full-2026-10-06.md`. It is frozen: read it only when a
+decision here is ambiguous, and never add to it.
 
 **Status key:** `ACCEPTED` · `OPEN` · `SUPERSEDED`
+
+**Format for a new decision** (D60):
+
+```
+### D<n> — <title>
+`ACCEPTED` (refines / supersedes D<x>, if any)
+
+- The rule, as bullets: names, numbers, keys, status codes.
+**Why:** one or two lines.
+**Rejected:** <alternative> (<reason in a few words>); ...
+```
+
+Add it to the index. Session reports, test lists and by-hand checks go to
+`STATUS.md` or the commit, not here.
 
 ---
 
 ## Index
 
-One line per decision, in numeric order (the headings below are not in numeric
-order). Format: `D<number> | <status> | <title> | <keywords>`. A `*` after the
-number marks a **cross-cutting** decision: read it in full for every task. Open
-questions are listed last. This index is a map, not a summary: the decision text
-is the authority.
+One line per decision. Format: `D<number> | <status> | <title> | <keywords>`. A
+`*` after the number marks a **cross-cutting** decision: read it in full for
+every task. The index is a map, not a summary. Sections below are grouped by
+topic, not in numeric order.
 
 ```
 D1* | ACCEPTED | Clean Architecture, four back-end projects | layering, projects, Domain, Application, Infrastructure, Api, DependencyInjection, project references
@@ -57,7 +75,7 @@ D38 | ACCEPTED | Patient data | patient, PII, phone, E.164, national ID, privacy
 D39 | ACCEPTED | Migrations in production | migrations bundle, Azure, deployment
 D40 | ACCEPTED | CI to Azure without stored secrets | OIDC, Azure, CI, managed identity, secrets
 D41 | ACCEPTED | Booking rules | appointment, status machine, past booking, overlap warning, breaks, leave, booking reference
-D42 | ACCEPTED | Documentation location and AI entry point | CLAUDE.md, docs, instructions, decisions log
+D42 | SUPERSEDED by D60 | Documentation location and AI entry point | CLAUDE.md, docs
 D43 | ACCEPTED | Fixed slots per doctor | slot, duration, appointment, unique index, slot_taken, working hours
 D44 | ACCEPTED | Patients are shared across clinics | patient, phone, duplicate warning, patients.* permissions, global
 D45 | ACCEPTED | Build, logging and runtime conventions | warnings as errors, GlobalUsings, Serilog, correlation id, domain exceptions, health ready, SQL image
@@ -71,222 +89,117 @@ D52 | ACCEPTED | Front-end authentication | session, interceptor, refresh, login
 D53 | ACCEPTED | Front-end feature pattern (Specialties screens) | screens, list, URL state, form, Signal Forms, delete dialog, conflict, search debounce, translation scope
 D54 | ACCEPTED | Azure deployment is postponed until the build is complete | Azure, deployment, deferred, CI, checklist, risk
 D55 | ACCEPTED | Clinics back end | clinic, phone, PhoneNumber, address, E.164, seeder top-up, search, error keys, clinics.manage
-D56 | ACCEPTED | Clinics screens (front end) | clinic screens, phone display, untouched guard, header, optional fields, Not set
+D56 | ACCEPTED | Clinics screens (front end) | clinic screens, phone display, untouched guard, header, optional fields, Not set, shared code
 D57 | ACCEPTED | User management and clinic-scoped permissions (back end) | users, clinic-scoped, UserClinicPermissions, doctors.manage, IClinicAccess, IClinicResolver, 404 vs 403, last administrator, seed at most once
-D58 | ACCEPTED | Account state, change-password and admin reset (back end) | IsActive, MustChangePassword, disable, change-password, reset password, password, account gate, sessions, lockout, rate limit, front-end hand-off
+D58 | ACCEPTED | Account state, change-password and admin reset (back end) | IsActive, MustChangePassword, disable, change-password, reset password, password, account gate, sessions, lockout, rate limit
 D59 | ACCEPTED | User-management and change-password screens (front end) | users screens, change-password page, forced password change, mustChangePassword, session model, canIn, clinic-scoped UI, permission labels, check:permissions, temporary password, password fields, clinic picker, own account, guards, interceptor 403
+D60 | ACCEPTED | Documentation layout for several assistants | AGENTS.md, CLAUDE.md, Codex, STATUS.md, release.md, guides, archive, decision format
 O1 | OPEN | Azure region: West Europe vs UAE North | Azure, region, Container Apps, ACR, Key Vault, Azure SQL, price
 O2 | OPEN | Custom domain and TLS, or the default Container Apps hostname | domain, TLS, hostname, Azure
 ```
 
-Other sections of this file: **Scope** (phases 0 to 5), **Open questions** (O3 to O5
-are closed, see D43 and D44), **Deferred until deployment** (the checklist),
-**Scope discipline**, **Later**.
-
 ---
 
-## Purpose of this project
-
-ClinicBooking is an outpatient appointment booking system for multiple
-clinics. It has two goals, and both are required:
-
-1. **A real, usable product** — clinics can manage patients, doctors and
-   appointments in Arabic and English.
-2. **A complete, working deployment pipeline** — source → container →
-   registry → cloud → running application, with CI/CD — that doubles as a
-   portfolio piece.
-
-Deployment to Azure is postponed until the build is complete (D54). Code
-quality and UX are judged as seriously as the pipeline.
-
----
-
-## Scope
-
-### Phase 0 — Walking skeleton (code done; deployment deferred, D54)
-- Specialties (create, list, search, edit, soft delete) as the first vertical slice
-- Login, JWT access tokens, refresh tokens (one seeded initial user)
-- `/health/live` and `/health/ready`
-- Bilingual UI (Arabic / English) with RTL, from the first component
-- Docker + docker compose and CI (build, tests, image build): done
-- CI/CD to Azure and deployment to Azure Container Apps: deferred until the
-  build is complete (D54, checklist "Deferred until deployment")
-
-### Phase 1 — Core CRUD and access control
-- Clinics, Doctors (with clinic assignments, working hours and slot
-  duration), Patients (name and phone only; create, list, search, edit,
-  soft delete)
-- User management
-- Claim-based authorization with fine-grained, clinic-scoped permissions
-- Auditing fields on every entity
-
-### Phase 2
-- Appointments (book, reschedule, cancel, list by doctor/day)
-- Concurrency protection (D31)
-- Audit trail (full change history)
-
-### Phase 3
-- SMS or email notifications
-- Appointment reminders
-- Patient self-service portal
-
-### Phase 4
-- Payments
-- Medical records or prescriptions
-- Reporting
-
-### Phase 5
-- Admin dashboard
-- Caching
-- Background jobs
-
----
-
-## Architecture
+## Architecture and back end
 
 ### D1 — Clean Architecture, four back-end projects
 `ACCEPTED`
 
-`ClinicBooking.Domain`, `ClinicBooking.Application`,
-`ClinicBooking.Infrastructure`, `ClinicBooking.Api`.
-
-The Angular app (`clinic-booking-web`) and the test project
-(`ClinicBooking.Tests`) are not counted: "four projects" refers to the
-back-end layers only.
-
-Service implementations live in Application. Application and Infrastructure
-each expose a static `DependencyInjection` class with an extension method on
-`IServiceCollection` that returns `IServiceCollection`, called from
-`Program.cs`.
+- `ClinicBooking.Domain`, `.Application`, `.Infrastructure`, `.Api`. The Angular
+  app and the test project are not counted.
+- Service implementations live in Application. Application and Infrastructure
+  each expose a static `DependencyInjection` class with an `IServiceCollection`
+  extension returning `IServiceCollection`, called from `Program.cs`.
+- Application never references Infrastructure (D2).
 
 ### D2 — No repository pattern; `IAppDbContext` abstraction
 `ACCEPTED`
 
-Services depend on `IAppDbContext`, declared in Application. It exposes the
-`DbSet<T>` properties and `SaveChangesAsync`. `AppDbContext` in
-Infrastructure implements it.
+- Services depend on `IAppDbContext` (Application): the `DbSet<T>` properties and
+  `SaveChangesAsync`. `AppDbContext` (Infrastructure) implements it.
 
-**Why:** `DbSet<T>` already is a repository with a richer interface than any
-wrapper would expose; a repository over EF Core obstructs `Include`,
-projection and split queries. The interface exists only so Application does
-not reference Infrastructure, which keeps the Clean Architecture dependency
-rule intact.
+**Why:** `DbSet<T>` already is a repository; the interface exists only to keep
+the dependency rule.
+**Rejected:** a repository over EF Core (obstructs `Include`, projection and split queries).
 
 ### D3 — Services, not CQRS / MediatR
 `ACCEPTED`
 
-Business logic lives in plain service classes (`AppointmentService`,
-`PatientService`, `DoctorService`), registered as scoped, injected into
-controllers. Inside Application, code is organised by feature folder
-(`Features/Patients`, ...) for navigation only; there are no handlers,
-pipelines or request objects.
+- Plain scoped service classes (`DoctorService`, ...) injected into controllers.
+  `Features/<Name>` folders are for navigation only: no handlers, pipelines or
+  request objects.
 
-**Why:** CQRS earns its complexity when read and write models genuinely
-diverge. They do not here.
+**Rejected:** CQRS / MediatR (read and write models do not diverge here).
 
 ### D4 — Attribute-routed controllers, not minimal APIs
 `ACCEPTED`
 
-**Why:** controllers group related endpoints, carry filters and attributes
-cleanly, and are what most .NET codebases a reviewer has seen look like.
+**Why:** controllers group endpoints, carry filters and attributes cleanly, and
+are what reviewers expect.
+**Rejected:** minimal APIs.
 
 ### D5 — SOLID applied at service granularity
 `ACCEPTED`
 
-One service per aggregate. Dependencies via constructor injection against
-interfaces (`IAppointmentService`). No service-locator, no static state.
+- One service per aggregate; constructor injection against interfaces; no
+  service locator, no static state.
 
 ### D6 — `long` keys; protection through authorization
 `ACCEPTED`
 
-Entities use `long Id`. Sequential IDs are not a secret and are not relied on
-as one. Protection comes from:
+- Entities use `long Id`. Sequential ids are not a secret and not relied on as one.
+- Protection: authorization on every access, scoped to the caller's clinics;
+  ids exposed only where an endpoint needs them; `Appointment` also carries a
+  `BookingReference` (short, human-readable, unique, e.g. `A7K2M9`) used in URLs
+  and spoken to patients.
+- **Precise rule (D57):** clinic in the route and permission missing there: 403.
+  Resource addressed by its own id and no clinic-scoped permission in any of its
+  clinics: **404 with the entity's not-found key**; some other clinic-scoped
+  permission there: 403. A soft-deleted clinic grants nothing. Implemented by
+  `IClinicAccess`.
 
-- authorization on every resource access, scoped to the caller's clinics
-  (a valid ID the caller has no permission on returns 404, not 403, so
-  existence is not leaked);
-- exposing IDs only where an endpoint needs them;
-- `Appointment` additionally carries a `BookingReference` — a short,
-  human-readable, unique string (e.g. `A7K2M9`) used in URLs and spoken to
-  patients.
-
-**Why:** an unauthenticated or under-privileged caller must never be able to
-read a record by incrementing a number. Authorization is the real control;
-hiding IDs is a secondary layer.
-
-**The precise rule (D57).** An endpoint that addresses a clinic directly (the
-clinic is in the route) answers 403 when the permission is missing there. An
-endpoint that addresses a resource by its own id answers **404 with the entity's
-not-found key**, identical to a non-existent id, when the caller holds no
-clinic-scoped permission in any of the resource's clinics; it answers 403 when the
-caller holds some other clinic-scoped permission there (the resource is then
-already visible to them). A soft-deleted clinic grants nothing. Implemented by
-`IClinicAccess`; the table is in D57.
+**Rejected:** hiding ids as the main control (a secondary layer only).
 
 ### D7 — DTOs at every API boundary
 `ACCEPTED`
 
-No EF entity is ever accepted as input or returned as output from a
-controller. Separate request and response DTOs per endpoint.
+- No EF entity is accepted or returned by a controller. Separate request and
+  response DTOs per endpoint.
 
-**Why:** entities carry navigation properties and internal IDs, and binding
-directly to them is an over-posting vulnerability.
+**Why:** entities carry navigation properties and internal ids; binding to them
+is over-posting.
 
 ### D8 — Manual mapping, no AutoMapper
 `ACCEPTED`
 
-Mapping is written by hand in the service layer, or projected with `Select`
-directly in the query.
+- Mapping by hand in the service, or `Select` projection in the query.
 
-**Why:** at this size, explicit mapping is shorter to read than the
-configuration it would replace, and `Select` projection produces better SQL.
+**Rejected:** AutoMapper (its configuration is longer than the mapping; `Select` gives better SQL).
 
 ### D9 — Input validation and business rules
 `ACCEPTED`
 
-Request DTOs are validated with FluentValidation at the API boundary, applied
-through a filter, not through automatic MVC validation. `IEndpointFilter`
-exists only for minimal APIs, and controllers were chosen (D4), so the filter
-is a global MVC **action filter** (`ValidationFilter`, D50).
-Validators own input and format checks: required fields, length limits, valid
-formats, acceptable ranges.
+- FluentValidation at the API boundary through a global MVC **action filter**
+  (`ValidationFilter`, D50), not automatic MVC validation (`IEndpointFilter` is
+  for minimal APIs only).
+- Validators own input checks: required, length, format, range.
+- Business invariants (overlap, working hours, state transitions) are enforced in
+  Application/Domain and never assumed from DTO validation.
 
-Business invariants are enforced in the Application/Domain layer and are never
-assumed to be satisfied because an HTTP request passed DTO validation.
-Examples: appointment overlap detection, working-hours validation,
-appointment state transitions.
-
-**Why:** API validation and business rules serve different purposes. Keeping
-input validation at the boundary avoids duplication, while enforcing
-invariants in Application/Domain prevents invalid state from being created
-through other callers or future integrations.
+**Why:** invariants must hold for every caller, not only HTTP.
 
 ### D10 — Errors: `ProblemDetails` carrying keys, never sentences
-`ACCEPTED`
+`ACCEPTED` (merges the former D10 and D11)
 
-*(Merges the former D10 and D11.)*
+- One exception-handling middleware turns every failure into RFC 7807
+  `ProblemDetails`; `title` is an **error key**:
+  `{ "title": "error.appointment.slot_taken", "status": 409, "traceId": "..." }`.
+- 400 validation (field messages are keys), 409 conflict with existing data,
+  422 business-rule violation, 401/403 in the same shape
+  (`error.auth.unauthorized`, `error.auth.forbidden`), 500 with a correlation id
+  and no internal detail. The front end resolves keys through Transloco.
 
-A single exception-handling middleware converts every failure into RFC 7807
-`ProblemDetails`. The `title` field holds an **error key**, never an English
-sentence:
-
-```json
-{ "title": "error.appointment.slot_taken", "status": 409, "traceId": "..." }
-```
-
-- Validation failures: 400, with per-field errors whose messages are also keys
-  (`.WithMessage("error.patient.name_required")`).
-- Conflicts (a state that clashes with existing data, e.g. `slot_taken`): 409.
-- Business-rule violations (e.g. outside working hours): 422.
-- 401 and 403 from the JWT middleware use the same shape and keys
-  (`error.auth.unauthorized`, `error.auth.forbidden`).
-- Unexpected exceptions: 500 with a correlation ID and no internal detail.
-
-The front end resolves keys through Transloco.
-
-**Why:** English sentences from the API would force translation logic in the
-client and leak untranslated text into the Arabic interface. This is the
-decision that makes a bilingual UI work.
+**Rejected:** English sentences from the API (forces translation in the client, leaks English into the Arabic UI).
 
 ### D11 — *(merged into D10)*
 `SUPERSEDED`
@@ -294,109 +207,90 @@ decision that makes a bilingual UI work.
 ### D12 — Time: UTC for storage, Cairo for rules and display
 `ACCEPTED`
 
-- All instants are stored as `DateTimeOffset` in UTC.
-- Doctor working hours are stored as local Cairo `TimeOnly` plus day-of-week,
-  per (doctor, clinic), never as absolute times. Egypt observes DST, and
-  stored local times would break twice a year.
-- **The server converts UTC ↔ Cairo** (`TimeZoneInfo`, Africa/Cairo) inside
-  Application, only to validate rules such as "appointment falls inside
-  working hours". Display formatting stays in the front end.
-- The runtime image must contain tzdata. Use the standard .NET runtime image,
-  not Alpine or chiseled, unless tzdata is added explicitly.
-- Accepted risk: a future appointment stored in UTC shifts by an hour if
-  Egypt changes its DST rules. The likelihood is low and the cost of
-  mitigation (storing local time plus zone for every appointment) is not
-  justified now.
+- Instants: `DateTimeOffset` in UTC.
+- Working hours: Cairo `TimeOnly` + day-of-week per (doctor, clinic), never
+  absolute times (Egypt observes DST).
+- The server converts UTC ↔ Cairo (`TimeZoneInfo`, `Africa/Cairo`) only inside
+  Application, only to validate rules. Display formatting is the front end's.
+- The runtime image must contain tzdata: the standard .NET runtime image, not
+  Alpine or chiseled unless tzdata is added.
+- Accepted risk: a future appointment shifts by an hour if Egypt changes its DST rules.
+
+**Rejected:** storing local time plus zone for every appointment (cost not justified now).
 
 ### D13 — SQL Server in Docker locally, Azure SQL in the cloud
 `ACCEPTED`
 
-Local development runs SQL Server in a container via `docker compose`. The
-cloud environment uses Azure SQL Database (Basic tier).
+- Local: SQL Server container through `docker compose`. Cloud: Azure SQL
+  Database, Basic tier (revisit before deploy, `release.md`).
 
 ### D14 — EF Core Migrations from the first commit
 `ACCEPTED`
 
-No `EnsureCreated`, no generated create-scripts. Migrations are applied at
-startup in Development, and by an explicit pipeline step in production (D39).
+- Applied at startup in Development only; in production by a pipeline step (D39).
 
-**Why:** retrofitting migrations after the schema exists costs far more than
-starting with them.
+**Rejected:** `EnsureCreated` and generated create scripts (retrofitting migrations later costs far more).
 
 ### D15 — One container: API serves the built front end
 `ACCEPTED`
 
-The Dockerfile is multi-stage: stage one builds the Angular bundle with Node,
-stage two builds the API with the .NET SDK, the final stage copies the bundle
-into `wwwroot` and runs the API, which serves static files with a SPA
-fallback.
+- Multi-stage Dockerfile: `node:24-bookworm-slim` runs `npm ci` and
+  `npm run build` (with the prebuild checks, so `scripts/` and `public/i18n` are
+  copied); the .NET SDK builds the API (its layers copy only .NET projects, so a
+  front-end change does not invalidate them); the final stage copies
+  `dist/clinic-booking-web/browser` into `/app/wwwroot` and the API serves it
+  with a SPA fallback (D51).
 
-**Why:** one image, one deployment, one cost. It also removes CORS from
-production entirely — the front end and API share an origin.
-
-**Implementation (D51).** The Node stage is `node:24-bookworm-slim`: `npm ci`
-from the committed lock file, then `npm run build` (which runs the prebuild
-checks, so `scripts/` and `public/i18n` are copied too). The final stage copies
-`dist/clinic-booking-web/browser` into `/app/wwwroot`. The .NET layers copy only
-the .NET projects, so a front-end change does not invalidate them.
+**Why:** one image, one deployment, one cost; same origin, so no CORS in production.
+**Rejected:** deploying front end and API separately (two deployments, CORS).
 
 ### D16 — Dockerfile and compose written on day one
 `ACCEPTED`
 
-`Dockerfile` and `docker-compose.yml` exist and run before the first UI screen
-is written.
+- `Dockerfile` and `docker-compose.yml` existed before the first screen and must
+  keep working.
 
-**Why:** containerisation problems discovered late are structural. Discovered
-early they are trivial.
+**Why:** containerisation problems found late are structural; found early they are trivial.
 
 ### D17 — Azure Container Apps, not App Service
 `ACCEPTED`
 
-Target: Azure Container Registry → Azure Container Apps → Azure SQL, with
-secrets in Key Vault via managed identity.
+- Target: ACR → Container Apps → Azure SQL, secrets in Key Vault via managed identity.
 
-**Why:** Container Apps exercises the container workflow end to end, scales to
-zero (keeping cost near nothing), and is the more current skill.
+**Why:** exercises the container workflow end to end, scales to zero, current skill.
+**Rejected:** App Service.
 
 ### D18 — GitHub Actions, not Azure DevOps Pipelines
 `ACCEPTED`
 
-**Why:** the repositories are already on GitHub, the workflow file lives with
-the code, and a public green badge is visible to anyone reviewing the repo.
+**Why:** the repositories are on GitHub, the workflow lives with the code, a public green badge.
+**Rejected:** Azure DevOps Pipelines.
 
 ### D19 — Secrets: `.env` locally, Key Vault in Azure
 `ACCEPTED`
 
-No secret of any kind appears in `appsettings.json` or in the repository, at
-any point in history.
+- No secret in `appsettings.json` or the repository, at any point in history.
+- `docker compose`: `.env` (git-ignored; `.env.example` with dummy values is
+  committed). `dotnet run`: User Secrets. Azure: Key Vault via managed identity.
 
-- **Local, via docker compose:** secrets live in `.env` (SQL Server password,
-  local JWT signing key). `.env` is in `.gitignore`; `.env.example` with dummy
-  values is committed.
-- **Local, via `dotnet run`:** User Secrets.
-- **Azure:** Key Vault through managed identity.
-
-**Why:** User Secrets do not exist inside a container, and `docker compose up`
-is the primary local path (Definition of Done #1).
+**Why:** User Secrets do not exist in a container, and compose is the main local path.
 
 ### D20 — Two health endpoints
 `ACCEPTED`
 
-- `/health/live` returns 200 if the process is running. No dependencies
-  checked. Used as the Container Apps liveness probe.
-- `/health/ready` returns 200 only if the database is reachable. Used as the
-  readiness probe.
+- `/health/live`: 200 while the process runs, no dependency checked (liveness).
+- `/health/ready`: 200 only when the database is reachable (readiness); a custom
+  `SELECT 1` check with a 3 s timeout that logs only the exception type (D45).
 
-**Why:** a single endpoint that checks the database would make Container Apps
-restart a healthy container whenever the database is briefly unavailable,
-which fixes nothing.
+**Rejected:** one endpoint that checks the database (the platform would restart a healthy container during a brief database outage).
 
 ### D21 — Serilog with structured JSON output
 `ACCEPTED`
 
-Console sink, JSON formatted, so Azure Log Analytics can query fields rather
-than grep text. Every request is logged with a correlation ID. Patient PII is
-never written to logs (D38).
+- Console sink, JSON, a correlation id per request, never patient PII (D38).
+  Details in D45.
+
+**Why:** Log Analytics can query fields instead of grepping text.
 
 ---
 
@@ -405,1745 +299,883 @@ never written to logs (D38).
 ### D22 — Angular + TypeScript
 `ACCEPTED`
 
-Angular, latest stable version at project creation, with TypeScript strict
-mode and the test runner that the Angular CLI ships by default at that
-version.
+- Angular, TypeScript strict, the CLI's default test runner.
+- At creation (Oct 2026): Angular and CLI **22.2.1**; Node 24 for the project and
+  the image (`engines` `^24.15.0`); **TypeScript 6.0.x** (7.x is not supported by
+  Angular 22); **Vitest 5 with jsdom**; **zoneless** (no zone.js; state in Signals).
 
-**Why:** Angular is the most widely used enterprise front-end framework in
-the .NET job market, and it provides components, routing, forms, dependency
-injection and a TypeScript-first model without a separate meta-framework.
-
-**Rejected:** Blazor WebAssembly. It would have shared DTOs directly and cost
-less time — D24 recovers most of that benefit — but Angular is the more
-marketable skill, and employability is one of the two goals of this project.
-
-**Versions at creation (verified, Oct 2026).** Angular and CLI **22.2.1**; Node
-`^22.22.3 || ^24.15.0 || >=26` (the project and the image use Node 24); the
-CLI pins **TypeScript 6.0.x** (npm's "latest" 7.x is not supported by Angular
-22 and is not used); the CLI's default test runner is **Vitest 5 with jsdom**
-(`ng test`). Applications are **zoneless** by default (no zone.js), so state
-lives in Signals and templates update through them. See D51.
+**Why:** the most used enterprise front-end framework in the .NET job market.
+**Rejected:** Blazor WebAssembly (cheaper and shares DTOs, but Angular is the more marketable skill; D24 recovers most of the type sharing).
 
 ### D23 — TanStack Query for server state
-`SUPERSEDED` by D33
-
-This decision was written with React in mind (`useState`, hooks). It does not
-apply to Angular.
+`SUPERSEDED` by D33 (written for React; does not apply to Angular).
 
 ### D24 — TypeScript types generated from OpenAPI, committed
 `ACCEPTED`
 
-`openapi-typescript` generates `schema.d.ts` from the API's OpenAPI document.
-Both `openapi.json` and `schema.d.ts` live in `clinic-booking-web/src/api/`
-and are **committed**.
+- `openapi-typescript` generates `schema.d.ts`; `openapi.json` and `schema.d.ts`
+  live in `src/clinic-booking-web/src/api/`, are committed and never hand-edited.
+- `openapi.json` is generated from the API inside the test host:
+  `OpenApiDocumentTests` compares it with the committed file (line endings
+  ignored) and fails with the regeneration command;
+  `UPDATE_OPENAPI=1 dotnet test --filter OpenApiDocumentTests` rewrites it (LF).
+- `npm run gen:api` runs that test (needs the .NET SDK), then `openapi-typescript`.
+  `npm run check:api` regenerates `schema.d.ts` in memory and fails on any
+  difference (Node only, for CI). Output is LF and deterministic. `schema.d.ts`
+  is excluded from lint.
+- `package.json` carries an npm `overrides` entry so `openapi-typescript` uses
+  TypeScript 6; remove it when the package supports TypeScript 6.
 
-- A developer who changes a DTO runs `npm run gen:api` and commits the result.
-- CI regenerates both files and **fails if there is any diff**.
-- Generated files are never hand-edited.
-
-**Refinement (D50).** `openapi.json` is generated from the API running inside
-the test host, not by the build: the build-time generator starts the application,
-which would need a valid JWT signing key for every `dotnet build`, including the
-Docker build. `OpenApiDocumentTests` compares the committed file with the
-generated document (line endings ignored) and fails with the regeneration
-command, so `dotnet test` in CI already enforces "openapi.json is up to date".
-`UPDATE_OPENAPI=1 dotnet test --filter OpenApiDocumentTests` rewrites the file
-(LF endings). `npm run gen:api` must call that first, then `openapi-typescript`;
-the `schema.d.ts` diff check arrives with the Angular step.
-
-**Implemented (D51).** Both files live in `src/clinic-booking-web/src/api/` and
-are committed. `npm run gen:api` runs the regeneration test (it needs the .NET
-SDK) and then `openapi-typescript`; `npm run check:api` regenerates
-`schema.d.ts` in memory from the committed `openapi.json` and fails on any
-difference, needing only Node (for CI). Both are plain Node, so they behave the
-same in PowerShell, Git Bash and Linux. Output is LF and deterministic.
-`schema.d.ts` is excluded from lint. `openapi-typescript` declares a TypeScript
-5 peer, which clashes with the required TypeScript 6, so `package.json` carries
-an npm `overrides` entry making it use the project's TypeScript; remove it when
-the package supports TypeScript 6.
-
-**Why:** the Docker build compiles Angular before the API exists, so the
-OpenAPI document cannot be produced inside the same image build. Committing
-the outputs and verifying them in CI restores end-to-end type safety without
-reordering the Dockerfile.
+**Why:** the Docker build compiles Angular before the API exists.
+**Rejected:** generating `openapi.json` at build time (it starts the app, so every build, including Docker's, would need a valid JWT key).
 
 ### D25 — Tailwind alone, logical properties only
 `ACCEPTED`
 
-No component library (no Angular Material, no PrimeNG).
+- Use `ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`, `text-start`, `text-end`,
+  `rounded-s-*`, `rounded-e-*`, `border-s`, `border-e`. Never `ml-`, `mr-`, `pl-`,
+  `pr-`, `left-`, `right-`, `text-left`, `text-right`, `rounded-l-*`, `rounded-r-*`.
+- `scripts/check-logical-properties.mjs` (no dependencies) catches physical
+  utilities, also behind variants and with arbitrary values, physical corner and
+  scroll utilities and physical CSS properties; it runs in `npm run lint` and
+  `prebuild`. A line may carry `logical-ok` with a reason.
+- Directional icons are mirrored with `rtl:-scale-x-100` (a review rule: no
+  linter sees an icon's direction).
 
-Use `ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`, `text-start`, `text-end`,
-`rounded-s-*`, `rounded-e-*`, `border-s`, `border-e`. Never `ml-`, `mr-`,
-`pl-`, `pr-`, `left-`, `right-`, `text-left`, `text-right`, `rounded-l-*`,
-`rounded-r-*`. Directional icons (arrows, chevrons) must be mirrored in RTL.
-
-**Why:** the layout must mirror correctly when direction flips to RTL.
-Physical properties silently break Arabic layout. Tailwind alone keeps RTL
-fully under our control.
-
-**Enforcement.** `scripts/check-logical-properties.mjs` (no dependencies) scans
-templates, components and stylesheets for physical utilities, also behind
-variants (`md:ml-2`, `rtl:pr-3`) and with arbitrary values, for physical corner
-and scroll utilities, and for physical CSS properties (`margin-left`, `left:`,
-`text-align: left`, ...). It names file, line and the replacement. It runs in
-`npm run lint` and as part of `prebuild`, so lint, `npm run build` and the Docker
-build fail on a violation. A line may carry the comment `logical-ok` with a
-reason. **Directional icons** (arrows, chevrons) are mirrored with
-`rtl:-scale-x-100`; no linter can see an icon's direction, so this stays a
-review rule.
+**Rejected:** Angular Material, PrimeNG, any component library (RTL must stay under our control).
 
 ### D26 — Bilingual UI with Transloco from the first component
 `ACCEPTED`
 
-Transloco provides runtime internationalization with Arabic and English
-translation files. Arabic is the default. The selected language is persisted
-in `localStorage`, and the document `dir` switches between `rtl` and `ltr`
-when the language changes.
+- `@jsverse/transloco`, runtime switching, **Arabic default**. `LanguageService`
+  holds the language as a signal, saved in `localStorage` (`clinicbooking.lang`;
+  anything but `ar`/`en` falls back to Arabic; a failing storage never crashes)
+  and mirrors it to `<html lang dir>` and Transloco.
+- Files: `public/i18n/{ar,en}.json` (served as `/i18n/<lang>.json`); a scope in
+  `public/i18n/<scope>/{ar,en}.json`, loaded with `provideTranslocoScope`, keys
+  `<scope>.<key>`.
+- Before first paint: `index.html` ships `lang="ar" dir="rtl"` and a tiny inline
+  script that corrects both from the saved choice; an app initializer loads the
+  language file before the first render. No fallback language.
+- `npm run check:i18n` (in `prebuild`) fails on: a folder missing `ar.json` or
+  `en.json`, differing key sets or `{{placeholders}}`, an empty or non-string
+  value, a used key that does not exist, literal text in a template (also literal
+  `title`/`alt`/`placeholder`/`aria-label` and interpolated literals), an inline
+  `template`. A runtime key needs `i18n-keys: a.b, c.d` on its line. Back-end
+  `error.*` keys are checked too (D52). Not detected: literal strings in `.ts`
+  code. Unused keys are warnings.
 
-All user-facing strings come from translation keys. No literal user-facing
-string is allowed in components, templates, services or other UI code.
-
-A CI script fails the build if any key exists in one of `ar.json` / `en.json`
-and not the other, or if a key used in code is missing. A missing key is a
-build issue, never silently untranslated text.
-
-**Why:** the application requires runtime language switching between Arabic
-and English. Angular's built-in i18n resolves translations at build time (one
-build per language), which does not fit. Transloco loads translations at
-runtime, supports lazy-loaded scoped translations, and keeps translation
-resources separate from code.
-
-**Implementation.**
-- **Files:** `public/i18n/ar.json` and `en.json`, served as `/i18n/<lang>.json`.
-  A feature scope lives in `public/i18n/<scope>/{ar,en}.json` and loads lazily
-  with `provideTranslocoScope`; its keys are `<scope>.<key>`. The package is
-  `@jsverse/transloco` (the renamed `@ngneat/transloco`).
-- **Language state:** `LanguageService` holds the language as a signal, saved in
-  `localStorage` (`clinicbooking.lang`, validated: anything but `ar`/`en`
-  falls back to Arabic; a failing storage never crashes the app), and mirrors it
-  to `document.documentElement` `lang` and `dir` and to Transloco.
-- **Before first paint:** `index.html` ships `lang="ar" dir="rtl"` plus a tiny
-  inline script that corrects both from the saved choice; an app initializer
-  loads the active language file before the first render, so raw keys never
-  flash. (A future CSP needs a hash for that script.)
-- **Missing keys:** there is no fallback language; the check below keeps a
-  missing key from reaching users.
-
-**The check (`npm run check:i18n`, part of `prebuild`).** It fails when: a folder
-under `public/i18n` lacks `ar.json` or `en.json`, the key sets differ, the
-`{{placeholders}}` of a key differ, or a value is empty or not a string; a key
-used in a template or in code (`'key' | transloco`, `t('key')`,
-`.translate/.selectTranslate('key')`) does not exist; a component template
-contains literal text, a literal `title`/`alt`/`placeholder`/`aria-label`, or an
-interpolation with a literal string; a component uses an inline `template`.
-**Limits:** a key built at runtime cannot be verified, so that line must carry a
-comment `i18n-keys: a.b, c.d` listing every key it can be (those are verified);
-literal strings in `.ts` code are not detected (review and lint); the text
-detection is a heuristic on the template source; unused keys are warnings. The
-API's `error.*` keys are checked since D52: the check reads them from the C#
-source and fails when one lacks an Arabic or English translation (D52 explains
-how false positives and negatives are handled, and the limits).
+**Rejected:** Angular built-in i18n (build-time: one build per language).
 
 ### D27 — Latin numerals and Gregorian dates in both languages
 `ACCEPTED`
 
-Use `Intl.DateTimeFormat` / `Intl.NumberFormat` with explicit locale
-extensions (`ar-EG-u-nu-latn-ca-gregory`), because plain `ar-EG` produces
-Arabic-Indic digits. Angular's `DatePipe` follows `LOCALE_ID` and is **not**
-used for display; a custom pipe over `Intl` is used instead.
+- The `intl` pipe (`{{ v | intl: 'date' }}`; kinds `date`, `time`, `datetime`,
+  `number`, `percent`; optional `Intl` options) over `formatIntl`. Locales
+  `ar-EG-u-nu-latn-ca-gregory` and `en-GB-u-nu-latn-ca-gregory` (day first,
+  24-hour). Instants shown in `Africa/Cairo`; a date-only string is a calendar
+  day shown as such (`date` kind only); `null` or invalid input renders `''`.
+  The pipe is impure (follows the language).
 
-**Why:** Egyptian clinical and administrative practice uses Latin digits.
-Arabic-Indic numerals would look wrong to the intended user.
-
-**Implementation.** The `intl` pipe (`{{ value | intl: 'date' }}`; kinds `date`,
-`time`, `datetime`, `number`, `percent`; optional `Intl` options) over the pure
-function `formatIntl`. Locales: Arabic `ar-EG-u-nu-latn-ca-gregory`, English
-`en-GB-u-nu-latn-ca-gregory` (day first, 24-hour clock). Instants are shown in
-**Africa/Cairo** (D12); a date-only string such as `2026-10-04` is a calendar
-day, shown as such in UTC (never shifted) and valid only for the `date` kind.
-`null`, invalid or unsupported input renders as an empty string. The pipe is
-impure because its output depends on the active language. Tested for Latin
-digits, Cairo winter (UTC+2) and summer (UTC+3), calendar days and invalid input.
+**Why:** Egyptian clinical practice uses Latin digits.
+**Rejected:** Angular `DatePipe` (follows `LOCALE_ID`); plain `ar-EG` (Arabic-Indic digits).
 
 ### D28 — Language of code vs. language of interface
 `ACCEPTED`
 
-Code, database schema, commit messages and documentation are in English. Only
-the user interface is bilingual. Patient names and free-text content are
-stored as entered.
+- Code, schema, commit messages and documentation in English; only the UI is
+  bilingual. Patient names and free text are stored as entered.
 
 ### D33 — Front-end state: Signals + services, no state library
 `ACCEPTED`
 
-Server data is fetched through injectable services wrapping `HttpClient`
-(`httpResource` / `rxResource` where they fit). Local and derived state uses
-Signals. No NgRx, no TanStack Query, no other state library.
+- Server data through injectable services over `HttpClient` (`httpResource` /
+  `rxResource` where they fit); local and derived state in Signals.
 
-**Why:** nearly all state is server state, and Angular's built-in primitives
-cover it. This also respects the "no new package without agreement" rule.
+**Rejected:** NgRx, TanStack Query, any state library (nearly all state is server state).
 
 ---
 
 ## Security and data
 
 ### D29 — JWT authentication and refresh tokens
-`ACCEPTED`
+`ACCEPTED` (specifics: D48)
 
-JWT bearer authentication with multiple users stored in ASP.NET Core
-Identity, passwords hashed by the framework. Access tokens are short-lived.
-Refresh tokens obtain new access tokens without re-login, are rotated on
-every use, are invalidated on logout or revocation, and reuse of an already
-rotated token revokes that token family. A short grace window tolerates
-concurrent refreshes (D48).
+- JWT bearer; several users in ASP.NET Core Identity, framework-hashed passwords.
+- Short-lived access tokens. Refresh tokens rotate on every use, are invalidated
+  on logout or revocation; reuse of a rotated token revokes the token family; a
+  short grace window tolerates concurrent refreshes.
+- The refresh token lives in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie,
+  never in `localStorage`. Login has lockout and rate limiting.
+- Authentication establishes identity; authorization (D34) controls access.
 
-The refresh token is delivered in an `HttpOnly`, `Secure`, `SameSite=Strict`
-cookie (front end and API share an origin, D15). It is never placed in
-`localStorage`. Login has lockout and rate limiting. Concrete values: D48.
-
-Authentication establishes identity; authorization (D34) controls access.
-
-**Why:** multiple users and refresh tokens provide a realistic flow without an
-external identity provider, and the design can be replaced by one later
-without changing the authorization model.
+**Why:** a realistic flow without an external provider, replaceable later without
+touching authorization.
+**Rejected (for now):** an external identity provider.
 
 ### D34 — Fine-grained, clinic-scoped permissions
 `ACCEPTED`
 
-Authorization is claim-based, using fine-grained permission names such as
-`patients.create`, `doctors.edit`, `appointments.cancel`.
+- Claim-based, fine-grained names (`patients.create`, `doctors.manage`, ...).
+- **Clinic-scoped** grants are stored per (user, clinic, permission) in
+  `UserClinicPermissions` (D57), not in the JWT. The first is `doctors.manage`.
+- **Global** permissions: `users.manage`, `specialties.manage`, `clinics.manage`
+  (a clinic list cannot be scoped to a clinic that does not exist yet, D55) and
+  all `patients.*` (patients are shared, D44). Stored as Identity user claims of
+  type `permission` (D48). Every check reads the database.
+- One policy and handler per permission; the handler resolves the clinic through
+  an `IClinicResolver` (default: route value `clinicId`); a resource addressed by
+  its own id is checked by `IClinicAccess` in the service (D57).
+- Permission names are constants in one place in Domain.
 
-- A user is granted permissions **per clinic**. Assignments are stored in the
-  database (user, clinic, permission), not packed into the JWT, so the token
-  stays small and revocation takes effect immediately. The table
-  `UserClinicPermissions` exists since D57; the first clinic-scoped permission
-  is `doctors.manage`.
-- Permissions that are not clinic-specific are global: for example
-  `users.manage`, `specialties.manage`, `clinics.manage` (managing the clinic
-  list itself cannot be scoped to a clinic that does not exist yet, D55), and all
-  `patients.*`, because
-  patients are shared across clinics (D44). Global permissions are stored as
-  Identity user claims of type `permission` (D48), also read from the database
-  on every check.
-- Each permission is enforced by an authorization policy and handler. The
-  handler resolves the target clinic (an `IClinicResolver`, by default the
-  `clinicId` route value) and checks the assignment; a resource addressed by its
-  own id is checked by `IClinicAccess` in the service (D57).
-- Permission names are constants defined in one place in Domain; no magic
-  strings elsewhere.
-
-**Why:** a doctor can work in several clinics, and a receptionist at one clinic
-must not act on another. Coarse roles cannot express that.
+**Why:** a doctor works in several clinics; a receptionist at one must not act on another.
+**Rejected:** coarse roles (cannot express per-clinic access); permissions in the JWT (token size, delayed revocation).
 
 ### D35 — Soft delete
 `ACCEPTED`
 
-Soft delete applies to an explicit list of entities: **Specialties, Clinics,
-Doctors, Patients**. They carry `IsDeleted`, `DeletedAt`, `DeletedBy`, hidden
-by a global EF query filter. Their unique indexes are filtered with
-`WHERE IsDeleted = 0` so a deleted record does not block re-creation.
-
-Appointments are never deleted: they are cancelled by status. Join tables,
-slot-duration history and refresh tokens are hard-deleted. Identity tables
-follow Identity's own rules.
-
-Three tiers in Domain, so an entity carries only what it needs:
-
-- `BaseEntity`: `long Id`.
-- `AuditableEntity : BaseEntity`: adds the audit fields (D36), via `IAuditable`.
-- `SoftDeletableEntity : AuditableEntity`: adds the soft-delete fields, via
-  `ISoftDeletable`.
-
-Deleting a doctor who has upcoming appointments requires explicit
-confirmation in the UI stating that those appointments will be cancelled; on
-confirmation the cancellations and the delete happen in one transaction.
+- Only **Specialties, Clinics, Doctors, Patients**: `IsDeleted`, `DeletedAt`,
+  `DeletedBy`, hidden by a global EF query filter. Their unique indexes are
+  filtered `WHERE IsDeleted = 0`, so a deleted record does not block re-creation.
+- Appointments are never deleted (cancelled by status). Join tables,
+  slot-duration history and refresh tokens are hard-deleted. Identity tables
+  follow Identity's rules.
+- Tiers in Domain: `BaseEntity` (`long Id`) → `AuditableEntity` (`IAuditable`,
+  D36) → `SoftDeletableEntity` (`ISoftDeletable`).
+- Deleting a doctor with upcoming appointments needs explicit UI confirmation
+  that they will be cancelled; the cancellations and the delete run in one
+  transaction.
 
 ### D36 — Auditing fields on the base entity
 `ACCEPTED`
 
-A base entity carries `CreatedAt`, `CreatedBy`, `UpdatedAt`, `UpdatedBy`,
-populated by a `SaveChanges` interceptor from Phase 0. The full audit trail
-(who changed what, before/after) remains Phase 2.
+- `CreatedAt`, `CreatedBy`, `UpdatedAt`, `UpdatedBy`, set by a `SaveChanges`
+  interceptor (D46). The full audit trail (before/after) is Phase 2.
 
 ### D37 — Bilingual data and Arabic search
-`ACCEPTED`
+`ACCEPTED` (mechanism: D49)
 
-Reference data such as Specialties stores `NameAr` and `NameEn`. Search over
-Arabic text normalises أ/إ/ا, ة/ه and ى/ي. **Mechanism (D49): normalised
-columns computed in code**, not a collation (none folds these letters, D46).
+- Reference data stores `NameAr` and `NameEn`. Arabic search folds أ/إ/ا, ة/ه
+  and ى/ي through normalised columns computed in code.
+
+**Rejected:** a collation (none folds these letters, D46).
 
 ### D38 — Patient data
 `ACCEPTED`
 
-- A patient stores a name and a phone number only. Any further field needs
-  a new decision.
-- Phone numbers are stored in a single normalised format (E.164).
-- National ID is not stored unless a later decision adds it.
-- Patient PII is never written to logs.
+- A patient stores a name and a phone only; any further field needs a new
+  decision. Phone in E.164. No national ID. No patient PII in logs.
 - Egypt's Personal Data Protection Law (Law 151 of 2020) is reviewed before
-  Phase 4, and earlier if any feature stores more than contact details.
+  Phase 4, or earlier if anything beyond contact details is stored.
 
 ### D39 — Migrations in production
 `ACCEPTED`
 
-CI builds an EF migrations bundle (`dotnet ef migrations bundle`) and runs it
-as an Azure Container Apps Job before the new revision receives traffic.
-Migrations are never applied by hand.
+- CI builds an EF migrations bundle and runs it as a Container Apps Job before
+  the new revision receives traffic. Never by hand.
 
 ### D40 — CI to Azure without stored secrets
 `ACCEPTED`
 
-GitHub Actions authenticates to Azure with OIDC federated credentials, not a
-stored service-principal secret. Where possible, the app connects to Azure SQL
-using Managed Identity / Entra authentication, so no connection string
-contains a password.
+- GitHub Actions authenticates with OIDC federated credentials. The app reaches
+  Azure SQL with Managed Identity / Entra where possible (no password in a
+  connection string).
+
+**Rejected:** a stored service-principal secret.
 
 ---
 
-## Appointments
+## Appointments and clinical model
 
 ### D30 — Integration tests with Testcontainers; no unit tests for CRUD
 `ACCEPTED`
 
-Tests run against a real SQL Server container via Testcontainers and hit the
-API through `WebApplicationFactory`. Unit tests are written only for logic
-with real branching — overlap detection, working-hours validation, booking
-reference generation.
+- Tests run against a real SQL Server (Testcontainers) through
+  `WebApplicationFactory`. Unit tests only for logic with real branching
+  (overlap, working hours, booking reference).
 
-**Why:** a unit test that mocks a `DbContext` to verify a `Select` tests the
-mock, not the code.
+**Rejected:** unit tests that mock a `DbContext` (they test the mock).
 
 ### D31 — Appointment concurrency and double-booking protection
 `ACCEPTED` (mechanism: D43)
 
-Booking and rescheduling must be safe under concurrent requests. Checking for
-an available slot in application code alone is not sufficient, because two
-requests can both see the slot as free before either commits.
+- Booking and rescheduling run in an explicit transaction, guarded by a
+  database-enforced unique index (D43). A conflict is a 409 `ProblemDetails`
+  with a key. If an EF retry strategy is enabled, the whole transaction runs
+  inside it.
+- Integration tests: concurrent attempts for the same doctor and time produce at
+  most one appointment.
 
-The booking operation uses an explicit transaction and a database-enforced
-mechanism (a filtered unique index on the doctor's slot, D43) so conflicting
-appointments cannot both commit. A concurrency
-conflict is an expected business outcome, returned as a controlled
-`ProblemDetails` with an error key (D10). If an EF execution strategy with
-retries is enabled, the whole transaction is wrapped inside it.
-
-Integration tests verify that concurrent booking attempts for the same doctor
-and overlapping time range produce at most one successful appointment.
-
-**Why:** the database is the final authority for persisted consistency; the
-application is responsible for presenting conflicts as a controlled business
-error.
+**Rejected:** an application-only availability check (two requests both see the slot free).
 
 ### D32 — Multi-clinic model
 `ACCEPTED`
 
-A doctor may work in more than one clinic. `DoctorClinic` links them, and
-working hours belong to a (doctor, clinic) pair and may contain several
-periods in one day. The no-overlap rule applies to the **doctor across all
-clinics**, because a doctor is one person. For the same reason, a doctor's
-working-hour periods in different clinics must not overlap on the same day;
-this is validated when working hours are saved. Slot duration belongs to the
-doctor, not to the (doctor, clinic) pair (D43).
+- A doctor may work in several clinics (`DoctorClinic`). Working hours belong to
+  a (doctor, clinic) pair and may hold several periods per day.
+- No overlap applies to the doctor **across all clinics**; a doctor's periods in
+  different clinics must not overlap on the same day (validated on save).
+- Slot duration belongs to the doctor (D43).
 
 ### D41 — Booking rules
 `ACCEPTED`
 
-- Status machine: `Booked → Completed | Cancelled | NoShow`. A cancelled
-  appointment frees its slot; a completed one does not.
+- Status machine: `Booked → Completed | Cancelled | NoShow`. Cancelled frees the
+  slot; completed does not.
 - No booking in the past.
-- A patient with an overlapping appointment (even with a different doctor)
-  triggers a **warning** that the user must confirm. It is not blocked and
-  not enforced by the database.
-- Doctor breaks and leave days are modelled so working hours can exclude
-  them.
-- Slot rules are defined in D43.
-- Booking references are unique and collision-checked on insert.
+- A patient's overlapping appointment (even with another doctor) is a
+  **warning** the user confirms: not blocked, not enforced by the database.
+- Doctor breaks and leave days are modelled so working hours can exclude them.
+- Booking references are unique and collision-checked on insert. Slots: D43.
 
 ### D43 — Fixed slots per doctor
 `ACCEPTED`
 
-- Each doctor has **one slot duration**, applied in every clinic they work
-  in. It is stored as history rows: `(DoctorId, SlotMinutes, EffectiveFrom)`,
-  where `EffectiveFrom` is a Cairo calendar date.
-- A new duration can only take effect on a date **later than the doctor's last
-  active appointment**. Each day therefore has exactly one duration, and
-  existing appointments are never touched.
-- The grid is anchored on the start of the working-hour period: an
-  appointment must start at `period start + n × duration` and end inside the
-  period. This is validated in Application.
-- An appointment occupies **exactly one slot**. Procedures longer than one
-  slot are not supported; if they appear, a new decision is needed.
-- A change to working hours that would leave an active future appointment
-  outside the period or off the grid is rejected.
-- **Database enforcement:** a unique filtered index on
-  `(DoctorId, StartUtc) WHERE Status <> Cancelled`. Appointments have no
-  `IsDeleted` (D35). It is
-  per doctor, not per clinic, so it also stops a doctor being booked in two
-  clinics at the same time. A unique-violation error on booking or
-  reschedule is translated to 409 `error.appointment.slot_taken`.
-- Booking and rescheduling run in a transaction; the concurrency integration
-  tests required by D31 target this index.
+- One slot duration per doctor, in every clinic, stored as history rows
+  `(DoctorId, SlotMinutes, EffectiveFrom)` (`EffectiveFrom` is a Cairo date).
+- A new duration takes effect only on a date **after the doctor's last active
+  appointment**; existing appointments are never touched.
+- The grid is anchored on the working-hour period start: an appointment starts at
+  `period start + n × duration` and ends inside the period (validated in
+  Application). One appointment occupies **exactly one slot**; longer procedures
+  need a new decision.
+- A working-hours change that would leave an active future appointment outside
+  its period or off the grid is rejected.
+- **Database guard:** unique filtered index `(DoctorId, StartUtc) WHERE Status <>
+  Cancelled`, per doctor (so also across clinics). Its violation is 409
+  `error.appointment.slot_taken` (the `ConflictKey` mechanism, D50).
 
-**Why:** with a single duration per doctor and one appointment per slot, a
-plain unique index is a complete overlap guard, with no locks to reason
-about. A per-clinic duration would give one doctor different grids in
-different clinics, which the index could not reconcile.
+**Why:** one duration and one slot per appointment make a plain unique index a
+complete overlap guard, with no locks.
+**Rejected:** a per-clinic duration (one doctor on different grids, which the index cannot reconcile).
 
 ### D44 — Patients are shared across clinics
 `ACCEPTED`
 
-- A patient belongs to no clinic. There is no patient-to-clinic link.
-- A patient stores a name and a phone number only (D38).
-- `patients.*` permissions are global (D34). `patients.read` returns the name
-  and phone.
-- On create and edit, a matching phone number triggers a **duplicate
-  warning** showing the matched name and phone; the user may continue. There
-  is no unique constraint on phone, because family members share numbers.
+- A patient belongs to no clinic. Name and phone only (D38). `patients.*` are
+  global; `patients.read` returns name and phone.
+- On create and edit, a matching phone shows a **duplicate warning** with the
+  matched name and phone; the user may continue. No unique constraint on phone
+  (family members share numbers).
+- Revisit when Phase 4 adds medical records: their visibility will probably be
+  clinic-scoped.
 
-**Why:** the same person visits several clinics, and one record avoids
-duplicates. A separate "read all" permission was rejected because different
-staff seeing different data is confusing; with only a name and phone stored,
-a single read permission is enough.
-
-**Revisit:** when Phase 4 adds medical records, visibility of that data must
-be decided separately and will probably be clinic-scoped.
+**Rejected:** patients per clinic (duplicates of the same person); a separate "read all" permission (staff seeing different data is confusing).
 
 ---
 
-## Repository conventions
+## Repository, build and CI
 
 ### D42 — Documentation location and AI entry point
-`ACCEPTED`
+`SUPERSEDED` by D60.
 
-All documentation lives in `ClinicBooking/docs`. A short `CLAUDE.md` in the
-repository root tells AI assistants what to read before writing code: `docs/Instructions.md`
-in full, the index at the top of `docs/decisions.md`, then in full every decision marked `*` in
-the index, every decision whose keywords match the task and every decision those refer to (and any
-decision they are unsure about). The assistant lists the decision numbers it consulted in its plan,
-so coverage can be checked. `CLAUDE.md` also records the rule that assistants never run `docker`
-or `docker compose` (Instructions.md, "Workflow expectations").
-
----
 ### D45 — Build, logging and runtime conventions
 `ACCEPTED`
 
-- `TreatWarningsAsErrors` is on; implicit usings are off (`GlobalUsings.cs`
-  is the only source of usings); tests use xunit v2. Migrations are excluded
-  from analyzer rules in `.editorconfig`; NU190x audit warnings are not fatal.
-- Serilog writes compact JSON (`RenderedCompactJsonFormatter`) to the console,
-  configured in code. Each request carries a correlation ID: an incoming
-  `X-Correlation-Id` is accepted only if it matches `[A-Za-z0-9_-]{1,64}`,
-  otherwise a GUID is generated; it is returned in the response header.
-  Request logs contain method, path, status and elapsed time only.
-  `/health` requests log at Debug.
-- ProblemDetails carries both `traceId` and `correlationId`. Framework
-  responses use keys: `error.http.<status>`, `error.validation.failed`,
-  `error.validation.invalid`, `error.unexpected`, `error.health.not_ready`.
-- Domain exceptions: `InvalidRequestException` (400), `NotFoundException`
-  (404), `ConflictException` (409), `BusinessRuleException` (422); each
-  carries an error key.
-- Exception messages must never contain patient data, and
-  `EnableSensitiveDataLogging` stays off (rule 10).
-- Local SQL Server image is pinned (`2022-CU27-ubuntu-22.04`), published on
-  127.0.0.1 only. `TrustServerCertificate=True` is for the local container
-  only. The runtime image is the standard Debian one (tzdata, D12).
-- `/health/ready` uses a custom check (`SELECT 1`, 3 s timeout) and logs only
-  the exception type on failure.
+- `TreatWarningsAsErrors` on; implicit usings off (`GlobalUsings.cs` only);
+  xunit v2. Migrations are excluded from analyzer rules in `.editorconfig`;
+  NU190x audit warnings are not fatal.
+- Serilog: compact JSON (`RenderedCompactJsonFormatter`) to the console,
+  configured in code. Correlation id: an incoming `X-Correlation-Id` is accepted
+  only if it matches `[A-Za-z0-9_-]{1,64}`, otherwise a GUID; returned in the
+  response header. Request logs: method, path, status, elapsed time only;
+  `/health` at Debug.
+- `ProblemDetails` carries `traceId` and `correlationId`. Framework keys:
+  `error.http.<status>`, `error.validation.failed`, `error.validation.invalid`,
+  `error.unexpected`, `error.health.not_ready`.
+- Domain exceptions, each with a key: `InvalidRequestException` (400),
+  `NotFoundException` (404), `ConflictException` (409),
+  `BusinessRuleException` (422); D48 adds `Unauthorized` (401), `Forbidden`
+  (403), `AccountLocked` (423).
+- Exception messages never contain patient data; `EnableSensitiveDataLogging` stays off.
+- Local SQL Server image pinned (`2022-CU27-ubuntu-22.04`), published on
+  127.0.0.1 only. `TrustServerCertificate=True` is for the local container only.
+  Runtime image: standard Debian (tzdata, D12).
 
 ### D46 — Persistence choices
 `ACCEPTED`
 
-- **Collation:** the database keeps the server default
-  (`SQL_Latin1_General_CP1_CI_AS`, also Azure SQL's default). Arabic text
-  columns are `nvarchar`, never `varchar`. No SQL Server collation folds
-  أ/إ/ا, ة/ه or ى/ي (checked on SQL Server 2022 against `Arabic_CI_AI`,
-  `Arabic_100_CI_AI`, `Arabic_CI_AS`), so D37's normalisation will come from
-  normalised search data added with the search feature. (That gap, where a
-  unique index on `NameAr` treated `أحمد` and `احمد` as different names, is
-  closed by D49.)
-- **Soft delete filter:** a named EF query filter, `"SoftDelete"`, applied by
-  `AppDbContext` to every `ISoftDeletable` entity.
-- **Save interceptor** (`AuditSaveChangesInterceptor`, uses `TimeProvider` and
-  `IUser`): on create sets `CreatedAt`/`CreatedBy` (`UpdatedAt` stays null); on
-  update sets `UpdatedAt`/`UpdatedBy` and never touches `Created*`; `Remove()`
-  of a soft-deletable entity becomes an update that sets `IsDeleted`,
-  `DeletedAt`, `DeletedBy` and `UpdatedAt`/`UpdatedBy`. Soft-deleting a parent
-  does not cascade; services do that.
-- **`ExecuteUpdate` / `ExecuteDelete` are banned** in `src/`: they bypass the
-  interceptor. A test scans the sources and reports file and line.
-- **`IUser`** (Application) exposes `long? Id`; null means system or
-  anonymous. Api implements it from the JWT claims. Until the auth step there
-  are no claims, so it is always null. `*By` columns are nullable `bigint`.
-- **Migrations:** applied at startup in Development only. `docker-compose.yml`
-  is production-shaped; `docker-compose.override.yml` (loaded automatically by
-  `docker compose up`, never by CI or Azure) sets `ASPNETCORE_ENVIRONMENT=
-  Development`. Tests that use a database run in Development so the real
-  migrations are applied.
-- **No retry strategy** (`EnableRetryOnFailure`) yet. It must be reconsidered
-  before deployment, for Azure SQL transient faults, together with the
-  transaction wrapper D31 requires.
-- **Local tool:** `dotnet-ef` is pinned in `.config/dotnet-tools.json`
-  (10.0.x, matching EF Core). `Microsoft.EntityFrameworkCore.Design` lives in
-  Api, the startup project.
-- **Tests (D30):** one SQL Server Testcontainers container per test run, one
-  fresh database per test class (dropped afterwards), `TimeProvider` and
-  `IUser` replaced in tests. `dotnet test` needs Docker running.
-- EF's SQL command logging is raised to Warning; migration messages stay at
-  Information.
----
+- Collation: the server default (`SQL_Latin1_General_CP1_CI_AS`, also Azure
+  SQL's). Arabic text is `nvarchar`, never `varchar`. No collation folds the
+  Arabic letters (checked: `Arabic_CI_AI`, `Arabic_100_CI_AI`, `Arabic_CI_AS`), so
+  folding is D49's normalised columns.
+- Soft delete: a named EF query filter `"SoftDelete"` on every `ISoftDeletable`.
+- `AuditSaveChangesInterceptor` (`TimeProvider`, `IUser`): create sets
+  `Created*` (`UpdatedAt` stays null); update sets `Updated*`, never `Created*`;
+  `Remove()` of a soft-deletable entity becomes an update setting `IsDeleted`,
+  `DeletedAt`, `DeletedBy` and `Updated*`. Soft delete does not cascade; services do that.
+- **`ExecuteUpdate` / `ExecuteDelete` are banned** in `src/` (they bypass the
+  interceptor); a test scans the sources.
+- `IUser` (Application) exposes `long? Id` (null = system or anonymous); Api
+  implements it from the JWT. `*By` columns are nullable `bigint`.
+- Migrations run at startup in Development only. `docker-compose.yml` is
+  production-shaped; `docker-compose.override.yml` (loaded only by local
+  `docker compose up`) sets Development. Database tests run in Development.
+- No `EnableRetryOnFailure` yet: reconsider before deploy, with D31's wrapper.
+- `dotnet-ef` pinned in `.config/dotnet-tools.json` (10.0.x);
+  `Microsoft.EntityFrameworkCore.Design` lives in Api.
+- Tests: one SQL Server container per run, a fresh database per test class,
+  `TimeProvider` and `IUser` replaced. `dotnet test` needs Docker running.
+- EF SQL command logging at Warning; migration messages at Information.
 
 ### D47 — CI conventions
 `ACCEPTED`
 
-- `global.json` pins the SDK to at least 10.0.100 with
-  `rollForward: latestFeature`. The CI setup step and the Dockerfile both use
-  it, so local, CI and the image follow one rule.
-- Every GitHub Action is pinned to a full commit SHA with a version comment.
-  Only GitHub-owned actions (`actions/*`) are used; no `docker/*` actions.
-  Runner is `ubuntu-24.04`, not `ubuntu-latest`. Checkout uses
-  `persist-credentials: false`.
-- CI relies on `Directory.Build.props` (D45) for warnings as errors and does
-  not pass `-warnaserror`, so NU1901–NU1904 audit warnings stay non-fatal.
-- Three parallel jobs, `test`, `web` and `image`; a later push job will `needs`
-  all three. The test job uploads a TRX artifact (7 days). No test-logger package.
-- **`web` job (front end).** Ordered steps: Node-version guard, `setup-node`,
-  `npm ci`, `npm run lint` (angular-eslint and the logical-properties check),
-  `npm test` (Vitest and the Node script tests), `npm run check:i18n`,
-  `npm run check:api`, `npm run build`. After a failed step the later ones still
-  run, so one run shows every problem, **but only if `npm ci` succeeded**; the job
-  still fails. `check:api` needs only Node; on failure it adds a GitHub annotation
-  telling the developer to run `npm run gen:api` and commit `openapi.json` and
-  `schema.d.ts`. `npm run build` repeats the two prebuild checks (a second);
-  `image` repeats `npm ci` and the build inside Docker (about a minute): accepted,
-  because `image` proves the packaging (copy paths, Node base image, bundle into
-  `wwwroot`) and the two jobs run in parallel.
-- **One Node major.** `actions/setup-node` v7.0.0
-  (`820762786026740c76f36085b0efc47a31fe5020`) is used because the runner image
-  ships Node 22.23.3, which the project (`engines` `^24.15.0`) rejects.
-  `src/clinic-booking-web/.nvmrc` (`24`) feeds `setup-node` and local version
-  managers; `src/clinic-booking-web/.npmrc` sets `engine-strict=true`, so `npm ci`
-  fails on a Node outside `engines` (locally, in CI and in the image build, where
-  the Dockerfile copies `.npmrc` with the package files).
-  `.github/scripts/check-node-version.sh` fails the build when the major in
-  `.nvmrc`, the Dockerfile's `FROM node:<major>` and `engines` differ, **and also
-  when any of the three cannot be parsed** (alias such as `lts/*`, no `FROM node`
-  line, no or ambiguous `engines`); it takes paths as arguments so it can be tested.
-- npm is not cached (`package-manager-cache: false`): a cold `npm ci` takes about
-  25 seconds. Revisit with the 5-minute rule above.
-- Concurrency: group is workflow + ref with `cancel-in-progress: true`. Must
-  be revisited when a deploy workflow exists, because an in-flight deploy
-  must not be cancelled.
-- No caching (NuGet or Docker layers) until a run exceeds about 5 minutes.
-- The SQL Server image tag is declared in both `docker-compose.yml` and the
-  Testcontainers fixture; keep them in sync.
+- `global.json` pins the SDK (≥ 10.0.100, `rollForward: latestFeature`), used by
+  CI and the Dockerfile.
+- Every action pinned to a full commit SHA with a version comment; only
+  `actions/*`, no `docker/*`; runner `ubuntu-24.04`; checkout with
+  `persist-credentials: false`. CI relies on `Directory.Build.props` for warnings
+  as errors (no `-warnaserror`).
+- Three parallel jobs `test`, `web`, `image`; a later push job `needs` all three.
+  `test` uploads a TRX artifact (7 days); no test-logger package.
+- `web` steps in order: Node-version guard, `setup-node`, `npm ci`,
+  `npm run lint`, `npm test`, `npm run check:i18n`, `npm run check:api`,
+  `npm run build`. After a failure the later steps still run (only if `npm ci`
+  succeeded); a failing `check:api` adds an annotation to run `npm run gen:api`.
+- One Node major: `actions/setup-node` v7.0.0
+  (`820762786026740c76f36085b0efc47a31fe5020`, the runner ships Node 22);
+  `src/clinic-booking-web/.nvmrc` = `24`; `.npmrc` `engine-strict=true`;
+  `.github/scripts/check-node-version.sh` fails when `.nvmrc`, the Dockerfile's
+  `FROM node:<major>` and `engines` differ or cannot be parsed.
+- No npm, NuGet or Docker-layer caching until a run exceeds about 5 minutes.
+- Concurrency: workflow + ref, `cancel-in-progress: true`; revisit with a deploy job.
+- The SQL Server image tag is in both `docker-compose.yml` and the Testcontainers
+  fixture: keep them in sync.
+
+**Rejected:** `docker/*` actions; `ubuntu-latest`; early caching.
 
 ### D48 — Authentication and authorization specifics
 `ACCEPTED` (refines D29 and D34)
 
-**Layers.** `AuthService` (Application) holds the rules: login, rotation,
-reuse detection, logout. It depends on `IAppDbContext`, `TimeProvider` and
-three interfaces implemented in Infrastructure: `IIdentityService`
-(credentials, lockout; wraps `UserManager`), `IAccessTokenService` (JWT) and
-`IPermissionChecker`. `SignInManager` is not used (it is cookie-oriented).
+- **Layers.** `AuthService` (Application): login, rotation, reuse detection,
+  logout; depends on `IAppDbContext`, `TimeProvider`, and on `IIdentityService`
+  (wraps `UserManager`), `IAccessTokenService`, `IPermissionChecker`
+  (Infrastructure).
+- **Identity.** `ApplicationUser : IdentityUser<long>` (Infrastructure), audited,
+  not soft-deletable. `AppDbContext` is an `IdentityUserContext`: users and
+  claims, **no role tables**. Failed-login bookkeeping updates `UpdatedAt`
+  (accepted until the Phase 2 trail).
+- **Access token.** HS256, 15 minutes, claims `sub` and `jti` only (+ iat/nbf/exp).
+  `Jwt:SigningKey` (compose: `JWT_SIGNING_KEY`), ≥ 32 bytes; the host **fails at
+  startup** if it is missing or short, in every environment (tests supply a
+  throwaway key). Clock skew 30 s. Inbound claim mapping off; `CurrentUser` reads
+  `sub`. Lifetime checked against `TimeProvider` by a custom `LifetimeValidator`;
+  `DateTime` only at the IdentityModel boundary.
+- **Refresh token.** 32 random bytes, stored as SHA-256 only. 7 days sliding, a
+  30-day absolute cap per family. Every use consumes it and issues a new one. A
+  consumed token presented again **within 10 s** (`Auth:ReuseGraceSeconds`): 401,
+  nothing revoked; **after** that: the whole family is revoked. A rowversion makes
+  simultaneous rotations fail cleanly. On refresh the user must exist, be active
+  and not locked out, or the family is revoked (D58). Logout revokes the family,
+  idempotent. A user's long-expired rows are removed at that user's login (no
+  purge job until Phase 5).
+- **Cookie.** `refresh_token`, `HttpOnly`, `Secure` (always, also on
+  `http://localhost`), `SameSite=Strict`, `Path=/api/auth`, no Domain. Refresh and
+  logout are POST-only and reject an `Origin` that is neither this host (compared
+  without scheme) nor in `Auth:AllowedOrigins`.
+- **Lockout and rate limits.** 5 failures lock the account for 15 minutes. The
+  lockout is checked **before** the password; an unknown user is checked against
+  a dummy hash. Per client address, fixed one-minute window: 10 logins, 30
+  refreshes (`RateLimiting`).
+- **Password policy** (defined once, in the Identity options): ≥ 12 characters,
+  upper-case, lower-case, digit, ≥ 4 distinct characters; no breached-password check.
+- **Error keys.** 401 `error.auth.invalid_credentials` (wrong password and
+  unknown user alike); 423 `error.auth.locked_out` + `Retry-After` (reveals that a
+  locked account exists: accepted); 429 `error.auth.rate_limited` + `Retry-After`;
+  401 `error.auth.invalid_refresh_token` (cookie cleared); 401
+  `error.auth.unauthorized`; 403 `error.auth.forbidden` (missing permission or
+  foreign origin).
+- **Permissions.** `Domain/Permissions/Permissions.cs` with `Global`,
+  `ClinicScoped` (D57) and `All`; one policy per permission, named after it;
+  global grants are claims `permission`, read from the database on every check,
+  so revocation is immediate. A disabled user fails every check.
+- **Seeding.** `Seed:AdminUserName` / `Seed:AdminPassword` (compose:
+  `SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD`), at startup in every environment
+  when both are set. With no user: create it with every global permission. With
+  users: **top up** that user with the `Permissions.Global` it lacks, each **at
+  most once** (marker claim `seeded_permission`, D57), so a removed permission
+  stays removed. Never creates another user, touches a password or removes a
+  permission; logs a count only. The seed variables are removed after the first
+  deploy (`release.md`); then new global permissions go through user management.
+- **Endpoints.** `POST /api/auth/login`, `/refresh`, `/logout`,
+  `/change-password` (D58); `GET /api/auth/me` (id, user name, permissions,
+  `mustChangePassword`, `clinicPermissions`).
+- **Front end:** refresh is single-flight.
 
-**Identity.** `ApplicationUser : IdentityUser<long>` in Infrastructure,
-audited (`IAuditable`) but not soft-deletable. `AppDbContext` is an
-`IdentityUserContext`: users and their claims only, **no role tables**
-(permissions are claims; roles are never checked, rule 9). Failed-login
-bookkeeping updates `UpdatedAt`, accepted until the Phase 2 audit trail.
-
-**Access token.** HS256 JWT, 15 minutes, claims `sub` and `jti` only (plus
-iat/nbf/exp). Issuer and audience are non-secret settings. The signing key is
-`Jwt:SigningKey` (compose maps `JWT_SIGNING_KEY`), at least 32 bytes; the host
-**fails at startup** if it is missing or short, in every environment. Tests
-supply a throwaway key; there is no Testing exemption. Clock skew 30 s.
-Inbound claim mapping is off; `CurrentUser` reads `sub`, so `CreatedBy` holds
-the real user id. Lifetime is validated against `TimeProvider` through a
-custom `LifetimeValidator` (IdentityModel has no clock hook). IdentityModel's
-token API takes `DateTime`; instants are converted at that boundary only.
-
-**Refresh token.** 32 random bytes, stored only as a SHA-256 hash. Valid 7
-days, sliding on each rotation, with a 30-day absolute cap per session
-(family). Every use consumes the token and issues a new one in the same
-family. A consumed token presented again **within 10 seconds**
-(`Auth:ReuseGraceSeconds`) is rejected with 401 without revoking anything
-(concurrent refreshes); **after** the window the whole family is revoked. A
-rowversion makes simultaneous rotations fail cleanly (treated like the grace
-case). On refresh the user must still exist, be active and not be locked out,
-otherwise the family is revoked (D58). Logout revokes the family and is idempotent. A user's
-long-expired rows are removed when that user logs in (no purge job until
-Phase 5).
-
-**Cookie.** `refresh_token`, `HttpOnly`, `Secure` (always set, also over
-`http://localhost`, which Chrome and Firefox accept), `SameSite=Strict`,
-`Path=/api/auth`, no Domain. The `__Host-` prefix is not used because it needs
-`Path=/`. CSRF defence in depth: refresh and logout are POST-only and reject a
-request whose `Origin` is neither this host (compared without scheme, so it
-works behind a TLS-terminating proxy) nor in `Auth:AllowedOrigins` (the
-Development file allows the Angular dev server).
-
-**Lockout, rate limit, passwords.** 5 failed attempts lock the account for 15
-minutes. The lockout is checked **before** the password, so the answer never
-depends on whether the password was right; an unknown user is verified against
-a dummy hash. The built-in rate limiter (per client address, fixed one-minute
-window) allows 10 logins and 30 refreshes per minute, configurable under
-`RateLimiting`. Password policy: at least 12 characters, one upper-case, one
-lower-case, one digit, at least 4 distinct characters; no breached-password
-check.
-
-**Error keys.** Wrong password or unknown user: 401
-`error.auth.invalid_credentials`. Locked out: 423 `error.auth.locked_out`
-with `Retry-After` (this reveals that the account exists once it is locked;
-accepted). Rate limited: 429 `error.auth.rate_limited` with `Retry-After`.
-(D52 adds the front-end side: session, refresh and the grace-window retry.)
-Refresh token missing, invalid, expired, revoked or reused: 401
-`error.auth.invalid_refresh_token`, and the cookie is cleared. No or invalid
-access token: 401 `error.auth.unauthorized`. Missing permission or foreign
-origin: 403 `error.auth.forbidden`. Domain exceptions added: `Unauthorized`
-(401), `Forbidden` (403), `AccountLocked` (423).
-
-**Permissions.** Constants in one place (`Domain/Permissions/Permissions.cs`),
-`Global` and `All` lists. One authorization policy per permission, named after
-it, with a single `PermissionAuthorizationHandler`. Global grants are Identity
-user claims (`permission`); the handler reads the database per check, so a
-revoked permission applies at once (a locked-out user keeps an issued access
-token until it expires). Clinic-scoped permissions and their handler exist
-since D57 (a second requirement and handler, an `IClinicResolver`, the
-(user, clinic, permission) table); a disabled user is denied by every check.
-
-**Seeding.** `Seed:AdminUserName` / `Seed:AdminPassword` (compose maps
-`SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD`). Runs at startup in every
-environment when both are set. It creates the user only when no user exists, and
-grants every global permission. When users already exist it only **tops up** the
-user named by `Seed:AdminUserName`: it adds the permissions of
-`Permissions.Global` that user lacks, so a permission added to the code later
-reaches the seeded admin (D55). It never creates a user, never touches a password
-or another user, never removes a permission, and logs only a count. **D57
-refines this: each permission is granted at most once** (a `seeded_permission`
-marker claim), so one an administrator removed on purpose stays removed. The password
-is never logged. **The seed variables must be removed from configuration after
-the first successful deploy**, which also stops the top-up: from then on new
-global permissions are granted through user management (the API exists, D57). A
-change-password flow **must exist before any real data** is stored: the API exists
-(D58); its screen is still to come.
-
-**Endpoints.** `POST /api/auth/login`, `POST /api/auth/refresh`,
-`POST /api/auth/logout`, `GET /api/auth/me` (id, user name, permissions: the
-token carries none, so a front end needs this; D58 adds `mustChangePassword` and
-`clinicPermissions`) and, since D58, `POST /api/auth/change-password`. D58 also
-adds `error.auth.password_change_required` (403), `current_password_required`,
-`current_password_incorrect` and `password_unchanged`, an account gate that reads
-`IsActive` and `MustChangePassword` on every request, and the change-password rate
-limiter (per user). Until the FluentValidation
-endpoint filter (D9) exists, login checks only that both fields are present
-and at most 256 characters.
-
-**Deploy-step items.** (1) Forwarded-headers handling behind the Azure
-ingress, so rate limiting sees the client address and `Request.Host` is the
-public host. (2) Key Vault for `Jwt__SigningKey` and the seed values.
-
-**Front end.** The Angular step must call refresh **single-flight**: at most
-one refresh request in flight, all waiting callers share its result.
+**Rejected:** `SignInManager` (cookie-oriented); role tables; the `__Host-` cookie prefix (needs `Path=/`).
 
 ### D49 — Arabic-aware search and uniqueness of names
 `ACCEPTED` (completes D37)
 
-**Mechanism.** `SearchText.Normalize` (Domain) is the one normalisation. It is
-computed in code and stored in plain `nvarchar(100)` columns next to the
-display text (`NameArNormalized`, `NameEnNormalized`); a SQL computed column
-would duplicate the logic and let stored value and query drift. The same
-function normalises the search term. The pipeline: Unicode NFKC; remove Arabic
-diacritics (U+064B–U+065F, U+0670), tatweel and invisible format characters
-(ZWJ, ZWNJ, LRM, RLM, BOM); fold `أ إ آ ٱ → ا`, `ة → ه`, `ى → ي`; fold
-Arabic-Indic and Persian digits to `0-9` (consistent with D27); lower-case;
-collapse whitespace; trim. `ؤ` and `ئ` are deliberately **not** folded (not in
-D37). English text goes through the same function: case-insensitive, whitespace
-collapsed, no accent folding.
+- `SearchText.Normalize` (Domain) is the only normalisation, applied to stored
+  values and to search terms. Stored in plain `nvarchar(100)` columns next to the
+  display text (`NameArNormalized`, `NameEnNormalized`).
+- Pipeline: NFKC; remove Arabic diacritics (U+064B–U+065F, U+0670), tatweel and
+  invisible format characters (ZWJ, ZWNJ, LRM, RLM, BOM); fold `أ إ آ ٱ → ا`,
+  `ة → ه`, `ى → ي`; fold Arabic-Indic and Persian digits to `0-9`; lower-case;
+  collapse whitespace; trim. `ؤ` and `ئ` are **not** folded. English goes through
+  the same function (no accent folding).
+- Display names and normalised copies have private setters and are set together
+  by `SetNames`. Display names are stored as entered (trimmed).
+- Search: one `search` parameter; the normalised query is split on spaces and
+  **every word** must `Contains`-match one of the two normalised columns
+  (wildcards literal). A leading wildcard is fine for reference data; **Patients
+  need a prefix or full-text approach**.
+- Uniqueness over the **normalised** text, per language, among live rows, for
+  **reference data only** (Specialties, Clinics). Patients get a normalised
+  column for search and **no unique constraint on names**.
+- Arabic sort order is the normalised text.
 
-**Entity shape.** The display names and the normalised copies have private
-setters and are set together by `SetNames`, so a caller cannot forget one. The
-display name is stored as entered (trimmed, D28).
-
-**Search.** One `search` parameter matches either name. The normalised query is
-split on spaces and **every word** must match one of the two normalised
-columns (`Contains`, wildcard characters treated literally). A leading-wildcard
-scan is acceptable for reference data of a few dozen rows; Patients will need a
-prefix or full-text approach.
-
-**Uniqueness.** Reference data (Specialties, Clinics) is unique over the
-**normalised** text, per language, among live rows (`WHERE IsDeleted = 0`), so
-`أحمد`/`احمد` or `Cardiology`/` cardiology ` are the same name. **This applies
-to reference data only.** Patients (D44) get a normalised column for search
-only and **no unique constraint on names**: different people share names.
-
-**Sorting.** Arabic order is the normalised text (alphabetical, ignoring hamza
-forms and diacritics), so no collation function is needed.
+**Rejected:** a SQL computed column (duplicates the logic; stored value and query can drift).
 
 ### D50 — Specialties API and the pattern for later entities
 `ACCEPTED`
 
-Specialties is the reference implementation; Clinics, Doctors and Patients
-copy it.
+Specialties is the reference implementation; Clinics, Doctors and Patients copy it
+(`docs/guides/backend-entity.md`).
 
-- **Endpoints** (`/api/specialties`): `GET` (list), `GET {id}`, `POST`
-  (201 + `Location`), `PUT {id}`, `DELETE {id}` (204). List query: `search`,
-  `page` (1), `pageSize` (20, max 100), `sortBy` (`nameEn` default, `nameAr`,
-  `createdAt`), `sortDirection` (`asc` default, `desc`) (the query object binds
-  case-insensitively and the OpenAPI document names them `Search`, `Page`,
-  `PageSize`, `SortBy`, `SortDirection`, which the front end sends, D53); response
-  `{ items, page, pageSize, totalCount }`. Ties are broken by `Id` (by `Id`
-  descending for newest-first). DTOs only: responses carry id, both names,
-  `createdAt`, `updatedAt` and `rowVersion`; never the normalised columns or
-  audit user ids.
-- **Permissions.** Any signed-in user may read (every staff member needs the
-  list); `specialties.manage` is required to create, edit and delete.
-- **Secure by default.** A **fallback authorization policy** requires an
-  authenticated user for any endpoint without authorization metadata, **also for
-  requests that match no endpoint**, so an anonymous call to an unknown route is
-  401, not 404. Anonymous endpoints say so explicitly: `[AllowAnonymous]` on
-  login, refresh and logout, `.AllowAnonymous()` on health and on OpenAPI.
-  Static files and the SPA fallback are anonymous too (D51). A test proves an
-  action without attributes returns 401.
-- **Validation.** One FluentValidation validator per request DTO and per query
-  object, in `Application/Validators`, found by assembly scanning. `ValidationFilter`
-  (global action filter) runs them and returns 400 `error.validation.failed`
-  with camelCase field names and error-key messages; a message that is not an
-  `error.` key is replaced by `error.validation.invalid` (rule 4). A reflection
-  test fails if any request DTO of a production action has no validator.
-- **Concurrency.** `RowVersion` (SQL `rowversion`) on every auditable entity.
-  `PUT` must send it back; a stale value is 409 `error.concurrency.conflict`
-  (checked in the service and again by EF at save). `DELETE` needs no version.
+- **Endpoints** `/api/specialties`: `GET` list, `GET {id}`, `POST` (201 +
+  `Location`), `PUT {id}`, `DELETE {id}` (204). Query `Search`, `Page` (1),
+  `PageSize` (20, max 100), `SortBy` (`nameEn` default, `nameAr`, `createdAt`),
+  `SortDirection` (`asc` default); bound case-insensitively, PascalCase in the
+  OpenAPI document. Response `{ items, page, pageSize, totalCount }`; ties broken
+  by `Id` (descending for newest-first). Responses carry id, both names,
+  `createdAt`, `updatedAt`, `rowVersion`; never normalised columns or audit user ids.
+- **Permissions.** Any signed-in user reads; `specialties.manage` writes.
+- **Secure by default.** A fallback policy requires an authenticated user for any
+  endpoint without authorization metadata **and for unmatched requests** (an
+  anonymous unknown route is 401, not 404). Anonymous on purpose:
+  `[AllowAnonymous]` on login, refresh, logout; `.AllowAnonymous()` on health and
+  OpenAPI; static files and the SPA fallback (D51). A test proves an action
+  without attributes returns 401.
+- **Validation.** One validator per request DTO and per query object in
+  `Application/Validators` (assembly scanning). `ValidationFilter` returns 400
+  `error.validation.failed` with camelCase field names and key messages; a message
+  that is not an `error.` key becomes `error.validation.invalid`. A reflection
+  test fails if a production action's request DTO has no validator.
+- **Concurrency.** `RowVersion` on every auditable entity. `PUT` sends it back; a
+  stale one is 409 `error.concurrency.conflict` (checked in the service and by
+  EF). `DELETE` needs none.
 - **Duplicates.** The service pre-checks for a friendly 409
-  (`error.specialty.name_ar_taken` / `name_en_taken`, Arabic reported first if
-  both clash); the unique indexes are the real guard. A unique-index violation
-  becomes a 409 `ConflictException` **only** for indexes carrying the
-  `ClinicBooking:ConflictKey` annotation (the key to return); every other
-  unique violation (Identity, refresh tokens) is rethrown unchanged. Matching
-  uses the ASCII index name inside the SQL error text, not its language. D43's
-  `slot_taken` uses the same mechanism.
+  (`error.specialty.name_ar_taken` / `name_en_taken`, Arabic first); the unique
+  indexes are the real guard. A unique violation becomes a 409 **only** for an
+  index carrying the `ClinicBooking:ConflictKey` annotation (its value is the key),
+  matched by the ASCII index name in the SQL error; others are rethrown.
 - **Error keys.** `error.specialty.name_ar_required|too_long|invalid` (and
-  `name_en_*`), `error.specialty.not_found` (404), `error.paging.page_invalid`,
-  `error.paging.page_size_invalid`, `error.sort.invalid`,
-  `error.search.too_long`, `error.concurrency.row_version_required|invalid`,
-  `error.concurrency.conflict`. Login validation keys: `error.auth.user_name_required`,
-  `error.auth.password_required`, `error.auth.field_too_long`.
-- **Delete** is a soft delete through `Remove()` (D35); a second delete is 404
-  and the name can be re-created. **Later**, when a Doctor uses a Specialty,
-  deleting it returns 409 `error.specialty.in_use` (no cascade); soft-deleted
-  doctors keep their reference, which stays valid.
-- **Queries** project with `Select` into DTOs from one hand-written expression
+  `name_en_*`), `error.specialty.not_found`, `error.paging.page_invalid`,
+  `error.paging.page_size_invalid`, `error.sort.invalid`, `error.search.too_long`,
+  `error.concurrency.row_version_required|invalid`, `error.concurrency.conflict`;
+  login: `error.auth.user_name_required`, `error.auth.password_required`,
+  `error.auth.field_too_long`.
+- **Delete** is a soft delete through `Remove()`; a second delete is 404; the name
+  can be re-created. When a Doctor uses a Specialty, delete returns 409
+  `error.specialty.in_use` (no cascade; soft-deleted doctors keep the reference).
+- **Queries** project with `Select` from one hand-written expression
   (`SpecialtyMapping`); updates and deletes load the entity.
-- **OpenAPI.** `Microsoft.AspNetCore.OpenApi` generates the document;
-  `/openapi/v1.json` is served only when `OpenApi:Enabled=true` (Development,
-  tests). A transformer removes the machine-specific `servers` entry and
-  non-JSON media types. See D24 for the regeneration command.
-- **Do not use `[Produces]`** on controllers: it overrides the
-  `application/problem+json` type of model-binding failures. The OpenAPI
-  transformer keeps the document clean instead.
+- **OpenAPI.** `Microsoft.AspNetCore.OpenApi`; `/openapi/v1.json` only when
+  `OpenApi:Enabled=true` (Development, tests); a transformer removes `servers` and
+  non-JSON media types. Every action documents its success response with
+  `[ProducesResponseType]` (D52). **Never `[Produces]`** on a controller (it
+  overrides `application/problem+json`).
 
 ### D51 — Front-end foundation and hosting
 `ACCEPTED` (implements D15, D22, D24–D27)
 
-**Workspace.** `src/clinic-booking-web`, project `clinic-booking-web`, selector
-prefix `cb`, standalone components only, `strict` and `strictTemplates`,
-OnPush, no `any`, `inject()`, Signals, `templateUrl` only (the translation check
-needs to read templates), no zone.js. File names follow the CLI's current style
-(`app.ts`, `language-switcher.ts`; no `.component` suffix). The CLI's demo
-template, README and `.vscode` are not kept.
+- Workspace `src/clinic-booking-web`: prefix `cb`, standalone, `strict` and
+  `strictTemplates`, OnPush, no `any`, `inject()`, Signals, `templateUrl` only,
+  no zone.js; CLI file naming (`app.ts`, no `.component` suffix).
+- **Agreed packages** beyond the CLI's (rule 8): `tailwindcss`,
+  `@tailwindcss/postcss`, `postcss` (Tailwind 4 through `.postcssrc.json`),
+  `@jsverse/transloco`, `openapi-typescript`, `eslint`, `typescript-eslint`,
+  `angular-eslint`. Check scripts and `gen:api` are plain Node, tested with
+  `node --test`. `package-lock.json` committed; `npm ci` in the image.
+- **Scripts:** `build` (`prebuild` runs `check:logical` and `check:i18n`), `lint`
+  (angular-eslint then `check:logical`, plus `check:permissions`, D52), `test`
+  (`ng test --no-watch`, then the Node script tests), `check:i18n`,
+  `check:logical`, `check:permissions`, `gen:api`, `check:api`.
+- **Hosting.** `UseStaticFiles` runs before logging, correlation and
+  authorization; the SPA fallback endpoints are `AllowAnonymous`. The catch-all
+  excludes a first segment of exactly `api`, `health` or `openapi` and any path
+  with a file extension; `/` has its own fallback. Excluded paths answer
+  ProblemDetails 401/404, never `index.html`. Cache: `index.html` and `/i18n/*`
+  `no-cache`; fingerprinted `*.js`/`*.css` `public,max-age=31536000,immutable`.
 
-**Packages beyond the CLI's** (rule 8, agreed): `tailwindcss`,
-`@tailwindcss/postcss` and `postcss` (Tailwind 4 is wired through
-`.postcssrc.json` and `@import "tailwindcss"`), `@jsverse/transloco`,
-`openapi-typescript`, `eslint`, `typescript-eslint` and `angular-eslint`. The
-checks and the `gen:api` script are plain Node with no dependency, and their
-own tests use Node's built-in `node --test`. `package-lock.json` is committed
-and the image uses `npm ci`; `engines` requires Node `^24.15.0`.
-
-**Scripts.** `build` (with a `prebuild` that runs `check:logical` and
-`check:i18n`), `lint` (angular-eslint, then `check:logical`), `test`
-(`ng test --no-watch`, then the Node script tests), `check:i18n`,
-`check:logical`, `gen:api`, `check:api`. Lint config: `eslint.config.mjs`.
-
-**Hosting.** The API serves the bundle from `wwwroot`. `UseStaticFiles` runs
-before logging, correlation and authorization, so the fallback authorization
-policy (D50) never sees static files; the SPA fallback endpoints are explicitly
-`AllowAnonymous`. The fallback catch-all excludes paths whose first segment is
-**exactly** `api`, `health` or `openapi` (`/apiary` is still a client route) and
-any path with a file extension (a missing `/x.js` is never HTML); the root `/`
-is mapped by its own fallback because a constrained catch-all does not match the
-empty path. Excluded paths keep today's behaviour: ProblemDetails 401
-(anonymous) or 404 (signed in), never `index.html`. `MapStaticAssets` is not
-used: it only knows files present at publish time, and the bundle is copied in
-afterwards. Cache headers: `index.html` and `/i18n/*` are `no-cache`;
-fingerprinted `*.js`/`*.css` are `public,max-age=31536000,immutable`. Tests use a
-temporary web root, so production code carries nothing test-only.
-
-**Shell.** A header (title, language switcher) and a router outlet with a
-placeholder; unknown client routes redirect to it. The document title follows
-the language.
-
-**Verification.** `npm ci`, `npm run build`, `npm run lint`, `npm test`,
-`npm run check:api`, and the .NET tests. The CI `web` job runs the front-end
-ones (D47); the `image` job builds the front end again through Docker.
-
-**Deferred (done in D52).** The dev proxy for `ng serve` and the back-end
-`error.*` coverage check came with the login step.
-
----
+**Rejected:** `MapStaticAssets` (knows only files present at publish; the bundle is copied in afterwards).
 
 ### D52 — Front-end authentication
-`ACCEPTED` (implements D29 and D48 on the client; refines D26 and D51)
+`ACCEPTED` (implements D29 and D48 on the client; refined by D59)
 
-**Session.** `SessionService` keeps the access token in a private field:
-**never** in `localStorage` or `sessionStorage` (a test checks both stay
-empty). State is `unknown` → `authenticated` | `anonymous` (Signals), plus the
-user and permission set from `GET /api/auth/me`. The refresh cookie is
-`HttpOnly`, so scripts never see it.
+- **Session.** `SessionService` keeps the access token in a private field, never
+  in `localStorage` or `sessionStorage` (tested). State `unknown` →
+  `authenticated` | `anonymous`, plus the user from `/me`.
+- **Startup.** An app initializer calls refresh then `/me` before the first render;
+  it never rejects and gives up after 10 s; 401, 429, 5xx, network failure or
+  timeout mean anonymous at once, no retry. `index.html` shows a text-free spinner.
+  Known edge (accepted): two tabs opened at the same moment; the loser shows login.
+- **Interceptor.** `Authorization` only on same-origin `/api/` requests, never on
+  login, refresh or logout. On a 401 `error.auth.unauthorized`: one shared
+  refresh, one retry; a request carrying an older token retries with the current
+  one without refreshing; a second rejection ends the session. A 403 or another
+  401 passes through. Refresh is **reactive only**.
+- **Grace window.** During an active session a refresh that gets 401
+  `invalid_refresh_token` is retried **once** after 1 s + 0–500 ms jitter, inside
+  the single flight. A second 401 ends the session:
+  `/login?returnUrl=<current>` with a one-time "session expired" notice. 429, 5xx
+  and network failures are transient: no logout, no retry.
+- **returnUrl.** `safeReturnUrl`: a single leading `/`, no backslash or control
+  characters, not `/login`, ≤ 2048 characters, the same after one decode;
+  otherwise `/`. Router only, never `window.location`.
+- **Routes.** `/login` (guest guard), `/forbidden`, `/` (auth guard), a catch-all
+  running the auth guard first. `permissionGuard(name)` sends a user without the
+  permission to `/forbidden`.
+- **Permissions.** `permissions.ts` names what the UI asks about;
+  `npm run check:permissions` (part of `lint`) fails when a name is not in
+  `Permissions.cs`. `*cbCan` and `can()` are UX only.
+- **API client and errors.** One method per endpoint; `src/api/types.ts` derives
+  types from `schema.d.ts`. `parseApiError` is the only reader of ProblemDetails:
+  `{kind, status, key, fieldErrors, correlationId, retryAfterSeconds}`; a title
+  that is not a well-formed `error.…` key becomes `error.unexpected`; status 0 is
+  `error.network`. `ErrorMessageService.keyFor` falls back to `error.unexpected`.
+  The correlation id is shown only for unexplained failures.
+- **Login form.** Signal Forms; required, ≤ 256; same message for unknown user and
+  wrong password; 423/429 show "about N min" from `Retry-After`; the password is
+  cleared after a failure.
+- **Dev proxy.** `proxy.conf.json` forwards `/api` to `http://localhost:8080`
+  (`changeOrigin: false`); the Origin check passes without back-end changes.
+- **Back-end `error.*` keys.** `scripts/backend-error-keys.mjs` reads the C# under
+  `src/ClinicBooking.*` (not tests, bin, obj, Migrations), skipping comments;
+  `check:i18n` fails when a key lacks a translation. A prefix literal `"error."`
+  must be declared in `scripts/backend-error-keys.json` (today `error.http.*`
+  from `ProblemDetailsEnricher`, and `ValidationFilter`); undeclared or stale
+  declarations fail. Without sources it warns; with `CI` set it fails.
+- **OpenAPI guard.** The document is generated from a host without test
+  controllers (`PlainApiFactory`); tests fail if an operation lacks a success
+  schema (204 excepted), a test path appears, or the auth schemas are missing.
 
-**Startup.** An app initializer calls `POST /api/auth/refresh` then `/me` before
-the first render, so a signed-in user never sees a flash of the login page.
-It never rejects and gives up after 10 s; a 401, 429, 5xx, network failure or
-timeout all mean **anonymous at once, with no retry** (a logged-out visitor
-must not wait). `index.html` shows a text-free CSS spinner meanwhile (literal
-text there would break D26). No "was signed in" hint is stored: the one extra
-401 for a logged-out visitor is cheaper than a flag that can drift.
-*Known edge:* two tabs opened at the same moment both refresh at startup; the
-loser gets 401 and shows the login page although the other tab is signed in.
-Accepted: it is rare, and a reload fixes it (the cookie is then valid).
-
-**Interceptor.** The `Authorization` header goes **only** on same-origin
-`/api/` requests, and never on `login`, `refresh` or `logout`. Translation
-files, other origins and any other URL get no header and never trigger a
-refresh. On a 401 titled `error.auth.unauthorized` the request is refreshed
-once and retried once: concurrent 401s share **one** refresh; a request that
-carried an older token than the current one retries with the current token and
-no new refresh; a retry rejected again ends the session. A 403, or a 401 with
-another key, is passed through. A request sent without a token never
-refreshes. Refresh is **reactive only**: a 401 path must exist anyway, timers
-are throttled in hidden tabs, client and server clocks differ, and proactive
-refresh in several tabs would create the very collisions the grace window
-absorbs.
-
-**Grace window and two tabs.** Tabs share the cookie jar. Within
-`Auth:ReuseGraceSeconds` (10 s) a refresh that loses the race gets 401
-`invalid_refresh_token` without any revocation, while the winner's new cookie is
-already in the jar. During an **active session** the client therefore retries
-the refresh **once** after 1 s plus 0–500 ms of jitter (inside the shared
-single flight, so callers still see one logical refresh). A second 401 means the
-session really ended: state is cleared and the user goes to
-`/login?returnUrl=<current>` with a one-time "session expired" notice. 429, 5xx
-and network failures are **transient**: no logout, no retry, the request fails
-with a typed error. Tested with fake timers (exact delay, never a third refresh).
-
-**returnUrl.** `safeReturnUrl` accepts only a single leading `/`, no backslash,
-no control characters, not `/login`, at most 2048 characters, with the same
-checks again after one decode (`/%2F%2Fevil.com`). Anything else becomes `/`.
-It is used only with the router, never `window.location`.
-
-**Routes.** `/login` (guest guard: a signed-in user goes on to the returnUrl),
-`/forbidden`, `/` (auth guard), and a catch-all that runs the auth guard first,
-so a signed-out deep link goes to login and returns after sign-in, while a
-signed-in user lands on `/`. `permissionGuard(name)` sends a signed-in user
-without the permission to `/forbidden`. *(D59 refines this: a signed-in user who must change the
-password is sent to `/change-password` by these guards instead, and `/change-password` and the
-Users routes are added.)*
-
-**Permissions** come from `/me` as strings. `permissions.ts` names the ones the
-UI asks about (`users.manage`, `specialties.manage`); `npm run check:permissions`
-(plain Node, part of `lint`) fails when one is not defined in `Permissions.cs`.
-`*cbCan` and `SessionService.can()` are **UX only**: the API enforces every
-permission. *(D59 refines the session model: `CurrentUser` gains `mustChangePassword` and
-`clinicPermissions`; `can()` stays global-only and `canIn(permission, clinicId)` answers
-clinic-scoped permissions; `permissions.ts` has two objects, `Permissions` and
-`ClinicPermissions`, and `check:permissions` compares each with its C# list. The interceptor also
-reacts to 403 `error.auth.password_change_required`.)*
-
-**API client and errors.** `src/api/auth-api.ts` has one method per auth
-endpoint; `src/api/types.ts` derives request and response types from
-`schema.d.ts` (no hand-written models). `parseApiError` is the only place a
-ProblemDetails is read; it returns `{kind, status, key, fieldErrors,
-correlationId, retryAfterSeconds}`. A title that is not a well-formed
-`error.…` key becomes `error.unexpected` (server text is never shown); status 0
-becomes `error.network`. `ErrorMessageService.keyFor` falls back to
-`error.unexpected` when the active language lacks the key. The correlation id
-is shown only for unexplained failures, so a user can quote it. `error.unexpected`
-tells the user to contact the system administrator (there is no support channel).
-
-**Login form.** Typed Signal Forms (`@angular/forms/signals`): the official docs
-mark `form()` "stable since v22.0" and the installed Angular is 22.2.1. Rules:
-required and at most 256 characters (as the API). Messages are the back-end
-keys. Labels, `autocomplete="username"`/`"current-password"`, `aria-invalid`, an
-`aria-live` alert region that receives focus on a server error, the first
-invalid field focused on submit, the button disabled with `aria-busy` while
-pending. Unknown user and wrong password show the same message. 423 and 429
-show their message plus "about N min" from `Retry-After`. The password is
-cleared after a failure.
-
-**Dev proxy.** `proxy.conf.json` forwards `/api` to `http://localhost:8080`
-(`changeOrigin: false`), wired in `angular.json`; `npm start` uses it. The
-browser sends `Origin: http://localhost:4200` and the proxy keeps
-`Host: localhost:4200`, so the Origin check (D48) passes **without any back-end
-change** (`appsettings.Development.json` also lists the origin). A foreign
-Origin still gets 403 through the proxy. The `Secure` cookie works on
-`http://localhost` in Chrome and Firefox; Safari and non-localhost HTTP hosts do
-not store it.
-
-**Back-end `error.*` keys (D26).** `scripts/backend-error-keys.mjs` reads the C#
-under `src/ClinicBooking.*` (not `tests/`, `bin`, `obj`, `Migrations`) with a
-small scanner that understands C# strings and skips comments, collects literals
-shaped `error.<reason>[.<reason>…]`, and `check:i18n` fails when one is missing
-in `ar.json` or `en.json`, naming the C# file and line. *False positives:*
-comments are skipped and the shape is strict. *False negatives:* a key built at
-runtime cannot be read, so any file with a prefix literal (`"error."`) must be
-declared in `scripts/backend-error-keys.json` with the keys it can produce (today
-`error.http.400/404/405/406/415` from `ProblemDetailsEnricher`, plus
-`ValidationFilter`, which only tests a prefix); an undeclared prefix literal or a
-stale declaration fails. Without the back-end sources (the Docker `web` stage)
-the scan warns and is skipped; **with `CI` set it fails**, so CI cannot skip it.
-*Limits:* keys assembled another way (resource files, a database) are invisible;
-a new dynamic family must be declared by hand. (While writing it, the first
-pattern wrongly required three segments and missed `error.unexpected`; the
-tests now pin the two-segment shape.)
-
-**API document fix (separate commit).** The committed `openapi.json` lacked every
-200 response schema (an action with any `ProducesResponseType` stops inferring
-`ActionResult<T>`) and leaked the test-only controllers. The 200 attributes are
-added, the document is generated from a host without test controllers
-(`PlainApiFactory`), and tests fail if any operation lacks a documented success
-schema (204 excepted), a test path appears, or the auth schemas are missing.
-
-**Deploy-step items (not done here).** The startup refresh counts against the
-refresh rate limit (30 per minute per client address), so correct
-forwarded-headers handling behind the Azure ingress matters even more: without
-it every visitor shares the ingress address and a busy minute can lock silent
-sign-in out for all. The Origin check compares the request host, which needs the
-same forwarded-headers setup, and the deployed host belongs in
-`Auth:AllowedOrigins` if it differs.
-
-**Not verified in a browser.** The credentialed checks (successful login shows
-the shell, reload keeps the session, logout returns to login, returnUrl after
-login) were not driven in the browser, because the pane could not take a pasted
-secret and typing it would expose it. They are covered by unit tests and by real
-requests against the running stack (login cookie flags, `/me`, rotation, logout,
-and the same through the dev proxy).
-
----
+**Rejected:** proactive (timer) refresh (throttled timers, clock drift, multi-tab collisions); a stored "was signed in" hint (can drift); the token in browser storage.
 
 ### D53 — Front-end feature pattern (Specialties screens)
-`ACCEPTED` (implements D50 on the client; the reference for Clinics, Doctors and Patients)
+`ACCEPTED` (implements D50 on the client; the reference for every entity screen)
 
-**Layout.**
-```
-src/api/specialties-api.ts            one method per endpoint, types from schema.d.ts
-src/app/shared/ui/                    confirm-dialog, pager (no strings of their own)
-src/app/features/<entity>/
-  <entity>.routes.ts                  lazy routes; the parent route carries the Transloco scope
-  <entity>.scope.ts                   scope name + a resolver that preloads the scope file
-  list/<entity>-list.ts|html, list-query.ts    the screen; URL <-> query as pure functions
-  form/<entity>-form.ts|html          create and edit on one page
-  <entity>-session.ts                 last list query + a one-time status message
-public/i18n/<entity>/{ar,en}.json     the screen's own strings (keys <scope>.<key>)
-```
-`/specialties` is behind `authGuard` only (any signed-in user may read, D50);
-`/specialties/new` and `/specialties/:id/edit` add `permissionGuard`. The
-controls use `*cbCan`. Both are UX: the API enforces permissions.
+- **Layout:** `src/api/<entity>-api.ts`; `src/app/shared/ui/` (`confirm-dialog`,
+  `pager`, no strings of their own); `src/app/features/<entity>/` with
+  `<entity>.routes.ts`, `<entity>.scope.ts`, `list/` (+ `list-query.ts`), `form/`,
+  `<entity>-session.ts`; strings in `public/i18n/<entity>/{ar,en}.json`.
+- **Translations.** Screen strings in the scope; **the entity's `error.*` keys in
+  the root files** (the back-end key check reads them). A resolver preloads the
+  scope before render.
+- **List: the URL is the state** (`?q=&page=&size=&sort=&dir=`, defaults omitted).
+  `parseListState` clamps invalid values to defaults; `toQueryParams`;
+  `toApiQuery` always explicit. Defaults in one constant: Arabic name ascending,
+  page 1, 20 per page; sizes 10, 20, 50. `rxResource` cancels stale requests; the
+  previous result stays (`aria-busy`); Retry calls `reload()`. Search: 300 ms
+  debounce into a `replaceUrl` navigation, Enter at once, IME ignored, sent trimmed,
+  blank omitted, `maxlength` 100; any change returns to page 1. A page past the end
+  steps back. The client sends PascalCase query names; allowed sort values are
+  mirrored in `list-query.ts`.
+- **List layout:** a real `<table>` (caption, `th scope`, `aria-sort`) from md up,
+  cards below, sharing the action template; one sort control; the UI-language
+  name first; every name in a `<bdi>` with its `lang`/`dir`; interpolation only
+  (stored HTML shows as text). Pager is text-only. Dates through `intl`.
+- **Create and edit:** separate pages; Signal Forms mirroring the API (trimmed,
+  required, ≤ 100) with its keys; each field with its own `lang`/`dir`. After
+  save: back to the remembered list query, a one-time `role="status"` message,
+  focus on the heading (every feature page focuses its `h2` on entry).
+- **Server errors:** a 400's field keys and the name-taken 409s go on their field
+  from `submit()`; anything else is a form-level `aria-live` message; 404 on save
+  shows "not found".
+- **Conflict (409 `error.concurrency.conflict`):** keep the input, a focused
+  `role=alert` banner, **Save disabled until Reload**; Reload loads the latest
+  values and `rowVersion` and lists the user's earlier entries in a dismissible
+  panel; 404 on reload says the record is gone.
+- **Delete:** `confirm-dialog` on native `<dialog>` (`showModal()`), focus on
+  Cancel, both names shown, Esc ignored while pending; success reloads, shows a
+  status message, focuses the heading; 404 = already deleted; other errors stay in
+  the dialog, translated.
+- **Shell:** a header link (`routerLinkActive`, `aria-current`).
+- Known minor point: a lazy chunk is fetched before its guard runs for a
+  signed-out deep link (nothing sensitive; `canMatch` would avoid it).
 
-**Translations.** The screen's own strings live in the scope. **The entity's
-`error.*` keys stay in the root `ar.json`/`en.json`**: the back-end key check
-(D52) reads the root files, and the error handling that shows them is shared
-code. (Instructions.md used to say the keys go in the scope; corrected.) A
-resolver loads the scope for the active language before the page renders, so no
-raw key flashes; the pipe follows later language changes.
-
-**The list: the URL is the state.** `?q=&page=&size=&sort=&dir=`, defaults
-omitted. `parseListState` reads it with clamping (an invalid value becomes the
-default, so a bad link never breaks the page or reaches the API); `toQueryParams`
-writes it; `toApiQuery` builds the API query, always explicit. Reload and
-back/forward need no extra code because the component reads `queryParamMap`.
-- **Defaults live in one constant** (`DEFAULT_LIST_STATE`): Arabic name
-  ascending (Arabic-first UI), page 1, 20 per page; tests pin the default URL
-  and the default API query. Page sizes 10, 20, 50.
-- **Loading and stale responses:** an `rxResource` over the parsed query: a newer
-  query cancels the older request, so a late response is never shown. The
-  previous result stays on screen (`aria-busy`) while the next loads. Retry
-  calls `reload()`: the same query, the page is not rebuilt.
-- **Search:** a local signal, debounced **300 ms** (fast enough to feel live, slow
-  enough not to send a request per keystroke) into a `replaceUrl` navigation so
-  back is not polluted; Enter searches at once; input during IME composition is
-  ignored until it ends. The raw text is sent, trimmed (the API normalises
-  Arabic, D49); blank is omitted; `maxlength` 100. Any search, sort or size
-  change returns to page 1.
-- **A page past the end** (after a delete or a hand-edited URL) steps back to
-  the last page; with no rows at all the "no specialties" state shows.
-- **Query names.** The generated types name the list parameters in PascalCase
-  (`Search`, `Page`, `PageSize`, `SortBy`, `SortDirection`) because the query
-  object binds case-insensitively; the client sends the typed names. D50's
-  lowercase spelling was wording only and is updated. `SortBy`/`SortDirection`
-  are plain strings in the schema, so the allowed values are mirrored in
-  `list-query.ts`.
-- **Layout.** A real `<table>` (caption, `th scope`, `aria-sort`) from md up and a
-  card list below; both share the action template, and the hidden one is
-  `display:none`. One sort control (select + direction button) serves both. The
-  name in the UI language is shown first and prominent, the other secondary;
-  every name sits in a `<bdi>` with its own `lang`/`dir`. Names are interpolated
-  (never `innerHTML`), so stored HTML is shown as text (D28; tested). Pager is
-  text-only (no icon to mirror). Dates use the `intl` pipe.
-
-**Create and edit: separate pages, not a modal.** Deep-linkable, back works,
-focus is simple, no focus-trap code, and they behave on a phone and in RTL.
-Signal Forms; rules mirror the API (trimmed value required, at most 100) with
-the back-end keys; values are sent trimmed. Each field carries its own
-`lang`/`dir`. After a save the app navigates to the remembered list query
-(`<entity>-session`) and the list shows a one-time `role="status"` message and
-focuses its heading (every feature page focuses its `h2` on entry).
-
-**Server errors on a form.** A 400's `errors.<field>` keys and the key on a 409
-`name_ar_taken`/`name_en_taken` become server errors on the right field, returned
-from the `submit()` action, so they render like client errors and clear when the
-user edits that field. Anything else is a form-level `aria-live` message through
-`ErrorMessageService` (never server text or a raw key). A 404 on save shows
-"not found" with a way back.
-
-**Concurrency (409 `error.concurrency.conflict`).** The form keeps what the user
-typed and shows a banner (focused, `role=alert`); **Save stays disabled until
-the user presses Reload**, so nothing is overwritten silently. Reload fetches the
-latest record, puts its values and new `rowVersion` in the form, and lists the
-user's earlier entries in a panel they can dismiss, to re-apply by hand. If the
-fetch returns 404 the page says the record no longer exists.
-
-**Delete.** A reusable `confirm-dialog` on the native `<dialog>` (`showModal()`:
-focus trap, inert background, Esc, focus restoration), focus starting on Cancel,
-naming the record in both languages; Esc is ignored while the request runs. On
-success it reloads the list, shows a status message and focuses the heading. A
-404 means already deleted: the same outcome with its own message. Any other
-error stays inside the dialog, translated, so the later 409
-`error.specialty.in_use` needs only its translation (the back-end key check
-will demand it).
-
-**Shell.** A "Specialties" link in the header for signed-in users
-(`routerLinkActive`, `aria-current`).
-
-**Test notes.** jsdom lacks `<dialog>.showModal()`/`close()`: a stand-in lives in
-`src/testing/dialog-polyfill.ts`. `whenStable()` hangs while an HTTP request is
-pending (resources hold a pending task), so specs settle by hand. rxjs
-`debounceTime` reads `Date.now()`, so fake timers must fake `Date` too.
-
-**Known minor points.** The Specialties chunk (about 9 kB) is requested by a
-signed-out visitor following a deep link, because the router loads a lazy route
-before its guard runs; nothing sensitive is in it, and `canMatch` would avoid it
-at the cost of a different fallback. `check:i18n` now ignores the format name in
-`| intl: 'date'` (it is not user text).
-
-**Not verified in a browser.** Every signed-in flow (list, search, paging, sort,
-create, edit, conflict, delete, focus restoration after the dialog closes) was
-not driven in the browser, because that needs the seed password. They are covered
-by the component, route and logic specs; focus behaviour that depends on a real
-browser (native dialog focus restoration) is the part tests cannot prove.
-
-**Shared code.** Clinics copies these screens instead of sharing them; what to
-extract is decided at the third entity (D56).
-
----
+**Rejected:** a modal for create and edit (deep links, back button, focus, phones and RTL are simpler with pages).
 
 ### D54 — Azure deployment is postponed until the build is complete
-`ACCEPTED` (replaces the old "no feature before Azure" rule of Scope discipline and the "deployment first" ordering of Phase 0; D16 and D17 stay in force as the target)
+`ACCEPTED` (replaces the old "no feature before Azure" rule; D16 and D17 stay as the target)
 
-**Decision.** On 4 October 2026 the project owner decided to postpone deployment
-to Azure until the build is complete, and to deal with any deployment problems
-when that point is reached. The owner accepted the risk below knowingly.
+- Decided 4 Oct 2026 by the owner: deploy to Azure only when the build is
+  complete; the owner declares that point.
+- Meanwhile: CI green on every push to `main` and every PR, and green before the
+  next step; every commit builds; `Dockerfile` and compose keep working; no
+  secret in the repository; every postponed item stays on the checklist in
+  `docs/release.md`.
+- Phases 1 to 5 remain the scope, in order; Appointments (Phase 2) do not start
+  before Phase 1 is complete. Not released until the checklist is done.
+- O1 and O2 are deferred with the deployment and block no feature.
 
-**Why.** A new Azure free account gives credit for 30 days. Creating the account
-now would spend that time before there is anything worth deploying.
-
-**Risk (accepted).** Problems that only appear on Azure (the ingress, identity,
-Key Vault, Azure SQL, migrations) are discovered late and may be more expensive
-to fix: this is the argument of D16. The pipeline is only partly proven today:
-CI builds, tests and builds the Docker image, but nothing is pushed to a
-registry, nothing is deployed, there is no migrations bundle and no Key Vault.
-
-**What stays mandatory meanwhile.**
-- CI stays green on every push to `main` and on every pull request (the
-  triggers of `ci.yml`), and it is green before the next step starts.
-- Every commit builds. The `Dockerfile` and `docker compose up --build` keep
-  working (the `image` job and local runs prove it).
-- No secret enters the repository (rule 6, D19).
-- Each item that is postponed stays on the checklist "Deferred until
-  deployment" below, so nothing is forgotten.
-
-**"The build is complete"** is declared by the owner. No phases or dates are
-invented here. Phases 1 to 5 in "Scope" remain the scope, worked in order;
-Appointments (Phase 2) must not start before Phase 1 is complete. The project is
-not called released until every item of "Deferred until deployment" is done.
-
-**Effect on other decisions.** Phase 0 is done in code and deferred in
-deployment (see "Scope"). O1 and O2 are deferred with the deployment: no feature
-work depends on them. D16 is unchanged: the `Dockerfile` and compose exist and
-run; what is late is the cloud half of the pipeline.
-
----
+**Why:** a new Azure free account's credit lasts 30 days; spending it before there
+is anything to deploy wastes it.
+**Accepted risk:** Azure-only problems (ingress, identity, Key Vault, Azure SQL,
+migrations) are found late.
 
 ### D55 — Clinics back end
-`ACCEPTED` (follows D50 exactly; refines D34, D38 and D48)
+`ACCEPTED` (follows D50; refines D34, D38, D48)
 
-Clinics is the second reference-data entity and copies Specialties: soft delete
-(D35), audit fields (D36), `RowVersion` concurrency, names unique after
-normalisation (D49) with the annotated unique-index mechanism, projection by
-`Select`, one validator per request DTO and query object, error-key
-ProblemDetails. No Angular screens yet (the next step).
+- Copies Specialties (soft delete, audit, `RowVersion`, normalised unique names,
+  `Select`, validators, error keys).
+- **Fields:** `NameAr`, `NameEn` (as Specialty); `Address` optional, trimmed,
+  ≤ 300, `nvarchar(300)`, blank stored as null; `Phone` optional, `nvarchar(16)`.
+  Unique filtered indexes `UX_Clinics_NameArNormalized` /
+  `UX_Clinics_NameEnNormalized` with conflict keys. No index on phone.
+- **Endpoints** `/api/clinics`, the Specialties shape; responses add `address`
+  and `phone`. **`PUT` is a full replace:** an omitted or blank address or phone
+  is cleared.
+- **Search** matches both names only.
+- **Permission:** global `clinics.manage` for create, edit, delete. Any signed-in
+  user reads.
+- **Error keys:** `error.clinic.name_ar_required|too_long|invalid|taken` (and
+  `name_en_*`), `error.clinic.not_found`, `error.clinic.address_too_long`,
+  `error.clinic.phone_invalid`. `error.clinic.in_use` arrives with Doctors.
+- **`PhoneNumber`** (Domain/ValueObjects, no package; reused by Patients). Stored
+  as E.164. Ignores spaces, hyphens, dots, parentheses, bidi and invisible format
+  characters; folds Arabic-Indic and Persian digits. Accepts the international form
+  (`+…` or `00…`, 8–15 digits, first digit not 0) and Egyptian national numbers
+  with one leading 0 (mobile `01[0125]` + 8 digits; landline `0[2-9]` + 7 or 8
+  digits), stored as `+20…`. Rejects anything else, a number with neither `+` nor
+  a leading 0, and raw input over 32 characters. Blank = absent. One key:
+  `error.clinic.phone_invalid`.
+- **A value that slips past a validator is a 400, never a 500:**
+  `Clinic.SetContact` and `PhoneNumber.Normalize` throw `InvalidRequestException`
+  with the key. Every later entity follows this.
+- **Seeder top-up:** see D48 (each global permission at most once, D57).
+- Name rules are copied (`ClinicRules`), not shared with Specialties; a shared
+  helper comes at the third copy.
 
-**Fields.** `NameAr` and `NameEn` (required, trimmed, at most 100, as Specialty);
-`Address` (optional free text, trimmed, at most 300, `nvarchar(300)`; blank is
-stored as null); `Phone` (optional, `nvarchar(16)`: `+` and up to 15 digits). The
-normalised name columns are `nvarchar(100)`; unique filtered indexes
-`UX_Clinics_NameArNormalized` / `UX_Clinics_NameEnNormalized` (`WHERE [IsDeleted] =
-0`) carry the conflict keys. There is **no** index on the phone: clinics may share
-a switchboard.
-
-**Endpoints** (`/api/clinics`, same shape as Specialties): `GET` list, `GET {id}`,
-`POST` (201 + `Location`), `PUT {id}`, `DELETE {id}` (204). List query `Search`,
-`Page` (1), `PageSize` (20, max 100), `SortBy` (`nameEn` default, `nameAr`,
-`createdAt`), `SortDirection`; ties broken by `Id`. Responses carry id, both names,
-address, phone, `createdAt`, `updatedAt` and `rowVersion`. **`PUT` is a full
-replace:** an omitted or blank address or phone is cleared.
-
-**Search** matches **both names only** (D49). Address and phone are not searched:
-addresses are not normalised, and street names would give surprising matches;
-phone search belongs to a digit-prefix match, later.
-
-**Permission.** A new **global** permission, `clinics.manage` (create, edit,
-delete). *(D57: the seeded admin has no clinic-scoped permission in any clinic,
-`doctors.manage` included; it grants it to itself through the user API.)* It is global because it cannot be scoped to a clinic that does not exist
-yet; it is in `Permissions.Global`, so the policy and the handler needed no
-change. **Reading (list and get) is allowed for any signed-in user**, like
-Specialties. *Revisit:* when per-clinic permission assignments arrive (with user
-management, before Doctors) the list may have to be filtered for scoped users, and
-D6's "an inaccessible resource returns 404" will then apply; nothing of that
-exists yet.
-
-**Error keys** (11 new, translated in the root `ar.json`/`en.json`):
-`error.clinic.name_ar_required|too_long|invalid|taken` and the same four for
-`name_en_*`, `error.clinic.not_found` (404), `error.clinic.address_too_long`,
-`error.clinic.phone_invalid`. Paging, sort, search and concurrency keys are
-reused. **Not built:** `error.clinic.in_use` (409 when doctors or appointments use
-a clinic); the delete path stays generic, as for Specialties.
-
-**Phone numbers (`PhoneNumber`, Domain/ValueObjects, no package).** One
-normalisation for every entity that stores a phone (patients will reuse it, D38,
-D44); the stored form is E.164. Ignored: spaces, hyphens, dots, parentheses, bidi
-marks and other invisible format characters; Arabic-Indic and Persian digits are
-folded to 0-9. Accepted: the international form (`+…` or `00…`, 8 to 15 digits,
-first digit not 0), and Egyptian national numbers with a single leading 0 (mobile
-`01[0125]` + 8 digits, 11 in total; landline `0[2-9]` + 7 or 8 digits, 9 or 10 in
-total), stored as `+20…`. Rejected: anything else, including a number with
-neither `+` nor a leading 0 (ambiguous) and raw input longer than 32 characters
-(checked before parsing). Blank means absent. One key for every failure:
-`error.clinic.phone_invalid`.
-**A value that slips past a validator is a 400, never a 500:** the entity
-(`Clinic.SetContact`) and `PhoneNumber.Normalize` throw `InvalidRequestException`
-with the key (the address limit too); a test calls the service directly with a bad
-phone. Later entities follow this: a Domain method that normalises or limits a
-value reports the failure with an `InvalidRequestException`, not a generic
-exception.
-
-**Seeder top-up (refines D48; D57 makes it "at most once per permission").**
-`IdentitySeeder` used to act only when no user
-existed, so a permission added to the code later never reached the seeded admin
-on an existing database. Now, when users already exist and the seed credentials
-are configured, it adds the permissions of `Permissions.Global` that the user
-named by `Seed:AdminUserName` lacks. Limits: only `Permissions.Global`; only that
-one user; it never creates a user, never touches a password or another user,
-never removes a permission; it logs only a count. Permissions are read from the
-database on every call, so no re-login is needed. **It depends on the `Seed__*`
-variables, which D48 removes after the first deploy: from then on a new global
-permission must be granted through user management** (Phase 1), not by the seeder.
-On a developer machine the only step is `docker compose up --build` (the API
-restarts and tops the admin up); `docker compose down -v` is the heavier fallback
-that also deletes all data.
-
-**Tests.** `PhoneNumberTests` (valid table incl. Persian digits and bidi marks,
-invalid table incl. raw input over 32 characters and short hotline numbers, the
-entity throwing `InvalidRequestException`), `ClinicsAuthorizationTests`,
-`ClinicsCrudTests` (validation keys, CRUD and row versions, full replace, audit
-with real users, duplicates across Arabic variants, a deleted name re-created, the
-parallel-create race), `ClinicsSearchTests` (hamza, ta marbuta, ya, diacritics,
-digits, wildcards literal, paging, sorting, address and phone not searched), seeder
-top-up tests, and OpenAPI assertions. Existing guards that cover the new code with
-no change: the validator-coverage reflection test, the fallback authorization
-policy, the unique-violation translation (generic over the annotation), the
-`ExecuteUpdate`/`ExecuteDelete` scan, the seed test that compares the seeded
-admin's permissions with `Permissions.Global`, and the OpenAPI checks (no test
-paths, every operation documents a success schema).
-
-**Variations from the Specialties pattern.** Only the new fields (address, phone,
-the shared `PhoneNumber`), the full-replace `PUT`, and `InvalidRequestException`
-from the entity. The name rules are copied (`ClinicRules`) rather than shared with
-Specialties, to avoid touching unrelated code; a shared helper is natural at the
-third copy.
-
-**Later.** Short hotline numbers (for example 16xxx and 19xxx) are not accepted
-yet; they need their own rule. Searching by address or phone. `error.clinic.in_use`
-with Doctors. Filtering the clinic list by the caller's clinics with per-clinic
-permissions.
-
----
+**Rejected:** a unique index on phone (clinics may share a switchboard); searching address or phone (not normalised, surprising matches; moved to Later).
 
 ### D56 — Clinics screens (front end)
-`ACCEPTED` (follows D53 exactly; implements D55 on the client)
+`ACCEPTED` (follows D53; implements D55 on the client)
 
-Clinics copies the Specialties screens: lazy `/clinics`, `/clinics/new` and
-`/clinics/:id/edit` with a Transloco scope `clinics` and a resolver; `authGuard`
-on the list, `permissionGuard(Permissions.ClinicsManage)` on the two form pages;
-the URL-driven list (`?q=&page=&size=&sort=&dir=`, Arabic name ascending, 300 ms
-debounce, sizes 10/20/50); separate create and edit pages on Signal Forms; the
-same conflict flow (Save disabled until Reload, "earlier entries" panel); the
-same delete dialog (focus on Cancel). A "Clinics" link sits next to
-"Specialties" in the header. `clinics.manage` is in `permissions.ts`, so
-`check:permissions` verifies it against the C#. Only what differs is listed here.
+- Copies the Specialties screens: `/clinics`, `/clinics/new`, `/clinics/:id/edit`,
+  scope `clinics`; `permissionGuard(Permissions.ClinicsManage)` on the forms; a
+  "Clinics" header link.
+- **Copied, not shared.** `list-query.ts`, the session service and the list and
+  form components are copies. **At the third entity (Doctors or Patients), decide
+  what to extract** (list state, session service, scope resolver, form error
+  mapping) from what the three copies share. Until then a fix in one copy is made
+  in the others.
+- **Phone display** (`formatPhone` and the `phone` pipe, `core/format`): pure,
+  never throws; non-strings and blanks give `''`; never changes the stored value.
+  After `+20`: mobile `1[0125]` + 8 → `010 1234 5678`; landline 9 digits starting
+  2 or 3 → `02 2345 6789`; 8 digits starting 2–9 → `03 123 4567`; 9 digits
+  starting 4–9 → `040 312 3456`. Anything else shown exactly as stored. Always in
+  `<bdi dir="ltr" class="whitespace-nowrap">`; plain spaces.
+- **`tel:` links on cards only** (the `href` is the stored E.164); none in the table.
+- **List:** columns Clinic (both names), Phone, Address (`line-clamp-2`, full text
+  in `title` and the DOM), Created (`lg` up), Actions. Cards show the full address
+  (`break-words`, `<bdi dir="auto">`). Missing values show a "Not set" key. The
+  search placeholder says it matches the clinic **name**.
+- **Form:** address `<textarea dir="auto">` with a counter of the trimmed length
+  (not a live region); phone `type="tel"`, `inputmode="tel"`, `dir="ltr"`, a hint
+  with examples. Client rules: names as before, address ≤ 300 after trimming, phone
+  raw input ≤ 32 only; everything else is the server's. Blank address and phone
+  are sent as `null`.
+- **Untouched-phone guard:** the form keeps the stored E.164 and the text shown;
+  if the field still holds that text the stored value is sent back unchanged,
+  otherwise exactly what was typed. Refreshed after a conflict Reload.
+- **Header:** wraps (`flex-wrap`), user name truncated (`max-w-40 truncate`),
+  smaller padding below `sm`; no horizontal overflow at 360 px (by-hand check).
 
-**Reused unchanged:** `confirm-dialog`, `pager`, `ErrorMessageService`,
-`parseApiError`, `IntlPipe`, `CanDirective`, `authGuard`, `permissionGuard`,
-`LanguageService`, `types.ts`, and the test helpers (`provideAuthTesting`,
-`signIn`, `flushProblem`, the dialog polyfill).
-
-**Copied, not shared (decision, revisit at the third entity).** `list-query.ts`,
-the session service and the list and form components are copies of the
-Specialties ones with the entity's names. Nothing was extracted in this step.
-The duplication is deliberate: with two entities a shared abstraction would be a
-guess about what varies; Clinics already shows that the form differs (extra
-fields, the phone guard) and the list differs (more columns, phone and address
-cells), while `list-query.ts`, the session service, the scope resolver and most of
-the list state are identical. **When the third entity (Doctors or Patients) is
-built, decide what to extract** (the list-state logic, the session service, the
-scope resolver, the form's error mapping) by looking at what the three copies
-share, not before. Until then a fix in one copy must be made in the other.
-
-**Phone display (`formatPhone` and the `phone` pipe, `core/format`).** The stored
-value is E.164 (D55) and is never changed by display. The function is pure and
-never throws; `null`, `undefined`, `''` and non-strings give `''`; unexpected text
-is returned unchanged. The local Egyptian form is used only when the whole value
-matches an Egyptian shape. After `+20`:
-- **mobile**, `1[0125]` + 8 digits (10 in all): `+201012345678` → `010 1234 5678`;
-- **landline, 9 digits starting 2 or 3** (Cairo/Giza 02; a 03 number with 8
-  subscriber digits): a 2-digit area code, then 4 and 4: `+20223456789` →
-  `02 2345 6789`;
-- **landline, 8 digits starting 2-9** (Alexandria 03 and the like): a 2-digit area
-  code, then 3 and 4: `+2031234567` → `03 123 4567`;
-- **landline, 9 digits starting 4-9**: a 3-digit area code, then 3 and 4:
-  `+20403123456` → `040 312 3456`.
-Anything else is shown exactly as stored: a foreign number (`+14155552671`), a
-`+20` number of another shape, or non-E.164 text. The stored value does not carry
-the area-code length, so the landline grouping is a heuristic; a wrong grouping is
-cosmetic and never alters data. Templates render the phone inside
-`<bdi dir="ltr" class="whitespace-nowrap">`, so the digits keep their order in
-the Arabic UI (also the hint examples and the "earlier entries" panel). Spaces
-are plain, so a copy gives usable text.
-
-**`tel:` link: cards only.** On a phone, tapping to call is the point and the link
-text is the visible number (so its accessible name is right). In the table
-(desktop) a `tel:` link would open an unrelated app and add a tab stop to every
-row. The `href` is the stored E.164 (`tel:+201012345678`), not the grouped text.
-
-**List layout.** Table columns: Clinic (the UI-language name first and prominent,
-the other name secondary, each in a `<bdi>` with its own `lang`/`dir`), Phone,
-Address, Created (only from `lg` up), Actions. The address is clamped to two
-lines (`line-clamp-2`) with `title` carrying the whole text; the text is always in
-the DOM, so screen readers read all of it. Cards (below `md`) show the whole
-address, wrapping (`break-words`, so a long unbroken Arabic address cannot
-overflow), in a `<bdi dir="auto">` (its language is unknown), the date always, and
-the phone as a `tel:` link. A missing phone or address says "Not set" (a key),
-not a bare dash a screen reader would read as "dash". The search placeholder says
-the search matches the clinic **name** (Arabic or English): the API does not search
-address or phone (D55).
-
-**Form.** Fields: Arabic name, English name (as Specialties), **address** (a
-`<textarea>`, `dir="auto"`, optional, with a visible counter "N of 300" that counts
-the trimmed text, so it agrees with the rule, and is not a live region) and
-**phone** (`type="tel"` and `inputmode="tel"`, `dir="ltr"`, optional, with a hint
-under it listing mobile, landline and international examples; the examples are
-scope keys). Rules: the names as before; the address at most 300 after trimming
-(`error.clinic.address_too_long`); the phone has **one client rule only**: raw
-input over 32 characters is refused (`error.clinic.phone_invalid`). Everything
-else about a phone is the server's decision; text such as `abc` is sent and the
-server's `error.clinic.phone_invalid` is shown under the phone. The user may type
-Arabic-Indic digits: the client sends the text as typed. A 400's `address` and
-`phone` errors, and a `phone_invalid` or `address_too_long` that arrives as the
-problem key, are placed on their field; the name-taken 409s as in Specialties.
-Blank address and phone are sent as `null` (the `PUT` is a full replace).
-
-**Untouched-phone guard.** When editing, the phone is shown in its local form. The
-form keeps the stored E.164 value and the text it showed for it. On save, if the
-field still holds exactly that text, the stored value is sent back **as it is**;
-otherwise exactly what was typed is sent (even the same digits in another form,
-for example Arabic-Indic digits, or the E.164 form retyped). So a user who does
-not touch the phone cannot change it, whatever the server rules become. After a
-conflict Reload both values are refreshed. Tested in both directions, for each
-Egyptian shape, a foreign number and an unrecognised `+20` shape.
-
-**Header.** The header now carries the title, two links, the user name, Sign out
-and the language switcher. It wraps (`flex-wrap` on the header and on both
-groups, the links in a wrapping list), the user name is truncated
-(`max-w-40 truncate`) and the padding is smaller below `sm`. jsdom does no layout,
-so the unit test only guards those classes. A check in the built app at a 360 px
-viewport, with the signed-in header markup injected into the login page (the real
-signed-in header could not be shown without signing in), found no horizontal
-overflow in either direction (123 px high, wrapped). That is a simulation: **the
-real signed-in header at phone width, in Arabic and in English, is a by-hand
-check.**
-
-**Not verified in a browser.** Every signed-in flow (list, search, paging, sort,
-create, edit, clear the phone and address, conflict, delete, the phone digits
-staying left to right in the Arabic UI, a long Arabic address at phone width, the
-header at phone width) needs the seed password and was not driven. Verified in the
-browser without credentials: the signed-out redirects for `/clinics` and
-`/clinics/new` to the login page with their `returnUrl`, and that the scope files
-are served.
-
----
+**Rejected:** extracting shared code at two entities (a guess about what varies).
 
 ### D57 — User management and clinic-scoped permissions (back end)
-`ACCEPTED` (refines D6, D34, D48 and D55; the front-end screens are the next step)
+`ACCEPTED` (refines D6, D34, D48, D55)
 
-An administrator holding the global `users.manage` can create users, disable and
-re-enable them, grant **global** permissions, and grant **clinic-scoped**
-permissions per clinic. The authorization layer now supports clinic-scoped checks
-end to end (table, checker, handler), so Doctors can use it. Users are **never
-deleted**, only disabled. There are no roles (D34, rule 9) and the JWT still
-carries no permission.
-
-**Layers.** `UserService` (Application) holds the rules. It depends on
-`IUserAccounts` (Infrastructure, wraps `UserManager`: create, list, find, state,
-set active, reset password, the administrator counts, replace global claims),
-`IPermissionChecker`, `IAppDbContext` and `TimeProvider`. `UserManager` is used
-only in Infrastructure. `IAppDbContext.InSerializableTransactionAsync` runs a
-read-then-write rule in one serializable transaction; a deadlock victim (SQL
-error 1205) becomes 409 `error.concurrency.conflict`.
-
-**Data.** `AspNetUsers` gains `IsActive` (the entity default is `true`; the
-migration sets `true` for existing rows, because EF scaffolds `false`) and
-`MustChangePassword` (default `false`). There is no database default: every
-insert sends an explicit value. New table **`UserClinicPermissions`**
-(`UserClinicPermission : AuditableEntity`): `Id`, `UserId`, `ClinicId`,
-`Permission` (`varchar(64)`, an ASCII identifier), the audit fields and the row
-version. Unique index `UX_UserClinicPermissions_User_Clinic_Permission` over
-`(UserId, ClinicId, Permission)` with the conflict key
-`error.concurrency.conflict` (two administrators granting the same thing at once
-is a 409, not a 500); an index on `ClinicId`. Foreign keys: user **cascade**
-(users are never deleted, so it only keeps the table consistent), clinic
-**restrict** (clinics are only soft-deleted). **Revoking deletes the row** (a join
-table, D35); `CreatedBy`/`CreatedAt` say who granted it, and who revoked is left
-to the Phase 2 audit trail. A **soft-deleted clinic** keeps its rows but grants
-nothing and is not listed (the checker joins the filtered `Clinics` set). A
-**disabled user** keeps everything but every `Has*` check is false. Global
-permissions stay Identity claims of type `permission`. The unique index Identity
-creates over the normalised user name carries the conflict key
-`error.user.user_name_taken`.
-
-**Permission model.** `Permissions.Global` (`users.manage`, `specialties.manage`,
-`clinics.manage`; later `patients.*`) and `Permissions.ClinicScoped`
-(**`doctors.manage` only**: manage the doctors of one clinic). `All` is both
-lists; a policy exists for each. No `doctors.read`: reading doctors stays open to
-any signed-in user, like Specialties and Clinics (names are not sensitive and
-booking staff must see doctors across clinics); add a scoped read only if D6's
-"inaccessible means 404" is wanted for lists. Nothing for Appointments yet.
-`GET /api/permissions` (needs `users.manage`) returns `{ global, clinicScoped }`
-from the same constants, so the assignment screens never copy the names. **To add
-a clinic-scoped permission** see Instructions.md.
-
-**The seeded admin has no `doctors.manage` in any clinic** (the seeder grants only
-global permissions). It must grant it to itself through the API
-(`PUT /api/users/{id}/clinics/{clinicId}/permissions`) like any other user.
-
-**Authorization design.**
-- `IPermissionChecker` gains `HasClinicPermissionAsync`,
+- An administrator with global `users.manage` creates users, disables and
+  re-enables them, and grants global and per-clinic permissions. Users are
+  **never deleted**, only disabled. No roles; the JWT carries no permission.
+- **Layers.** `UserService` (Application) depends on `IUserAccounts`
+  (Infrastructure, wraps `UserManager`), `IPermissionChecker`, `IAppDbContext`,
+  `TimeProvider`. `IAppDbContext.InSerializableTransactionAsync` runs
+  read-then-write rules; a deadlock victim (1205) becomes 409
+  `error.concurrency.conflict`.
+- **Data.** `AspNetUsers` gains `IsActive` (existing rows migrated to `true`) and
+  `MustChangePassword` (`false`); no database defaults, every insert explicit.
+  `UserClinicPermissions` (`AuditableEntity`): `UserId`, `ClinicId`, `Permission`
+  (`varchar(64)`), unique `UX_UserClinicPermissions_User_Clinic_Permission`
+  (conflict key `error.concurrency.conflict`), index on `ClinicId`; FK user
+  cascade, clinic restrict. **Revoking deletes the row.** A soft-deleted clinic
+  keeps its rows but grants nothing and is not listed; a disabled user fails every
+  check. The normalised user-name index carries `error.user.user_name_taken`.
+- **Permission model.** `Permissions.Global`: `users.manage`,
+  `specialties.manage`, `clinics.manage` (later `patients.*`).
+  `Permissions.ClinicScoped`: **`doctors.manage` only**. No `doctors.read`:
+  reading doctors stays open to any signed-in user. `GET /api/permissions` returns
+  `{ global, clinicScoped }` from the constants.
+- **The seeded admin has no clinic-scoped permission**; it grants itself
+  `doctors.manage` through the API like any user.
+- **Checker.** `IPermissionChecker`: `HasClinicPermissionAsync`,
   `HasClinicPermissionInAnyAsync`, `HasAnyClinicPermissionInAnyAsync`,
-  `GetClinicIdsWithPermissionAsync` (for lists and creation) and
-  `GetClinicPermissionsAsync`. Every check reads the database. A global
-  permission never satisfies a clinic-scoped one and the reverse. The `Get*`
-  methods list what is stored, so an administrator can see a disabled user's grants;
-  clinic grants with a name no longer in the code are never listed.
-- A clinic-scoped permission gets the same `[Authorize(Policy = Permissions.X.Y)]`
-  as a global one; the policy builder picks `ClinicPermissionRequirement` for the
-  `ClinicScoped` list. `ClinicPermissionAuthorizationHandler` asks the registered
-  `IClinicResolver`s in order (first non-null clinic id wins). The default
-  `RouteClinicResolver` reads the route value `clinicId` (for example
-  `/api/clinics/{clinicId}/doctors`). **No resolver answering, a missing or deleted
-  clinic, a disabled user, or the permission held only in another clinic: the
-  policy fails (403).** Doctors add a resolver for `/api/doctors/{id}` if they need one.
-- For an endpoint addressed by a resource's **own id**, the service loads the
-  resource and calls `IClinicAccess.RequireAsync(clinicIds, permission,
-  notFoundKey)`, which passes when the caller holds the permission in any of the
-  resource's clinics.
+  `GetClinicIdsWithPermissionAsync`, `GetClinicPermissionsAsync`; every check
+  reads the database; global never satisfies clinic-scoped and the reverse.
+- **Handler.** The policy builder uses `ClinicPermissionRequirement` for
+  `ClinicScoped` names; `ClinicPermissionAuthorizationHandler` asks the
+  `IClinicResolver`s in order (default `RouteClinicResolver`, route value
+  `clinicId`). No clinic resolved, a missing or deleted clinic, a disabled user,
+  or a grant only in another clinic: 403. A resource addressed by its own id:
+  `IClinicAccess.RequireAsync(clinicIds, permission, notFoundKey)` in the service.
+- **404 vs 403:** see D6 and `docs/guides/clinic-permissions.md`. A global
+  administrator is not a clinic member.
+- **Endpoints** (all need `users.manage`; every `PUT` is a full replace):
+  `GET /api/users` (`Search`, `IsActive`, `Page`, `PageSize` ≤ 100, `SortBy`
+  `userName`|`createdAt`, `SortDirection`); `GET /api/users/{id}` (summary,
+  `globalPermissions`, `clinicPermissions`); `POST /api/users` (`userName`,
+  `temporaryPassword`; starts with `MustChangePassword = true` and no permission);
+  `POST /api/users/{id}/disable` and `/enable` (idempotent);
+  `PUT /api/users/{id}/global-permissions`;
+  `PUT /api/users/{id}/clinics/{clinicId}/permissions` (empty list removes all;
+  unknown user 404 `error.user.not_found` checked first, unknown or deleted clinic
+  404 `error.clinic.not_found`); `POST /api/users/{id}/reset-password` (D58);
+  `GET /api/permissions`.
+- **Lock-out safety** (inside the serializable transaction): no disabling
+  yourself (422 `error.user.cannot_disable_self`); the last active holder of
+  `users.manage` cannot be disabled nor lose it (422 `error.user.last_administrator`).
+- **Validation.** User name 3–64, ASCII letters, digits, `.`, `_`, `-`
+  (`error.user.user_name_required|too_short|too_long|invalid`), unique ignoring
+  case (409 `error.user.user_name_taken`). Passwords: the validator checks only
+  required and ≤ 128 (`error.password.required|too_long`); the policy's refusals
+  come back as `error.password.too_short|requires_digit|requires_lowercase|
+  requires_uppercase|requires_unique_chars` on the field. Permission names must be
+  in the right list (`error.user.permission_unknown`).
+- **Concurrency:** `ApplicationUser` has no row version, so permission
+  replacements are last-write-wins (an exception to D50's `rowVersion` rule).
+- **Logs:** one Information line per create, grant, revoke, disable, enable, reset
+  and password change, with ids and permission names only: never a password, a
+  user name or patient data (tested against real console output).
 
-**The 404-versus-403 rule (refines D6).**
-
-| Case | Status |
-|---|---|
-| No or invalid token | 401 `error.auth.unauthorized` |
-| Global permission missing | 403 `error.auth.forbidden` |
-| Endpoint addresses a clinic directly (the clinic is in the route); permission missing there | 403 |
-| Resource addressed by its own id; the caller holds **no** clinic-scoped permission in any of its clinics | **404** with the entity's not-found key, identical to a non-existent id |
-| Same, but the caller holds some other clinic-scoped permission in one of those clinics | 403 (they can already see it exists) |
-| The resource's clinic is soft-deleted | the caller holds nothing there: 404 |
-
-A global administrator is **not** a clinic member: a global permission does not
-open clinic-scoped resources.
-
-**Endpoints** (all need the global `users.manage`; every `PUT` is a full replace):
-
-| Route | Notes |
-|---|---|
-| `GET /api/users` | `Search` (part of the user name, case-insensitive), `IsActive`, `Page`, `PageSize` (max 100), `SortBy` (`userName` default, `createdAt`), `SortDirection`; summaries only |
-| `GET /api/users/{id}` | summary plus `globalPermissions` and `clinicPermissions` (clinic id, both names, permission names; deleted clinics omitted) |
-| `POST /api/users` | `userName`, `temporaryPassword`; 201 + `Location`; the user starts with `MustChangePassword = true` and no permission |
-| `POST /api/users/{id}/disable`, `/enable` | idempotent; 200 with the detail |
-| `PUT /api/users/{id}/global-permissions` | `permissions[]` |
-| `PUT /api/users/{id}/clinics/{clinicId}/permissions` | `permissions[]`; an empty list removes every grant in that clinic; unknown or soft-deleted clinic: 404 `error.clinic.not_found`; unknown user: 404 `error.user.not_found` (checked first) |
-| `POST /api/users/{id}/reset-password` | D58 |
-| `GET /api/permissions` | the assignable names |
-
-**Lock-out safety.** An administrator cannot disable their own account: 422
-`error.user.cannot_disable_self`. **The last active holder of `users.manage`
-cannot be disabled and cannot lose `users.manage` through a global replace**:
-422 `error.user.last_administrator` (a disabled administrator does not count).
-Both checks run inside the serializable transaction together with the write, so
-two administrators disabling each other at the same moment cannot leave nobody
-(one succeeds; the other gets 422, 401 or 409). Through the API the actor of a
-disable is always another active administrator, so for a disable this rule only
-bites in a race; for the replace it bites when the last administrator edits
-themselves.
-
-**Seeder (refines D48 and D55).** The top-up now grants each global permission
-**at most once**. When the seeder grants a permission it also adds a marker claim
-of type `seeded_permission` with the same value; it only grants a permission that
-has no marker. So a permission added to the code later still reaches the seeded
-admin, while one an administrator removed on purpose **stays removed** after a
-restart. The first run after this step adds markers for what the admin already
-holds, without duplicating anything. Removing the `Seed__*` variables still stops
-the top-up (D48). The seeded user is created active, without a forced change.
-
-**Validation (FluentValidation, error keys only).** User name: required, 3 to 64
-characters, ASCII letters, digits, `.`, `_`, `-` only
-(`error.user.user_name_required|too_short|too_long|invalid`), unique ignoring case
-(409 `error.user.user_name_taken`, also for a racing duplicate). Passwords: the
-validator only checks required and at most 128 characters
-(`error.password.required|too_long`); the **policy is defined once, in the Identity
-options (D48)**, and its refusals come back as `error.password.too_short|
-requires_digit|requires_lowercase|requires_uppercase|requires_unique_chars` on the
-password field, so create, reset and change-password agree. Permission names must
-belong to the right list (`error.user.permission_unknown`). Paging, sort and search
-keys are reused.
-
-**Concurrency.** `ApplicationUser` has no row version, so the permission
-replacements are **last-write-wins**; D50's "every `PUT` carries a `rowVersion`"
-does not apply to these endpoints. With a handful of administrators this is
-accepted. A concurrent change to the same user that Identity detects becomes 409.
-
-**Audit and logs (D36).** A created user stamps `CreatedBy` with the administrator,
-an update (enable, disable, password) stamps `UpdatedBy`, a grant stamps the row's
-`CreatedBy`. Until the Phase 2 trail, each create, grant, revoke, disable, enable,
-reset and password change writes one Information line. **Authorization-related
-log lines contain ids and permission names only: never a password, a user name or
-patient data**; a test scans the host's real console output.
-
-**Error keys** (21 new, in the root `ar.json`/`en.json`): `error.user.not_found`,
-`user_name_required|too_short|too_long|invalid|taken`, `permission_unknown`,
-`cannot_disable_self`, `last_administrator`, `cannot_reset_own_password`;
-`error.password.required|too_long|too_short|requires_digit|requires_lowercase|
-requires_uppercase|requires_unique_chars`; `error.auth.current_password_required|
-current_password_incorrect|password_unchanged|password_change_required` (D58).
-
-**Tests.** `UsersAuthorizationTests` (401, 403 and "no other permission unlocks
-it" for every endpoint), `UserManagementTests`, `ClinicScopedAuthorizationTests`
-(clinic A versus B, a deleted clinic, a disabled user, no clinic in the route,
-the 404/403 rule through test-only endpoints in the test assembly, the checker's
-list methods), `LockoutSafetyTests` (including the parallel race), seeder tests
-(removal sticks, first run after the upgrade), and OpenAPI assertions (the test
-endpoints and the test-only permission name `test.other` never reach
-`openapi.json`).
-
-**Not built / later.** An audit trail of who revoked what (Phase 2); renaming a
-user; email, SMS or invitation links; two-factor; roles; `doctors.read`; filtering
-the Clinics list by the caller's clinics (D55 revisit: reading stays open to any
-signed-in user for now).
-
----
+**Rejected (for now):** roles; renaming users; email/SMS/invitation links; two-factor; `doctors.read`.
 
 ### D58 — Account state, change-password and admin reset (back end)
 `ACCEPTED` (refines D48 and D57)
 
-**One gate for two flags.** `AccountStateMiddleware` runs after authentication
-and before authorization. For every authenticated request to an endpoint that is
-not anonymous it reads `IsActive` and `MustChangePassword` from the database
-(one primary-key lookup, **never a token claim, never cached**), so the cut-off is
-immediate and a request to a future endpoint that forgets a policy is still
-covered. It throws the usual domain exceptions, so the error handler formats the
-problem.
-- A **missing or disabled** user: 401 `error.auth.unauthorized`, the same as an
-  invalid token. The front end then tries refresh, refresh fails (the sessions were
-  revoked) and the user is signed out.
-- A user with **`MustChangePassword`**: 403 `error.auth.password_change_required` on
-  every endpoint except those marked `[AllowWhilePasswordChangeRequired]`:
-  **`GET /api/auth/me` and `POST /api/auth/change-password` only**. Login, refresh
-  and logout are anonymous endpoints and unaffected. The attribute is valid on
-  methods only, and a reflection test fails if it appears on any other endpoint.
-- The rate limiter now runs **after** authentication (the change-password limiter
-  is partitioned by user id). Login and refresh stay partitioned by client address.
-- **Cost:** one indexed lookup per authenticated request, the same order as the
-  permission check that already reads the database. If it ever matters, a short
-  cache would trade away the immediate cut-off; not done.
-- A **locked-out** user keeps an issued access token until it expires (D48 note);
-  the gate does not look at the lockout.
+- **Account gate.** `AccountStateMiddleware` (after authentication, before
+  authorization) reads `IsActive` and `MustChangePassword` from the database on
+  every authenticated, non-anonymous request (never a claim, never cached).
+  Missing or disabled user: 401 `error.auth.unauthorized`. `MustChangePassword`:
+  403 `error.auth.password_change_required`, except on
+  `[AllowWhilePasswordChangeRequired]` endpoints — **`GET /api/auth/me` and
+  `POST /api/auth/change-password` only** (a reflection test enforces it). The
+  gate ignores lockout. The rate limiter runs after authentication.
+- **Disabling.** Login treats a disabled account exactly like a wrong password
+  (same 401 and timing; checked before lockout). Disabling revokes every refresh
+  token of the user in the same transaction. Re-enabling restores no session.
+- **Change-password.** `POST /api/auth/change-password`, `{ currentPassword,
+  newPassword }`, 204. A wrong current password counts as a failed login (lockout
+  423 as at login); a right one resets the counter. Own rate limit, per user id
+  (`RateLimiting:ChangePasswordPerMinute`, default 10). Errors: 400
+  `error.auth.current_password_incorrect` (on `currentPassword`), 400
+  `error.auth.password_unchanged` (on `newPassword`), 400
+  `error.validation.failed` with policy keys. Runs the `SameOriginFilter`. **Other
+  sessions end, the current one survives** (found from the refresh cookie); if the
+  cookie cannot name a session, all sessions end. Success clears
+  `MustChangePassword`.
+- **Admin reset.** `POST /api/users/{id}/reset-password` (`users.manage`,
+  `{ temporaryPassword }`, 204): policy applied, new security stamp,
+  `MustChangePassword = true`, lockout cleared, every refresh family revoked; a
+  disabled user stays disabled; not on your own account (422
+  `error.user.cannot_reset_own_password`); unknown user 404.
+- **Passwords** (temporary, new, current) are accepted only in a request body and
+  never returned, logged, put in an exception or echoed in an error (tested).
 
-**Disabling.** Login treats a disabled account **exactly like a wrong password**
-(same 401, same dummy-hash timing, and the disabled check runs before the lockout
-check, so nothing reveals the account or that it is disabled). Refresh fails and
-revokes the family (`GetActiveUserAsync` returns null). Disabling also **revokes
-every refresh token of the user** in the same transaction. Re-enabling does not
-bring old sessions back; an access token that has not yet expired works again
-(at most 15 minutes), which is accepted.
-
-**Change-password.** `POST /api/auth/change-password`, signed in, body
-`{ currentPassword, newPassword }`, 204. Allowed while `MustChangePassword`.
-- The current password is verified through `UserManager`. **A wrong one calls
-  `AccessFailedAsync` explicitly**, so repeated guesses lock the account exactly as
-  at login (423 `error.auth.locked_out`); **a right one resets the counter**.
-- Own rate-limit policy `change-password`, **partitioned by user id**
-  (`RateLimiting:ChangePasswordPerMinute`, default 10), not the login limiter.
-- Failures: 400 `error.auth.current_password_incorrect` (also under
-  `errors.currentPassword`); 400 `error.auth.password_unchanged` when the new
-  password equals the current one (under `errors.newPassword`); 400
-  `error.validation.failed` with the policy keys on `newPassword` (D57).
-- **Other sessions end, the current one survives.** The refresh cookie
-  (`Path=/api/auth`) is sent to this route, so the endpoint also runs the
-  `SameOriginFilter`. The server hashes the cookie, finds its family, and revokes
-  every other family of the user. A cookie that is missing, unknown, revoked,
-  expired or **owned by another user** cannot name a session, so **all** of the
-  user's sessions are revoked and the user signs in again (the access token in hand
-  lives on for its 15 minutes). No session-id claim was added to the JWT (D48 keeps
-  `sub` and `jti`).
-- Success clears `MustChangePassword`; the same access token then works everywhere
-  on the next request.
-
-**Admin reset-password.** `POST /api/users/{id}/reset-password`, global
-`users.manage`, body `{ temporaryPassword }`, 204. It applies the password policy
-(nothing changes when refused), sets the new hash and a new security stamp, sets
-**`MustChangePassword = true`**, **clears the lockout state**, and **revokes every
-refresh family** of the user (the old access token is then blocked by the gate on
-everything except `me` and change-password). A **disabled user stays disabled**.
-It refuses the caller's own account (422 `error.user.cannot_reset_own_password`:
-use change-password); unknown user: 404 `error.user.not_found`.
-
-**A temporary password** is accepted only in a request body (create and reset) and
-is **never returned, logged, put in an exception or echoed in an error body**;
-neither is a new or current password. Tests scan every response and the host's
-real console output for each password used, on success and on failure.
-
-**`GET /api/auth/me`** now also returns `mustChangePassword` and
-`clinicPermissions` (per live clinic: id, both names, permission names).
-
-**What the front end must handle (next step).** (1) A **403
-`error.auth.password_change_required`** on any call means: go to the change-password
-page (there is nothing else the user can do). (2) `/api/auth/me` has the new fields
-`mustChangePassword` and `clinicPermissions`; the `CurrentUser` model, `*cbCan` and the
-guards must learn clinic-scoped checks (`check:permissions` already compares names
-with `Permissions.cs`). (3) `schema.d.ts` was regenerated; the change-password
-request sends the refresh cookie itself (same origin). (4) A 401 on an authenticated
-call may now also mean "disabled": the existing refresh-then-sign-out path covers it.
-(5) After a successful change-password the other devices are signed out, not this
-one.
-
-**Tests.** `PasswordFlowTests` (the gate on several endpoints, `me` and
-change-password allowed, wrong or weak or unchanged or missing passwords, the lockout
-and its reset, other sessions revoked while the current one survives, no cookie,
-another user's cookie, a revoked cookie, reset in every case above),
-`ChangePasswordRateLimitTests` (per user, not shared with login or other users),
-`AccountStateTests` (login indistinguishable from a wrong password, never a 423 for
-a disabled account, refresh, an unexpired access token cut off on four endpoints,
-re-enable, idempotence, audit), `AccountGateGuardTests` (the attribute on exactly two
-endpoints), `PasswordSecrecyTests`.
-
-**Not built.** Email or SMS recovery, invitation links, two-factor, a self-service
-"forgot password" (the administrator resets it), a password-history rule, a
-breached-password check, checking the lockout in the gate.
-
----
+**Rejected:** caching the gate (loses the immediate cut-off); a session-id claim in the JWT; self-service "forgot password", password history, breached-password check (not built).
 
 ### D59 — User-management and change-password screens (front end)
-`ACCEPTED` (implements D57 and D58 on the client; refines D52; follows D53 and D56)
+`ACCEPTED` (implements D57 and D58; refines D52; follows D53 and D56)
 
-Two lazy areas: `/change-password` (scope `account`, any signed-in user) and `/users`,
-`/users/new`, `/users/:id` (scope `users`, `authGuard` + `permissionGuard(users.manage)` on the
-parent route). Both copy the Specialties/Clinics pattern (D53, D56) and share nothing new. The
-types come from `schema.d.ts` only (`src/api/users-api.ts`, `AuthApi.changePassword`).
+- **Areas.** `/change-password` (scope `account`, any signed-in user) and
+  `/users`, `/users/new`, `/users/:id` (scope `users`, `authGuard` +
+  `permissionGuard(users.manage)` on the parent route). Types from `schema.d.ts`
+  only (`users-api.ts`, `AuthApi.changePassword`).
+- **Session model.** `CurrentUser` has `mustChangePassword` and
+  `clinicPermissions`. `SessionService` adds `canIn(permission, clinicId)`,
+  `canInAny(permission)`, `isCurrentUser(id)`, `refreshUser()`,
+  `requirePasswordChange()`, `clearPasswordChangeRequired()`. **`can()` stays
+  global-only.** Ids are compared through `Number()` (int64 arrives as number or
+  string). `*cbCan="'doctors.manage'; clinic: id"`. No clinic-aware route guard yet.
+- **Forced change.** While `mustChangePassword` is true the user reaches only
+  `/change-password`, sign-out and the language switcher. `authGuard` and
+  `permissionGuard` redirect to `/change-password?returnUrl=<url>`, so every route
+  inherits it; the page uses `changePasswordGuard` (no loop). The interceptor, on a
+  403 `password_change_required` from a same-origin `/api/` call (not login,
+  refresh, logout), calls `requirePasswordChange()` once (shared navigation); the
+  request still fails. After success: `refreshUser()` (if it fails, clear the flag
+  locally), then the `safeReturnUrl` or `/`. The header hides navigation meanwhile.
+- **Change-password page.** Current, new, confirm. Client checks: required,
+  ≤ 128, confirm equals new (`account.mismatch`). Server errors on their fields;
+  423 and 429 form-level with "about N minutes". Voluntary variant stays on the
+  page with a focused `role="status"`. A visible policy hint (**update it together
+  with D48**): "at least 12 characters, with an upper-case letter, a lower-case
+  letter and a digit". `autocomplete` `current-password` / `new-password`.
+- **Secrets.** Read once, sent once; the field is emptied **before** the answer
+  comes back, the show toggle reset, the form pristine; never in the URL, router
+  state, `history.state`, storage, a long-lived signal, a log or an error. Toggles:
+  a fixed label with `aria-pressed`. Server messages for a field are kept as keys
+  in a small signal.
+- **Users list.** User name (always LTR), status in words, a "password change
+  required" indicator, created date, an "Open" link; search by user name, status
+  filter (all, active, disabled), sort (user name default, created). URL
+  `?q=&status=&page=&size=&sort=&dir=`; `list-query.ts` copied from Clinics.
+- **Create user.** User name (3–64, `^[A-Za-z0-9._-]+$`) and temporary password
+  (required, ≤ 128); the name is kept after a failure, the password never; success
+  opens the user's page with a message that never contains the password.
+  `autocomplete="new-password"`.
+- **User detail.** Enable (immediate), disable (confirm, focus on Cancel), reset
+  password (a `confirm-dialog` with a field, focus on the field through
+  `focusSelector`; every close empties it), then the two editors. **Your own row
+  has no disable or reset.** Every save reloads the detail and shows the server's
+  state. Saving your own permissions calls `refreshUser()`; losing `users.manage`
+  leaves for `/`.
+- **Permission editors.** Names from `GET /api/permissions`, never hard-coded
+  twice. Labels: one object `users.permissions.<area>.<action>.{label,
+  description}`, read with `translateObject`. `check:permissions` compares
+  `Permissions` with `Permissions.Global` and `ClinicPermissions` with
+  `Permissions.ClinicScoped`, and fails when a C# name lacks a label in
+  `users/ar.json` or `users/en.json`. `check:i18n` exempts `users.permissions.`
+  from the unused-key warning.
+- **Per-clinic editor.** One card per clinic the user has (both names), each with
+  its own Save (full replace, offered only when changed) and "Remove all"; unsaved
+  edits of one card survive another's save. Adding a clinic: search over
+  `GET /api/clinics` (`PageSize` 20, debounced, a "refine" hint, clinics already
+  listed not offered).
 
-**Session model (refines D52).** `CurrentUser` has `mustChangePassword` and `clinicPermissions`
-(per clinic: id, both names, permission names). `SessionService` adds `mustChangePassword`,
-`clinicPermissions` (a map by clinic id), `canIn(permission, clinicId)`, `canInAny(permission)`,
-`isCurrentUser(id)`, `refreshUser()`, `requirePasswordChange()` and
-`clearPasswordChangeRequired()`. **`can()` stays global-only**: a clinic grant never answers it, a
-global permission never answers `canIn` (D57). Ids are `number | string` in the schema (int64), so
-every id comparison goes through `Number()` (`isCurrentUser`, `canIn`); both representations are
-tested. `*cbCan` takes an optional clinic: `*cbCan="'doctors.manage'; clinic: id"`. No clinic-aware
-route guard exists yet (no route has a clinic parameter); `canIn`, `canInAny` and the directive
-input are built and tested for Doctors.
+### D60 — Documentation layout for several assistants
+`ACCEPTED` (supersedes D42)
 
-**Forced password change.** While `mustChangePassword` is true the user reaches only
-`/change-password`, sign-out and the language switcher.
-- `authGuard` and `permissionGuard` redirect to `/change-password?returnUrl=<url>` (a plain `/` is
-  omitted), so **every authenticated route, present or future, inherits it**. The page itself uses
-  `changePasswordGuard` (signed-in only, never redirects a forced user): that is what prevents a loop.
-- The interceptor, on a 403 `error.auth.password_change_required` from a same-origin `/api/` call
-  other than login, refresh and logout, calls `requirePasswordChange()`: it sets the flag locally and
-  navigates once (concurrent 403s share one navigation, a user already on the page is left alone). The
-  failing request still fails; the user is not retried or refreshed.
-- Startup restore: `/me` returns the flag, the first navigation hits the guard (`/users/5` becomes
-  `/change-password?returnUrl=/users/5`). Login: the returnUrl goes through the guard and on to the
-  page. A forced user opening `/login` ends on `/change-password` in one hop.
-- After a successful change: `refreshUser()` (GET `/api/auth/me`); if that call fails the flag is
-  cleared locally (the server's next 403 would re-force it), then continue to the `safeReturnUrl` or `/`.
-- The header hides the navigation and the "Change password" link meanwhile.
+- **`AGENTS.md`** (repository root) is the single source of instructions for
+  every assistant and the owner: reading protocol, non-negotiable rules,
+  structure, conventions, domain rules, workflow. Codex reads it directly;
+  **`CLAUDE.md`** only imports it (`@AGENTS.md`) and holds Claude-only notes.
+- **`docs/STATUS.md`**: what is done, the next step, scope, by-hand checks,
+  Later. Read at the start of every session, updated at the end.
+- **`docs/decisions.md`**: decisions in the compact format at the top of this
+  file. Implementation reports, test lists and "not verified" lists do not go here.
+- **`docs/guides/`**: task playbooks, read only for the matching kind of task.
+- **`docs/release.md`**: Definition of Done, CI coverage, the deferred-until-deployment checklist.
+- **`docs/archive/`**: the full text of D1–D59 as of 2026-10-06, frozen.
 
-**Change-password page.** Fields: current, new, confirm. Client checks only: required (the back-end
-keys), at most 128, confirm equals new (`account.mismatch`); the server decides the policy and
-"unchanged". Server errors: `error.auth.current_password_incorrect` on the current field,
-`error.auth.password_unchanged` and every `error.password.*` on the new field, 423 and 429 as a
-form-level alert with "about N minutes", anything else form-level with the correlation id. Forced
-variant: a notice, then continues to the returnUrl. **Voluntary variant** (header link): stays on the
-page and says it worked in a focused `role="status"` region (the other devices were signed out by the
-server). **Policy hint:** a visible line under the new field. **It mirrors D48 and must be updated
-together with it**; it states only "at least 12 characters, with an upper-case letter, a lower-case
-letter and a digit". `autocomplete` is `current-password` / `new-password`.
-
-**Secrets (temporary, new and current passwords).** Read once, sent once. The field is emptied
-**before the answer comes back**, whatever it is (success, refusal, network failure), the show toggle
-is reset, and the form is pristine. A password is never in the URL, router state, `history.state`,
-storage, a signal that outlives the form, a log or an error; tests search the DOM, URL, router state
-and storage for a recognisable value. **Show/hide toggles use one pattern: a fixed label with
-`aria-pressed`**, never a label that changes together with it. Server messages for a field are kept as
-keys in a small signal and cleared when that field is edited; they are not the form's own errors,
-because the form is reset after the request.
-
-**Users list (`/users`).** User name (always left to right), status in words (never colour alone), a
-"password change required" indicator, created date (`intl`), an "Open" link; table from md up, cards
-below. Search by user name (300 ms debounce, Enter at once, IME ignored, 100 characters), status filter
-(all, active, disabled), sort (user name default ascending, date created), page sizes 10, 20, 50. URL
-state `?q=&status=&page=&size=&sort=&dir=`, defaults omitted, invalid values clamped; `list-query.ts`
-is a copy of the Clinics one with the status added (not extracted, D56).
-
-**Create user.** User name (3 to 64, `^[A-Za-z0-9._-]+$`, mirroring the server) and temporary password
-(required, at most 128; the policy is the server's). 409 `error.user.user_name_taken` and the 400
-`userName` keys go on the name; `error.password.*` on the password; the name is kept after a failure,
-the password never. Success opens the new user's page with a one-time message that never contains the
-password. **By-hand check:** a browser may offer to save the temporary password an administrator types
-for someone else. The fields use `autocomplete="new-password"`; if a browser still offers, set
-`autocomplete="off"` on them and report it.
-
-**User detail.** Summary, enable (immediate) and disable (confirm dialog, focus on Cancel), reset
-password (a `confirm-dialog` with its own field: **initial focus on the field**, through the dialog's
-`focusSelector` input; Cancel, Esc and every other close empty it), then the two editors. **Your own row
-has no disable or reset** (the API refuses them with 422); the 422 keys are still shown translated, and
-`error.user.last_administrator` is shown in an alert inside the dialog or the editor. Every save is
-followed by a reload of the detail, and the page shows the server's state (permission replacement is
-last-write-wins, D57); if the reload fails the answer of the PUT is shown. **Saving your own
-permissions** (global or clinic) calls `refreshUser()`; if `users.manage` is gone the page leaves for `/`.
-
-**Permission editors.** The names come from `GET /api/permissions` (`global`, `clinicScoped`); nothing
-is hard-coded twice. **Labels:** one translation object, `users.permissions.<area>.<action>.{label,
-description}` (so `users.manage` is `permissions.users.manage`), read whole with `translateObject`:
-no key is built at runtime and no `i18n-keys` list repeats the names. A name without a label shows the
-bare name left to right. **`check:permissions`** now compares **two lists**: `permissions.ts` exports
-`Permissions` (must be in `Permissions.Global`) and `ClinicPermissions` (must be in
-`Permissions.ClinicScoped`); the script resolves the C# constants through their nested classes. It also
-fails when any name in either C# list lacks a label in `users/ar.json` or `users/en.json`, so a new
-permission cannot ship unlabelled. `check:i18n` exempts `users.permissions.` from the unused-key warning.
-`ClinicPermissions` starts with `DoctorsManage`, so the clinic-scoped half of the check has data.
-
-**Per-clinic editor.** One card per clinic the user already has (both names, the UI language first),
-each with its own Save (a full replace for that clinic) and "Remove all" (an empty set); a Save is
-offered only when something changed. Unsaved edits of one card survive the save of another. **Adding a
-clinic:** a search over `GET /api/clinics` (`PageSize` 20, debounced, the first 20 matches, a hint to
-refine when there are more, clinics already listed are not offered), because the clinics list is paged
-and capped at 100. A picked clinic is an unsaved card with nothing selected; Save needs a selection.
-
-**Deviations from the brief, approved in the plan.** The change-password strings live in their own
-scope `account` (a user without `users.manage` loads no user-management strings); the voluntary variant
-stays on the page instead of navigating.
-
-**Tests (Vitest, `HttpTestingController`, no new package).** Session model, guards (including the
-`guestGuard` loop case), interceptor rule and loop protection, `*cbCan` with a clinic, the
-change-password page, the users API client, list state and list, create, detail with both editors and
-the picker, own-account protections (id as number and as string), permission-aware rendering and the
-header, route guards, `PermissionLabels`; Node tests for the `check:permissions` negatives (a name in
-the wrong list, a missing label in one language) and the `check:i18n` exemption.
-
-**Not verified in a browser.** Every signed-in flow needs a password and was not driven. Verified
-without credentials: the signed-out redirects of `/users` and `/change-password` to the login page with
-their `returnUrl`, and that the four scope files are served. The by-hand list is in the session report.
+**Why:** the owner works with Claude Code, Codex and alone; every one of them must
+read the same rules, and a session should load only what its task needs.
+**Rejected:** instructions only in `CLAUDE.md` (Codex does not read it); importing
+every document into `CLAUDE.md` (imports load in full every session); dropping the
+rejected alternatives (an assistant would propose them again).
 
 ---
 
 ## Open questions
 
-O3, O4 and O5 are closed: see D44 and D43. O1 and O2 are deferred with the
-deployment (D54) and block no feature work.
+O3, O4 and O5 are closed (D43, D44). O1 and O2 are deferred with the deployment
+(D54) and block no feature work.
 
 | # | Question | Status |
 |---|---|---|
 | O1 | Azure region — West Europe vs UAE North. Confirm Container Apps, ACR, Key Vault and Azure SQL Basic are all available there, then compare latency and price | OPEN |
 | O2 | Custom domain and TLS, or the default Container Apps hostname | OPEN |
-
----
-
-## Deferred until deployment
-
-Everything postponed by D54, so nothing is forgotten. Tick an item only when it
-is done and working on Azure. The project is not released until all are ticked.
-
-**Definition of Done items that need Azure** (see Instructions.md)
-- [ ] Image build pushed to Azure Container Registry from CI (item 2, D17).
-- [ ] GitHub Actions authenticates to Azure with OIDC federated credentials, no stored service-principal secret (item 2, D40).
-- [ ] Deployed to Azure Container Apps and reachable over HTTPS (item 3, D17).
-- [ ] Migrations applied by the pipeline: an EF migrations bundle run as a Container Apps Job before a new revision gets traffic, never by hand (item 4, D39).
-- [ ] Secrets resolved from Key Vault through a managed identity (item 5, D19).
-- [ ] The app connects to Azure SQL with Entra / managed identity where possible, so no connection string holds a password (D40).
-- [ ] `/health/live` and `/health/ready` are green as the Container Apps probes (item 6, D20); the endpoints exist and are tested locally.
-
-**Running behind the Azure ingress**
-- [ ] Forwarded-headers handling, so rate limiting sees the client address and `Request.Host` is the public host for the Origin check. The startup refresh counts against the refresh rate limit (30 per minute per client address): without this fix every visitor shares the ingress address (D48, D52).
-- [ ] `Auth:AllowedOrigins` contains the deployed host if it differs from the request host (D48, D52).
-- [ ] The Azure SQL connection string does not use `TrustServerCertificate=True`, which is for the local container only (D45).
-- [ ] Probe timeouts for `/health/live` and `/health/ready` are set explicitly: the readiness check takes about 4 s to answer when the database is down (D20, D45).
-- [ ] Scale to zero (D17): confirm a cold start does not exceed the 10 s limit of the startup silent refresh, which would show the login page to a signed-in user (D52).
-- [ ] The structured JSON logs reach Log Analytics and can be queried by field (D21).
-- [ ] If a CSP is added, it needs a hash for the inline pre-paint script in `index.html` (D26).
-
-**Secrets and data**
-- [ ] Remove the `Seed__*` variables from configuration after the first successful deploy, and move the JWT signing key and the seed values to Key Vault (D48). The seeder top-up of the admin's permissions depends on these variables (D55, D57), so after this point **new global permissions must be granted through user management**: the API exists (D57), the screens are the next step and must exist by then.
-- [ ] A change-password flow exists before any real data is stored (D48). The API is built (D58: change-password, forced change for temporary passwords, admin reset); **the Angular change-password and user-management screens are still to come**, so this stays open.
-- [ ] An EF retry strategy for Azure SQL transient faults, together with the transaction wrapper D31 requires (D46, D31).
-
-**CI and repository**
-- [ ] Add a deploy job that `needs` `test`, `web` and `image`, and revisit `cancel-in-progress` in the CI concurrency setting so an in-flight deploy is never cancelled (D47).
-- [ ] Add Dependabot for the pinned GitHub Actions and for the NuGet and npm dependencies (D47).
-
-**Decisions and account**
-- [ ] Close O1: choose the region (West Europe or UAE North) after confirming Container Apps, ACR, Key Vault and Azure SQL are all available there.
-- [ ] Close O2: a custom domain with TLS, or the default Container Apps hostname.
-- [ ] Revisit D13 (Azure SQL Basic tier), including whether a free Azure SQL offer is worth using.
-- [ ] Create the Azure account only when ready to deploy, and set a budget alert immediately.
-
----
-
-## Scope discipline
-
-The scope is Phases 1 to 5 above, worked in order. Deployment to Azure is
-postponed until the build is complete (D54); it no longer gates features. The
-owner declares when the build is complete. Appointments (Phase 2) do not start
-before Phase 1 is complete.
-
-Ideas that arrive mid-build are written below under "Later", not implemented.
-The deadline is real and the scope is the only variable under control.
-
-## Later
-
-- Short hotline phone numbers (for example 16xxx and 19xxx) are not accepted by `PhoneNumber` yet (D55).
-- Search clinics by address or phone (D55).
