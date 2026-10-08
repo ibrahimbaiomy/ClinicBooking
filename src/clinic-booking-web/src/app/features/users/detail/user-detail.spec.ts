@@ -558,11 +558,11 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       await harness.navigateByUrl('/users/5', UserDetailPage);
       await settle();
       http.expectOne(USER_URL).flush(ANN);
-      http.expectOne(PERMISSIONS_URL).flush({ global: [...ASSIGNABLE.global, 'patients.read'], clinicScoped: [] });
+      http.expectOne(PERMISSIONS_URL).flush({ global: [...ASSIGNABLE.global, 'reports.view'], clinicScoped: [] });
       await settle();
 
-      const bare = editor().querySelector('label[for="global-patients-read"] bdi')!;
-      expect(bare.textContent).toBe('patients.read');
+      const bare = editor().querySelector('label[for="global-reports-view"] bdi')!;
+      expect(bare.textContent).toBe('reports.view');
       expect(bare.getAttribute('dir')).toBe('ltr');
     });
 

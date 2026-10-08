@@ -144,6 +144,24 @@
         "label": "Manage doctors",
         "description": "Manage the doctors of this clinic."
       }
+    },
+    "patients": {
+      "read": {
+        "label": "View patients",
+        "description": "Search the patient list and open a patient's name and phone number."
+      },
+      "create": {
+        "label": "Add patients",
+        "description": "Register new patients."
+      },
+      "edit": {
+        "label": "Edit patients",
+        "description": "Change a patient's name and phone number."
+      },
+      "delete": {
+        "label": "Delete patients",
+        "description": "Delete patients."
+      }
     }
   }
 }

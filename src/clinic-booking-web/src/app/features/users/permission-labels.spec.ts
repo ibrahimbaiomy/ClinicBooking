@@ -33,7 +33,7 @@ describe('PermissionLabels (D59)', () => {
   });
 
   it('returns null for a name without a label, so the caller shows the bare name', () => {
-    expect(labels.labelOf('patients.read')).toBeNull();
+    expect(labels.labelOf('reports.view')).toBeNull();
     expect(labels.labelOf('users')).toBeNull(); // a group, not a permission
     expect(labels.labelOf('users.manage.extra')).toBeNull();
     expect(labels.labelOf('')).toBeNull();

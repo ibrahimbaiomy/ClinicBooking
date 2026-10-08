@@ -38,6 +38,8 @@ public class AppDbContext : IdentityUserContext<ApplicationUser, long>, IAppDbCo
 
     public DbSet<WorkingHourPeriod> WorkingHourPeriods => Set<WorkingHourPeriod>();
 
+    public DbSet<Patient> Patients => Set<Patient>();
+
     public void MarkModified(AuditableEntity entity) => Entry(entity).State = EntityState.Modified;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

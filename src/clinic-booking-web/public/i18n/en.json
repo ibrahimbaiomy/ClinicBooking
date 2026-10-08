@@ -126,6 +126,15 @@
       "requires_uppercase": "The password must contain at least one upper-case letter (A–Z).",
       "requires_unique_chars": "The password must contain at least 4 different characters."
     },
+    "patient": {
+      "not_found": "The patient was not found.",
+      "name_required": "Enter the patient's name.",
+      "name_too_long": "The name is too long (100 characters at most).",
+      "name_invalid": "The name is not valid.",
+      "phone_required": "Enter the patient's phone number.",
+      "phone_invalid": "The phone number is not valid. Enter a valid number.",
+      "phone_exists": "Other patients already have this phone number."
+    },
     "search": {
       "too_long": "The search text is too long."
     },

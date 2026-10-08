@@ -23,6 +23,8 @@ public interface IAppDbContext
 
     DbSet<WorkingHourPeriod> WorkingHourPeriods { get; }
 
+    DbSet<Patient> Patients { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>

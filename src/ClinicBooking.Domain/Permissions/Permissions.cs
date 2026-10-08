@@ -24,6 +24,19 @@ public static class Permissions
         public const string Manage = "clinics.manage";
     }
 
+    /// <summary>Patients are personal data shared by every clinic, so every patient permission is global (D44, D63).</summary>
+    public static class Patients
+    {
+        /// <summary>List, search and open patients. Reading needs a permission: this is personal data (D63).</summary>
+        public const string Read = "patients.read";
+
+        public const string Create = "patients.create";
+
+        public const string Edit = "patients.edit";
+
+        public const string Delete = "patients.delete";
+    }
+
     public static class Doctors
     {
         /// <summary>Manage the doctors of one clinic. Clinic-scoped: granted per clinic (D57).</summary>
@@ -31,7 +44,8 @@ public static class Permissions
     }
 
     /// <summary>Permissions that are not clinic-specific (D34): held once, for the whole system.</summary>
-    public static IReadOnlyList<string> Global { get; } = [Users.Manage, Specialties.Manage, Clinics.Manage];
+    public static IReadOnlyList<string> Global { get; } =
+        [Users.Manage, Specialties.Manage, Clinics.Manage, Patients.Read, Patients.Create, Patients.Edit, Patients.Delete];
 
     /// <summary>Permissions granted per clinic (D34, D57): a grant is valid only in the clinic it names.</summary>
     public static IReadOnlyList<string> ClinicScoped { get; } = [Doctors.Manage];
