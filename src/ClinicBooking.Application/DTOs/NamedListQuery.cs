@@ -4,11 +4,11 @@ namespace ClinicBooking.Application.DTOs;
 /// The list query shared by every entity with two names (D50): search, paging and sorting.
 /// Defaults apply when a parameter is omitted.
 /// </summary>
-public abstract class NamedListQuery
+public abstract class NamedListQuery : IListQuery
 {
-    public const int DefaultPageSize = 20;
-    public const int MaxPageSize = 100;
-    public const int MaxSearchLength = 100;
+    public const int DefaultPageSize = IListQuery.DefaultPageSize;
+    public const int MaxPageSize = IListQuery.MaxPageSize;
+    public const int MaxSearchLength = IListQuery.MaxSearchLength;
 
     /// <summary>Matches either name, ignoring case, diacritics and the Arabic letter variants (D49).</summary>
     public string? Search { get; set; }

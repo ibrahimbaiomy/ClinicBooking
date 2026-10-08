@@ -29,15 +29,20 @@ internal static class CommonRules
 
     /// <summary>Paging, sorting and search of a <see cref="NamedListQuery"/> (D50).</summary>
     public static void AddNamedListRules<T>(this AbstractValidator<T> validator)
-        where T : NamedListQuery
+        where T : NamedListQuery =>
+        validator.AddListRules(NameSortFields.All);
+
+    /// <summary>Paging, sorting by one of <paramref name="sortFields"/>, and search length (D50, D63).</summary>
+    public static void AddListRules<T>(this AbstractValidator<T> validator, IReadOnlyCollection<string> sortFields)
+        where T : IListQuery
     {
         validator.RuleFor(q => q.Page).GreaterThanOrEqualTo(1).WithMessage("error.paging.page_invalid");
 
         validator.RuleFor(q => q.PageSize)
-            .InclusiveBetween(1, NamedListQuery.MaxPageSize).WithMessage("error.paging.page_size_invalid");
+            .InclusiveBetween(1, IListQuery.MaxPageSize).WithMessage("error.paging.page_size_invalid");
 
         validator.RuleFor(q => q.SortBy)
-            .Must(value => NameSortFields.All.Contains(value, StringComparer.OrdinalIgnoreCase))
+            .Must(value => sortFields.Contains(value, StringComparer.OrdinalIgnoreCase))
             .WithMessage("error.sort.invalid");
 
         validator.RuleFor(q => q.SortDirection)
@@ -47,6 +52,6 @@ internal static class CommonRules
             .WithMessage("error.sort.invalid");
 
         validator.RuleFor(q => q.Search)
-            .MaximumLength(NamedListQuery.MaxSearchLength).WithMessage("error.search.too_long");
+            .MaximumLength(IListQuery.MaxSearchLength).WithMessage("error.search.too_long");
     }
 }
