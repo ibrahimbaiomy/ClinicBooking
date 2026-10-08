@@ -28,7 +28,7 @@ internal static class ClinicHelpers
         string? phone = null)
     {
         var response = await CreateClinicAsync(client, token, nameAr, nameEn, address, phone);
-        Assert.Equal(System.Net.HttpStatusCode.Created, response.StatusCode);
+        await AssertStatusAsync(response, System.Net.HttpStatusCode.Created);
         return await ProblemAsync(response);
     }
 
@@ -46,7 +46,7 @@ internal static class ClinicHelpers
     public static async Task<JsonElement> ListClinicsAsync(HttpClient client, string token, string query)
     {
         var response = await client.SendAsync(SpecialtyHelpers.Json(HttpMethod.Get, $"/api/clinics?{query}", token));
-        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        await AssertStatusAsync(response, System.Net.HttpStatusCode.OK);
         return await ProblemAsync(response);
     }
 }

@@ -42,7 +42,7 @@ internal static class UserApi
 
         var response = await SendAsync(
             client, HttpMethod.Post, "/api/users", adminToken, new { userName, temporaryPassword = password });
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        await AssertStatusAsync(response, HttpStatusCode.Created);
 
         var body = await ProblemAsync(response);
         return new Created(body.GetProperty("id").GetInt64(), userName, password);
@@ -55,11 +55,11 @@ internal static class UserApi
     {
         var user = await CreateUserAsync(client, adminToken);
         var login = await LoginAsync(client, user.UserName, user.Password);
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        await AssertStatusAsync(login, HttpStatusCode.OK);
         var token = await AccessTokenAsync(login);
 
         var changed = await ChangePasswordAsync(client, token, RefreshCookie(login), user.Password, Password);
-        Assert.Equal(HttpStatusCode.NoContent, changed.StatusCode);
+        await AssertStatusAsync(changed, HttpStatusCode.NoContent);
 
         return (user, Password, token);
     }
@@ -93,7 +93,7 @@ internal static class UserApi
     public static async Task<JsonElement> DetailAsync(HttpClient client, string adminToken, long id)
     {
         var response = await SendAsync(client, HttpMethod.Get, $"/api/users/{id}", adminToken);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertStatusAsync(response, HttpStatusCode.OK);
         return await ProblemAsync(response);
     }
 

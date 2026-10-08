@@ -39,7 +39,7 @@ public class ClinicScopedAuthorizationTests : IClassFixture<AuthApiFixture>
     {
         var response = await UserApi.SendAsync(
             _client, HttpMethod.Put, $"/api/users/{userId}/clinics/{clinicId}/permissions", adminToken, new { permissions });
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertStatusAsync(response, HttpStatusCode.OK);
     }
 
     private async Task AddRawRowAsync(long userId, long clinicId, string permission)

@@ -80,7 +80,7 @@ internal static class DoctorHelpers
         int slotMinutes = 15)
     {
         var response = await CreateDoctorAsync(client, token, nameAr ?? UniqueArabic(), nameEn ?? UniqueEnglish(), specialtyIds, clinicIds, slotMinutes);
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        await AssertStatusAsync(response, HttpStatusCode.Created);
         return await ProblemAsync(response);
     }
 
@@ -108,14 +108,14 @@ internal static class DoctorHelpers
     public static async Task<JsonElement> GetDoctorAsync(HttpClient client, string token, long id)
     {
         var response = await SendAsync(client, HttpMethod.Get, $"/api/doctors/{id}", token);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertStatusAsync(response, HttpStatusCode.OK);
         return await ProblemAsync(response);
     }
 
     public static async Task<JsonElement> ListDoctorsAsync(HttpClient client, string token, string query)
     {
         var response = await SendAsync(client, HttpMethod.Get, $"/api/doctors?{query}", token);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertStatusAsync(response, HttpStatusCode.OK);
         return await ProblemAsync(response);
     }
 
@@ -150,7 +150,7 @@ internal static class DoctorHelpers
     public static async Task<JsonElement> GetHoursOkAsync(HttpClient client, string token, long doctorId, long clinicId)
     {
         var response = await GetHoursAsync(client, token, doctorId, clinicId);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await AssertStatusAsync(response, HttpStatusCode.OK);
         return await ProblemAsync(response);
     }
 

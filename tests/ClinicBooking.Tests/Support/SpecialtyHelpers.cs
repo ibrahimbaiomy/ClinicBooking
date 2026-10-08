@@ -51,7 +51,7 @@ internal static class SpecialtyHelpers
     public static async Task<JsonElement> CreateOkAsync(HttpClient client, string token, string nameAr, string nameEn)
     {
         var response = await CreateAsync(client, token, nameAr, nameEn);
-        Assert.Equal(System.Net.HttpStatusCode.Created, response.StatusCode);
+        await AssertStatusAsync(response, System.Net.HttpStatusCode.Created);
         return await ProblemAsync(response);
     }
 
@@ -61,7 +61,7 @@ internal static class SpecialtyHelpers
     public static async Task<JsonElement> ListAsync(HttpClient client, string token, string query)
     {
         var response = await client.SendAsync(Json(HttpMethod.Get, $"/api/specialties?{query}", token));
-        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        await AssertStatusAsync(response, System.Net.HttpStatusCode.OK);
         return await ProblemAsync(response);
     }
 

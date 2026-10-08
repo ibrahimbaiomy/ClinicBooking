@@ -29,7 +29,7 @@ public class PasswordFlowTests : IClassFixture<AuthApiFixture>
     {
         var user = await UserApi.CreateUserAsync(_client, admin);
         var login = await LoginAsync(_client, user.UserName, user.Password);
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        await AssertStatusAsync(login, HttpStatusCode.OK);
         return (user, await AccessTokenAsync(login), RefreshCookie(login)!);
     }
 

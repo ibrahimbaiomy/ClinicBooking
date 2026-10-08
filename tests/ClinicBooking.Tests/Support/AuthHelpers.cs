@@ -87,9 +87,27 @@ internal static class AuthHelpers
         return JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.Clone();
     }
 
+    /// <summary>
+    /// Asserts the status; on a mismatch the failure names the request and shows the response body, so a
+    /// ProblemDetails' key and correlation id are in the test output and the logged exception can be found.
+    /// </summary>
+    public static async Task AssertStatusAsync(HttpResponseMessage response, System.Net.HttpStatusCode expected)
+    {
+        if (response.StatusCode == expected)
+        {
+            return;
+        }
+
+        var body = await response.Content.ReadAsStringAsync();
+        var request = response.RequestMessage;
+        Assert.Fail(
+            $"Expected {(int)expected} {expected} but got {(int)response.StatusCode} {response.StatusCode} " +
+            $"from {request?.Method} {request?.RequestUri?.PathAndQuery}.\nResponse body: {body}");
+    }
+
     public static async Task AssertProblemAsync(HttpResponseMessage response, System.Net.HttpStatusCode status, string key)
     {
-        Assert.Equal(status, response.StatusCode);
+        await AssertStatusAsync(response, status);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
 
         var problem = await ProblemAsync(response);
