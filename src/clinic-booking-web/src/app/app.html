@@ -36,6 +36,16 @@
               {{ 'shell.nav.doctors' | transloco }}
             </a>
           </li>
+          <li *cbCan="permissions.PatientsRead">
+            <a
+              routerLink="/patients"
+              routerLinkActive="font-semibold text-blue-700"
+              ariaCurrentWhenActive="page"
+              class="rounded text-sm text-slate-700 hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            >
+              {{ 'shell.nav.patients' | transloco }}
+            </a>
+          </li>
           <li *cbCan="permissions.UsersManage">
             <a
               routerLink="/users"

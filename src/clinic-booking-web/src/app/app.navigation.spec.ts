@@ -57,6 +57,20 @@ describe('header navigation (D59)', () => {
     expect(doctors.textContent?.trim()).toBe(ar.shell.nav.doctors);
   });
 
+  it('the Patients link shows only with patients.read, after Doctors (D63)', async () => {
+    const reader = await render(['patients.read', 'users.manage']);
+
+    expect(links(reader)).toEqual(['/specialties', '/clinics', '/doctors', '/patients', '/users', '/change-password']);
+    const patients = (reader.nativeElement as HTMLElement).querySelector('header a[href="/patients"]')!;
+    expect(patients.textContent?.trim()).toBe(ar.shell.nav.patients);
+  });
+
+  it('the other patient permissions do not show the Patients link', async () => {
+    const fixture = await render(['patients.create', 'patients.edit', 'patients.delete']);
+
+    expect(links(fixture)).not.toContain('/patients');
+  });
+
   it('other permissions do not show the Users link', async () => {
     const fixture = await render(['clinics.manage', 'specialties.manage']);
 

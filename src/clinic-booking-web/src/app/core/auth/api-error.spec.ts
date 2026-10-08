@@ -19,7 +19,35 @@ describe('parseApiError', () => {
       retryAfterSeconds: 900,
       periodIndex: null,
       conflictingClinicId: null,
+      matchCount: null,
+      matches: [],
     });
+  });
+
+  it('reads the matches and their count of a duplicate-phone 409 (D63)', () => {
+    const error = parseApiError(
+      response(409, {
+        title: 'error.patient.phone_exists',
+        matchCount: 7,
+        matches: [
+          { id: 3, name: 'سارة', phone: '+201012345678' },
+          { id: '9007199254740993', name: 'x', phone: 'y' }, // an id beyond a safe integer is dropped
+          { id: 4, name: 5, phone: '+20' }, // a name that is not text is dropped
+          'nonsense',
+        ],
+      }),
+    );
+
+    expect(error.key).toBe('error.patient.phone_exists');
+    expect(error.matchCount).toBe(7);
+    expect(error.matches).toEqual([{ id: '3', name: 'سارة', phone: '+201012345678' }]);
+  });
+
+  it('a count-only 409 (no patients.read) has a count and no matches', () => {
+    const error = parseApiError(response(409, { title: 'error.patient.phone_exists', matchCount: 2 }));
+
+    expect(error.matchCount).toBe(2);
+    expect(error.matches).toEqual([]);
   });
 
   it('reads the period index and the conflicting clinic of a working-hours 422 (D61)', () => {

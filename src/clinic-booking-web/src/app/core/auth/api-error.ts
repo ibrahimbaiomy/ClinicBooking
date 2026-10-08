@@ -23,6 +23,20 @@ export interface ApiError {
   periodIndex: number | null;
   /** The other clinic an overlapping period collides with (its id), or null. */
   conflictingClinicId: number | null;
+  /** The duplicate-phone 409 (D63): how many live patients already have the phone, or null. */
+  matchCount: number | null;
+  /**
+   * Up to five of them, sent only to a caller who may read patients; empty otherwise. Personal data: shown on
+   * screen, never logged or stored.
+   */
+  matches: PhoneMatch[];
+}
+
+/** A patient that already has the phone being saved (D63). */
+export interface PhoneMatch {
+  id: string;
+  name: string;
+  phone: string;
 }
 
 export function isErrorKey(value: unknown): value is string {
@@ -47,6 +61,8 @@ export function parseApiError(error: unknown): ApiError {
   result.retryAfterSeconds = parseRetryAfter(error.headers.get('Retry-After'));
   result.periodIndex = readCount(problem['periodIndex']);
   result.conflictingClinicId = readCount(problem['conflictingClinicId']);
+  result.matchCount = readCount(problem['matchCount']);
+  result.matches = readMatches(problem['matches']);
 
   const errors = problem['errors'];
   if (isRecord(errors)) {
@@ -69,7 +85,20 @@ function build(kind: ApiError['kind'], status: number, key: string): ApiError {
     retryAfterSeconds: null,
     periodIndex: null,
     conflictingClinicId: null,
+    matchCount: null,
+    matches: [],
   };
+}
+
+/** Well-formed matches only (an id, a name, a phone); anything else is dropped. */
+function readMatches(value: unknown): PhoneMatch[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item: unknown) => {
+    if (!isRecord(item)) return [];
+    const id = readCount(item['id']);
+    const { name, phone } = item;
+    return id !== null && typeof name === 'string' && typeof phone === 'string' ? [{ id: String(id), name, phone }] : [];
+  });
 }
 
 /** A non-negative safe integer, sent as a number or (int64) as a digit string; anything else is absent. */

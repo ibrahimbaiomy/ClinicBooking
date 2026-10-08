@@ -34,6 +34,11 @@ export const routes: Routes = [
       import('./features/specialties/specialties.routes').then((m) => m.SPECIALTIES_ROUTES),
   },
   {
+    path: 'patients',
+    canActivate: [authGuard],
+    loadChildren: () => import('./features/patients/patients.routes').then((m) => m.PATIENTS_ROUTES),
+  },
+  {
     // Not behind authGuard: a user who must change the password has to be able to reach it (D59).
     path: 'change-password',
     canActivate: [changePasswordGuard],

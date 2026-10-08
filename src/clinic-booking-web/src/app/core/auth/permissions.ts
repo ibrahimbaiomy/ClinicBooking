@@ -13,6 +13,10 @@ export const Permissions = {
   UsersManage: 'users.manage',
   SpecialtiesManage: 'specialties.manage',
   ClinicsManage: 'clinics.manage',
+  PatientsRead: 'patients.read',
+  PatientsCreate: 'patients.create',
+  PatientsEdit: 'patients.edit',
+  PatientsDelete: 'patients.delete',
 } as const;
 
 /** Clinic-scoped permissions (`Permissions.ClinicScoped`): granted per clinic; ask with `canIn`. */

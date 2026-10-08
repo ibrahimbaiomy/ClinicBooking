@@ -13,6 +13,8 @@ import specialtiesAr from '../../public/i18n/specialties/ar.json';
 import specialtiesEn from '../../public/i18n/specialties/en.json';
 import doctorsAr from '../../public/i18n/doctors/ar.json';
 import doctorsEn from '../../public/i18n/doctors/en.json';
+import patientsAr from '../../public/i18n/patients/ar.json';
+import patientsEn from '../../public/i18n/patients/en.json';
 import { DEFAULT_LANGUAGE, LANGUAGES } from '../app/core/i18n/language';
 
 const TRANSLATIONS: Record<string, Translation> = {
@@ -28,6 +30,8 @@ const TRANSLATIONS: Record<string, Translation> = {
   'users/en': usersEn,
   'doctors/ar': doctorsAr,
   'doctors/en': doctorsEn,
+  'patients/ar': patientsAr,
+  'patients/en': patientsEn,
 };
 
 /** Serves the real translation files from memory, so specs run against what ships. */
@@ -63,4 +67,6 @@ export {
   usersEn as usersEnglish,
   doctorsAr as doctorsArabic,
   doctorsEn as doctorsEnglish,
+  patientsAr as patientsArabic,
+  patientsEn as patientsEnglish,
 };

@@ -1,0 +1,90 @@
+{
+  "title": "Patients",
+  "new": "New patient",
+  "edit": "Edit",
+  "edit_named": "Edit {{ name }}",
+  "loading": "Loading…",
+  "retry": "Try again",
+  "correlation": "Reference for support: {{ id }}",
+  "page_size": "Per page",
+  "results": "Showing {{ from }}–{{ to }} of {{ total }}",
+  "search": {
+    "label": "Search",
+    "placeholder": "Search by name or phone number",
+    "clear": "Clear search"
+  },
+  "sort": {
+    "label": "Sort by",
+    "name": "Name",
+    "created_at": "Date added",
+    "asc": "Ascending",
+    "desc": "Descending"
+  },
+  "table": {
+    "caption": "List of patients",
+    "name": "Name",
+    "phone": "Phone",
+    "created": "Added",
+    "actions": "Actions"
+  },
+  "empty": {
+    "none": "There are no patients yet.",
+    "no_results": "No patients match your search."
+  },
+  "delete": {
+    "action": "Delete",
+    "named": "Delete {{ name }}",
+    "title": "Delete this patient?",
+    "message": "This will delete the patient:",
+    "confirm": "Delete",
+    "deleting": "Deleting…",
+    "cancel": "Cancel"
+  },
+  "flash": {
+    "saved_created": "The patient was added.",
+    "saved_updated": "The changes were saved.",
+    "deleted": "The patient was deleted.",
+    "already_deleted": "This patient had already been deleted."
+  },
+  "form": {
+    "title_new": "New patient",
+    "title_edit": "Edit patient",
+    "name": "Name",
+    "phone": "Phone number",
+    "phone_hint": "Accepted formats:",
+    "phone_kind_mobile": "Egyptian mobile",
+    "phone_kind_landline": "Landline",
+    "phone_kind_international": "International",
+    "phone_example_mobile": "010 1234 5678",
+    "phone_example_landline": "02 2345 6789",
+    "phone_example_international": "+44 20 7946 0958",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "created_at": "Added",
+    "updated_at": "Last changed",
+    "never_updated": "Not changed since it was added"
+  },
+  "duplicate": {
+    "title": "Other patients already have this phone number",
+    "intro": "Check that this is not the same person. Family members may share a number.",
+    "count_only": "{{ count }} patients already have this phone number.",
+    "more": "And {{ count }} more.",
+    "save_anyway": "Save anyway",
+    "cancel": "Cancel"
+  },
+  "conflict": {
+    "title": "This patient was changed by someone else",
+    "message": "Your changes were not saved. Reload the latest version, then re-apply your changes.",
+    "reload": "Reload the latest version",
+    "reloading": "Reloading…",
+    "earlier_title": "Your earlier entries",
+    "earlier_hint": "These are the values you typed before reloading. Copy them into the form if you still need them.",
+    "dismiss": "Hide"
+  },
+  "not_found": {
+    "title": "Patient not found",
+    "message": "This patient does not exist or has been deleted.",
+    "back": "Back to the list of patients"
+  }
+}
