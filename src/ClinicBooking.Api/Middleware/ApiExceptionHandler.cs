@@ -68,9 +68,24 @@ public sealed class ApiExceptionHandler : IExceptionHandler
             AccountLockedException e => Create(StatusCodes.Status423Locked, e.ErrorKey),
             NotFoundException e => Create(StatusCodes.Status404NotFound, e.ErrorKey),
             ConflictException e => Create(StatusCodes.Status409Conflict, e.ErrorKey),
+            DuplicatePhoneException e => WithMatches(Create(StatusCodes.Status409Conflict, e.ErrorKey), e),
             BusinessRuleException e => WithDetails(Create(StatusCodes.Status422UnprocessableEntity, e.ErrorKey), e.Details),
             _ => Create(StatusCodes.Status500InternalServerError, UnexpectedKey)
         };
+    }
+
+    // The matches are personal data: they go to the caller only, never to a log (the log line above has the key only).
+    private static ProblemDetails WithMatches(ProblemDetails problem, DuplicatePhoneException exception)
+    {
+        problem.Extensions["matchCount"] = exception.MatchCount;
+        if (exception.Matches.Count > 0)
+        {
+            problem.Extensions["matches"] = exception.Matches
+                .Select(m => new Dictionary<string, object> { ["id"] = m.Id, ["name"] = m.Name, ["phone"] = m.Phone })
+                .ToList();
+        }
+
+        return problem;
     }
 
     private static ProblemDetails WithDetails(ProblemDetails problem, IReadOnlyDictionary<string, long> details)

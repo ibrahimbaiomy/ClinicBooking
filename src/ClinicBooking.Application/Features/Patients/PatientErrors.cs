@@ -1,4 +1,5 @@
 using ClinicBooking.Domain.Entities;
+using ClinicBooking.Domain.Exceptions;
 
 namespace ClinicBooking.Application.Features.Patients;
 
@@ -11,5 +12,5 @@ public static class PatientErrors
     public const string NameInvalid = "error.patient.name_invalid";
     public const string PhoneRequired = Patient.PhoneRequiredKey;
     public const string PhoneInvalid = Patient.PhoneInvalidKey;
-    public const string PhoneExists = "error.patient.phone_exists";
+    public const string PhoneExists = DuplicatePhoneException.Key;
 }

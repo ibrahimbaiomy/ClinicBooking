@@ -3,6 +3,7 @@ using ClinicBooking.Application.Features.Common;
 using ClinicBooking.Application.Interfaces;
 using ClinicBooking.Domain.Entities;
 using ClinicBooking.Domain.Exceptions;
+using ClinicBooking.Domain.Permissions;
 using ClinicBooking.Domain.ValueObjects;
 
 namespace ClinicBooking.Application.Features.Patients;
@@ -13,13 +14,20 @@ namespace ClinicBooking.Application.Features.Patients;
 /// </summary>
 public sealed class PatientService : IPatientService
 {
+    /// <summary>How many matching patients the duplicate-phone warning lists (D63).</summary>
+    public const int MaxMatches = 5;
+
     private readonly IAppDbContext _db;
     private readonly IPatientScheduleGuard _guard;
+    private readonly IPermissionChecker _permissions;
+    private readonly IUser _user;
 
-    public PatientService(IAppDbContext db, IPatientScheduleGuard guard)
+    public PatientService(IAppDbContext db, IPatientScheduleGuard guard, IPermissionChecker permissions, IUser user)
     {
         _db = db;
         _guard = guard;
+        _permissions = permissions;
+        _user = user;
     }
 
     public async Task<PagedResponse<PatientResponse>> ListAsync(ListPatientsQuery query, CancellationToken cancellationToken)
@@ -46,6 +54,7 @@ public sealed class PatientService : IPatientService
     public async Task<PatientResponse> CreateAsync(CreatePatientRequest request, CancellationToken cancellationToken)
     {
         var patient = Patient.Create(request.Name!, request.Phone!);
+        await EnsurePhoneIsFreeAsync(patient.Phone, excludedId: 0, request.ConfirmDuplicatePhone == true, cancellationToken);
 
         _db.Patients.Add(patient);
         await _db.SaveChangesAsync(cancellationToken);
@@ -58,7 +67,15 @@ public sealed class PatientService : IPatientService
         var patient = await FindAsync(id, cancellationToken);
         ConcurrencyGuard.EnsureCurrent(patient, request.RowVersion);
 
+        var previousPhone = patient.Phone;
         patient.Set(request.Name!, request.Phone!);
+
+        // The warning concerns a new number only: an unchanged phone never asks again (D63).
+        if (patient.Phone != previousPhone)
+        {
+            await EnsurePhoneIsFreeAsync(patient.Phone, patient.Id, request.ConfirmDuplicatePhone == true, cancellationToken);
+        }
+
         await _db.SaveGuardedAsync(cancellationToken);
 
         return patient.ToResponse();
@@ -73,6 +90,41 @@ public sealed class PatientService : IPatientService
 
         _db.Patients.Remove(patient);
         await _db.SaveGuardedAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The duplicate-phone warning (D44, D63): live patients other than this one with the same stored phone
+    /// make a 409 and nothing is saved, unless the user confirmed. Names and phones of the matches go to a
+    /// caller who may read patients only; anyone else learns how many there are. Not a constraint: two saves
+    /// at the same moment may both pass (accepted, D63).
+    /// </summary>
+    private async Task EnsurePhoneIsFreeAsync(string phone, long excludedId, bool confirmed, CancellationToken cancellationToken)
+    {
+        if (confirmed)
+        {
+            return; // the flag means nothing when there is no match, so there is nothing to look up
+        }
+
+        var sharing = _db.Patients.Where(p => p.Phone == phone && p.Id != excludedId);
+        var count = await sharing.CountAsync(cancellationToken);
+        if (count == 0)
+        {
+            return;
+        }
+
+        var mayRead = _user.Id is { } userId
+                      && await _permissions.HasGlobalPermissionAsync(userId, Permissions.Patients.Read, cancellationToken);
+
+        var matches = mayRead
+            ? await sharing
+                .OrderBy(p => p.NameNormalized)
+                .ThenBy(p => p.Id)
+                .Take(MaxMatches)
+                .Select(p => new PhoneMatch(p.Id, p.Name, p.Phone))
+                .ToListAsync(cancellationToken)
+            : [];
+
+        throw new DuplicatePhoneException(count, matches);
     }
 
     private async Task<Patient> FindAsync(long id, CancellationToken cancellationToken) =>
