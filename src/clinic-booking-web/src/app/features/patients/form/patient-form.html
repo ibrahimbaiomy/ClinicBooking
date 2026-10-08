@@ -1,0 +1,236 @@
+<section class="mx-auto max-w-xl space-y-4">
+  <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">
+    @if (isNew) {
+      {{ 'patients.form.title_new' | transloco }}
+    } @else {
+      {{ 'patients.form.title_edit' | transloco }}
+    }
+  </h2>
+
+  <div role="status" aria-live="polite">
+    @if (flash(); as key) {
+      <!-- i18n-keys: patients.flash.saved_created, patients.flash.saved_updated -->
+      <p class="rounded-lg bg-green-50 p-3 text-sm text-green-900">{{ key | transloco }}</p>
+    }
+  </div>
+
+  @switch (loadState()) {
+    @case ('loading') {
+      <p class="text-slate-600" aria-busy="true">{{ 'patients.loading' | transloco }}</p>
+    }
+    @case ('notFound') {
+      <div role="alert" class="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-900">
+        <p class="font-medium">{{ 'patients.not_found.title' | transloco }}</p>
+        <p>{{ 'patients.not_found.message' | transloco }}</p>
+        <a routerLink="/patients" class="inline-block text-blue-700 underline">{{ 'patients.not_found.back' | transloco }}</a>
+      </div>
+    }
+    @case ('error') {
+      <div role="alert" class="space-y-3 rounded-lg bg-red-50 p-4 text-red-800">
+        <!-- i18n-keys: error.unexpected -->
+        <p>{{ loadErrorKey() | transloco }}</p>
+        <button
+          type="button"
+          class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+          (click)="load()"
+        >
+          {{ 'patients.retry' | transloco }}
+        </button>
+      </div>
+    }
+    @default {
+      @if (record(); as saved) {
+        <p class="text-sm text-slate-600">
+          {{ 'patients.form.created_at' | transloco }}: {{ saved.createdAt | intl: 'datetime' }}
+          <br />
+          {{ 'patients.form.updated_at' | transloco }}:
+          @if (saved.updatedAt) {
+            {{ saved.updatedAt | intl: 'datetime' }}
+          } @else {
+            {{ 'patients.form.never_updated' | transloco }}
+          }
+        </p>
+      }
+
+      <div #banner tabindex="-1" role="alert" aria-live="assertive" class="outline-none">
+        @if (conflict()) {
+          <div id="patient-conflict" class="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-900">
+            <p class="font-medium">{{ 'patients.conflict.title' | transloco }}</p>
+            <p>{{ 'patients.conflict.message' | transloco }}</p>
+            <button
+              id="patient-reload"
+              type="button"
+              class="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+              [disabled]="reloading()"
+              [attr.aria-busy]="reloading()"
+              (click)="reload()"
+            >
+              @if (reloading()) {
+                {{ 'patients.conflict.reloading' | transloco }}
+              } @else {
+                {{ 'patients.conflict.reload' | transloco }}
+              }
+            </button>
+          </div>
+        }
+        @if (formErrorKey(); as key) {
+          <div id="patient-form-error" class="rounded-lg bg-red-50 p-3 text-sm text-red-800">
+            <!-- i18n-keys: error.unexpected -->
+            <p>{{ key | transloco }}</p>
+            @if (correlationId(); as id) {
+              <p class="mt-1 text-xs" dir="ltr">{{ 'patients.correlation' | transloco: { id: id } }}</p>
+            }
+          </div>
+        }
+      </div>
+
+      @if (earlier(); as mine) {
+        <div id="patient-earlier" class="space-y-2 rounded-lg border border-slate-300 bg-slate-50 p-4 text-sm">
+          <p class="font-medium">{{ 'patients.conflict.earlier_title' | transloco }}</p>
+          <p class="text-slate-600">{{ 'patients.conflict.earlier_hint' | transloco }}</p>
+          <p><bdi dir="auto">{{ mine.name }}</bdi></p>
+          <p><bdi dir="ltr" class="whitespace-nowrap">{{ mine.phone }}</bdi></p>
+          <button type="button" class="text-blue-700 underline" (click)="dismissEarlier()">{{ 'patients.conflict.dismiss' | transloco }}</button>
+        </div>
+      }
+
+      <form novalidate class="space-y-4" (submit)="onSubmit($event)">
+        <div>
+          <label for="patient-name" class="mb-1 block text-sm font-medium">{{ 'patients.form.name' | transloco }}</label>
+          <input
+            id="patient-name"
+            type="text"
+            dir="auto"
+            autocomplete="off"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            [formField]="patientForm.name"
+            [attr.aria-invalid]="patientForm.name().touched() && patientForm.name().invalid()"
+            aria-describedby="patient-name-error"
+          />
+          <div id="patient-name-error" aria-live="polite">
+            @if (patientForm.name().touched()) {
+              @for (error of patientForm.name().errors(); track $index) {
+                <!-- i18n-keys: error.patient.name_required, error.patient.name_too_long, error.patient.name_invalid, error.validation.invalid, error.unexpected -->
+                <p class="mt-1 text-sm text-red-700">{{ messageKey(error.message) | transloco }}</p>
+              }
+            }
+          </div>
+        </div>
+
+        <div>
+          <label for="patient-phone" class="mb-1 block text-sm font-medium">{{ 'patients.form.phone' | transloco }}</label>
+          <input
+            id="patient-phone"
+            type="tel"
+            inputmode="tel"
+            dir="ltr"
+            autocomplete="off"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-start focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            [formField]="patientForm.phone"
+            [attr.aria-invalid]="patientForm.phone().touched() && patientForm.phone().invalid()"
+            aria-describedby="patient-phone-hint patient-phone-error"
+          />
+          <div id="patient-phone-hint" class="mt-1 text-xs text-slate-500">
+            <p>{{ 'patients.form.phone_hint' | transloco }}</p>
+            <ul class="mt-1 space-y-0.5">
+              <li>
+                {{ 'patients.form.phone_kind_mobile' | transloco }}:
+                <bdi dir="ltr" class="whitespace-nowrap">{{ 'patients.form.phone_example_mobile' | transloco }}</bdi>
+              </li>
+              <li>
+                {{ 'patients.form.phone_kind_landline' | transloco }}:
+                <bdi dir="ltr" class="whitespace-nowrap">{{ 'patients.form.phone_example_landline' | transloco }}</bdi>
+              </li>
+              <li>
+                {{ 'patients.form.phone_kind_international' | transloco }}:
+                <bdi dir="ltr" class="whitespace-nowrap">{{ 'patients.form.phone_example_international' | transloco }}</bdi>
+              </li>
+            </ul>
+          </div>
+          <div id="patient-phone-error" aria-live="polite">
+            @if (patientForm.phone().touched()) {
+              @for (error of patientForm.phone().errors(); track $index) {
+                <!-- i18n-keys: error.patient.phone_required, error.patient.phone_invalid, error.validation.invalid, error.unexpected -->
+                <p class="mt-1 text-sm text-red-700">{{ messageKey(error.message) | transloco }}</p>
+              }
+            }
+          </div>
+        </div>
+
+        @if (duplicate(); as warning) {
+          <div
+            #duplicatePanel
+            id="patient-duplicate"
+            tabindex="-1"
+            role="alert"
+            class="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900 outline-none focus-visible:outline-2 focus-visible:outline-amber-700"
+          >
+            <p class="font-medium">{{ 'patients.duplicate.title' | transloco }}</p>
+            @if (warning.matches.length === 0) {
+              <p id="patient-duplicate-count">{{ 'patients.duplicate.count_only' | transloco: { count: (warning.count | intl: 'number') } }}</p>
+            } @else {
+              <p>{{ 'patients.duplicate.intro' | transloco }}</p>
+              <ul id="patient-duplicate-matches" class="space-y-1">
+                @for (match of warning.matches; track match.id) {
+                  <li>
+                    <bdi dir="auto" class="font-medium">{{ match.name }}</bdi>
+                    <bdi dir="ltr" class="ms-2 whitespace-nowrap">{{ match.phone | phone }}</bdi>
+                  </li>
+                }
+              </ul>
+              @if (moreMatches() !== 0) {
+                <p>{{ 'patients.duplicate.more' | transloco: { count: (moreMatches() | intl: 'number') } }}</p>
+              }
+            }
+            <div class="flex flex-wrap gap-3">
+              <button
+                id="patient-save-anyway"
+                type="button"
+                class="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+                [disabled]="patientForm().submitting()"
+                [attr.aria-busy]="savingAnyway()"
+                (click)="saveAnyway()"
+              >
+                {{ 'patients.duplicate.save_anyway' | transloco }}
+              </button>
+              <button
+                id="patient-duplicate-cancel"
+                type="button"
+                class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                [disabled]="patientForm().submitting()"
+                (click)="cancelDuplicate()"
+              >
+                {{ 'patients.duplicate.cancel' | transloco }}
+              </button>
+            </div>
+          </div>
+        }
+
+        <div class="flex flex-wrap gap-3">
+          <button
+            id="patient-save"
+            type="submit"
+            class="rounded-lg bg-blue-700 px-4 py-2 font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            [disabled]="patientForm().submitting() || conflict()"
+            [attr.aria-busy]="patientForm().submitting()"
+          >
+            @if (patientForm().submitting()) {
+              {{ 'patients.form.saving' | transloco }}
+            } @else {
+              {{ 'patients.form.save' | transloco }}
+            }
+          </button>
+          @if (canRead()) {
+            <a
+              routerLink="/patients"
+              [queryParams]="listQuery()"
+              class="rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            >
+              {{ 'patients.form.cancel' | transloco }}
+            </a>
+          }
+        </div>
+      </form>
+    }
+  }
+</section>

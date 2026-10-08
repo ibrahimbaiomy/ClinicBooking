@@ -37,6 +37,41 @@ describe('Patients routes (D63)', () => {
     expect(router.url).toBe('/patients');
   });
 
+  it('/patients/new needs patients.create only', async () => {
+    await signIn(['patients.create']);
+
+    await router.navigateByUrl('/patients/new');
+
+    expect(router.url).toBe('/patients/new');
+  });
+
+  it('/patients/new without patients.create is /forbidden, whatever else is held', async () => {
+    await signIn(['patients.read', 'patients.edit', 'patients.delete']);
+
+    await router.navigateByUrl('/patients/new');
+
+    expect(router.url).toBe('/forbidden');
+  });
+
+  it.each([[['patients.edit']], [['patients.read']]])(
+    '/patients/:id/edit needs both patients.read and patients.edit (%j is not enough)',
+    async (permissions) => {
+      await signIn(permissions);
+
+      await router.navigateByUrl('/patients/1/edit');
+
+      expect(router.url).toBe('/forbidden');
+    },
+  );
+
+  it('/patients/:id/edit opens with patients.read and patients.edit', async () => {
+    await signIn(['patients.read', 'patients.edit']);
+
+    await router.navigateByUrl('/patients/1/edit');
+
+    expect(router.url).toBe('/patients/1/edit');
+  });
+
   it('a user who must change the password goes there first', async () => {
     await signIn(['patients.read'], 'token-1', { mustChangePassword: true });
 
