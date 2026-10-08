@@ -114,10 +114,10 @@ password). Covered by unit tests; still to check by hand:
   minutes instead of about 3: one test (`PatientsAuthorizationTests`, a patient create)
   hung for about 28 minutes and then got a 500. It passed alone and on a full rerun.
   Cause unproven (the machine or the SQL Server container pausing is the guess). If it
-  happens again, before rerunning: note the failing test, take the `correlationId` from
-  the 500 (the test output or the response body), and find the logged exception with
-  that id in the test host's console output. In CI, the job timeout ends such a run
-  (D47).
+  happens again, before rerunning: note the failing test and the `correlationId` of the
+  500, which the failure message now shows with the response body (`AssertStatusAsync`,
+  used by every test helper), then find the logged exception with that id in the test
+  host's console output. In CI, the job timeout ends such a run (D47).
 
 ---
 
