@@ -2,29 +2,26 @@
 
 Read at the start of every session; update at the end. Keep it short: what is
 done in one line per step (the detail is in the decisions), what is next, and
-what the owner must check by hand. Last updated: 2026-10-07 (Doctors screens).
+what the owner must check by hand. Last updated: 2026-10-08 (Patients; Phase 1 complete).
 
 ---
 
 ## Now
 
-**Phase 1, next step: Patients** (name and phone only, `PhoneNumber` reused,
-duplicate-phone warning, global `patients.*`, D38, D44). Patient search needs a
-prefix or full-text approach, not a leading wildcard (D49). Reuse the shared
-pieces: back end `CommonRules`, `NamedListing`-style paging, `ConcurrencyGuard`
-(D61); front end `FeatureSession`, `scopeResolver`, `list-params` (D62).
+**Phase 1 complete, waiting for the owner.** Appointments (Phase 2) start only when
+the owner says so (D54). Nothing else is planned meanwhile; ideas go under Later.
 
-Phase 1 is complete after Patients. Appointments (Phase 2) do not
-start before that (D54).
-
-**Phase 2 seams waiting for Appointments** (`IDoctorScheduleGuard`, D61; Phase 1
-registers `NoAppointmentsScheduleGuard`, which allows everything):
+**Phase 2 seams waiting for Appointments** (`IDoctorScheduleGuard`, D61, and
+`IPatientScheduleGuard`, D63; Phase 1 registers implementations that allow everything):
 - Leave days: not modelled yet; they come with Appointments.
 - Slot-duration change only after the doctor's last active appointment (D43).
 - Deleting a doctor with upcoming appointments: confirmation, cancel them in the
   same transaction (D35); deactivating an assignment with future appointments there.
 - A working-hours change that leaves a future appointment outside its period or
   off the grid is refused (D43).
+- Deleting a patient with future appointments (D63).
+- The patient-overlap warning (D41) reuses the duplicate-phone mechanism: a 409 with
+  the matches and a confirm flag to resend (D63).
 
 ---
 
@@ -37,7 +34,7 @@ registers `NoAppointmentsScheduleGuard`, which allows everything):
 - Bilingual UI with RTL (D26, D27, D51).
 - Docker, compose, CI `test` / `web` / `image` jobs (D15, D47).
 
-**Phase 1** (in progress)
+**Phase 1** (complete)
 - Clinics back end (D55) and screens (D56).
 - User management and clinic-scoped permissions, back end (D57).
 - Account state, change-password, admin reset, back end (D58).
@@ -51,6 +48,9 @@ registers `NoAppointmentsScheduleGuard`, which allows everything):
 - Shared front-end code: session memory, scope resolver, list URL helpers (D62).
 - Doctors screens: list with filters, create, edit, detail (clinics, slot change,
   delete), working-hours editor; `clinicPermissionInAnyGuard` (D62).
+- Patients back end: name and phone, four global permissions, phone or name search,
+  duplicate-phone warning, no personal data in logs (D63).
+- Patients screens: list, create, edit with the duplicate-phone panel, delete (D63).
 
 ---
 
@@ -85,8 +85,20 @@ password). Covered by unit tests; still to check by hand:
       cannot delete (no button; the API answers `all_clinics_required`), has no
       working-hours link for the other clinic, and that page opened by its URL is
       read-only.
-- [ ] Header at 360 px wide with four links (Specialties, Clinics, Doctors, Users),
-      Arabic and English: wraps with no horizontal overflow (D56, D62).
+- [ ] Header at 360 px wide with five links (Specialties, Clinics, Doctors, Patients,
+      Users), Arabic and English: wraps with no horizontal overflow (D56, D62, D63).
+- [ ] Patients against the real container (D63): the `AddPatients` migration applies;
+      after a restart the seeded admin holds the four `patients.*` permissions (the
+      top-up). Then: create a patient, search by name (try an Arabic variant), by
+      "010…", "+20…", "0020…" and by digits from the middle; create a second patient
+      with the same phone (the panel lists the first; Save anyway saves; Cancel and
+      changing the phone hide it); edit without changing the phone (no panel); delete.
+- [ ] A user with `patients.create` only: the 409 shows the count without names, and
+      after saving the page stays on an empty form with the message.
+- [ ] Patient pages at 360 px in Arabic: a Latin name and an Arabic name in the same
+      list both read correctly (`dir="auto"`), phone digits left to right.
+- [ ] Review the Arabic wording of `public/i18n/patients/ar.json`, the
+      `error.patient.*` texts and the four permission labels.
 - [ ] Doctors pages at 360 px in Arabic: cards below md, the working-hours editor
       (time inputs left to right, add and remove buttons wrap).
 - [ ] Review the Arabic wording of `public/i18n/doctors/ar.json` and the new
@@ -123,3 +135,5 @@ under control: ideas that arrive mid-build go under "Later", not into code.
 - Cancel a pending slot-duration change without replacing it (D61).
 - A searchable picker for specialties and clinics in the Doctors filters and forms,
   if either list grows past 100 (D62; today a note says the list is incomplete).
+- Patient name search with full-text (or a prefix index) once patients pass about
+  100,000 or a search takes more than 200 ms; today it is a scan (D63).

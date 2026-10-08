@@ -28,6 +28,9 @@ clinic-scoped entity (Doctors) also read `clinic-permissions.md`.
    `CommonRules` (`BeAName`, `BeARowVersion`, `AddNamedListRules`) and
    `ConcurrencyGuard` (`EnsureCurrent`, `SaveGuardedAsync`). Doctors
    (`DoctorService`) is the example of a clinic-scoped entity.
+   An entity without two names (Patients) implements `IListQuery` and validates
+   with `AddListRules(sortFields)` (D63). Personal data never goes into a log line
+   or an exception message; add a log-scan test like `PatientPrivacyTests`.
 4. **Api.** Attribute-routed controller; `[Authorize]` / `[Authorize(Policy =
    ...)]` on every action; `[ProducesResponseType]` for the success response
    (200/201 with its type, or the OpenAPI document has no schema) and the error

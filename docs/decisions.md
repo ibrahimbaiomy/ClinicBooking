@@ -82,7 +82,7 @@ D45 | ACCEPTED | Build, logging and runtime conventions | warnings as errors, Gl
 D46* | ACCEPTED | Persistence choices | EF Core, collation, nvarchar, soft delete filter, SaveChanges interceptor, ExecuteUpdate ban, IUser, migrations, Testcontainers, retry
 D47 | ACCEPTED | CI conventions | CI, GitHub Actions, web job, image job, Node version, check scripts, pinned actions, concurrency
 D48 | ACCEPTED | Authentication and authorization specifics | password, lockout, refresh token, access token, cookie, seed, auth error keys, rate limit, Identity, permission handler
-D49 | ACCEPTED | Arabic-aware search and uniqueness of names | Arabic, search, normalisation, unique names, sorting, SearchText, hamza
+D49 | ACCEPTED | Arabic-aware search and uniqueness of names (patient note superseded by D63) | Arabic, search, normalisation, unique names, sorting, SearchText, hamza
 D50* | ACCEPTED | Specialties API and the pattern for later entities | secure by default, fallback policy, validation, concurrency, rowVersion, OpenAPI, paging, sort, conflict key, entity pattern, 409, Produces
 D51 | ACCEPTED | Front-end foundation and hosting | Angular workspace, packages, scripts, static files, SPA fallback, cache headers, lint
 D52 | ACCEPTED | Front-end authentication | session, interceptor, refresh, login form, returnUrl, guards, permissions.ts, parseApiError, error keys check, dev proxy
@@ -96,6 +96,7 @@ D59 | ACCEPTED | User-management and change-password screens (front end) | users
 D60 | ACCEPTED | Documentation layout for several assistants | AGENTS.md, CLAUDE.md, Codex, STATUS.md, release.md, guides, archive, decision format
 D61 | ACCEPTED | Doctors back end | doctor, DoctorClinic, assignment, IsActive, DoctorSpecialty, working hours, WeeklyPeriod, slot duration, pending change, Cairo date, doctors.manage, all_clinics_required, in_use, IDoctorScheduleGuard, Phase 2 seam, shared code, NamedListQuery, split queries, periodIndex, conflictingClinicId
 D62 | ACCEPTED | Doctors screens (front end) | doctor screens, list filters, IsActive filter, clinicPermissionInAnyGuard, canIn, canInAny, refreshUser, clinic picker, checkbox group, slot change, Cairo tomorrow, working hours editor, DayOfWeek, Saturday first, HH:mm, periodIndex, FeatureSession, scopeResolver, list-params, reference lists, incomplete note
+D63 | ACCEPTED | Patients | patient, name, phone, E.164, PhoneNumber key, patients.read, patients.create, patients.edit, patients.delete, phone search, prefix, contains, name search, scan, full-text, duplicate phone, phone_exists, matches, matchCount, confirmDuplicatePhone, privacy, log scan, IListQuery, IPatientScheduleGuard, patient screens, duplicate panel
 O1 | OPEN | Azure region: West Europe vs UAE North | Azure, region, Container Apps, ACR, Key Vault, Azure SQL, price
 O2 | OPEN | Custom domain and TLS, or the default Container Apps hostname | domain, TLS, hostname, Azure
 ```
@@ -708,7 +709,7 @@ complete overlap guard, with no locks.
 **Rejected:** `SignInManager` (cookie-oriented); role tables; the `__Host-` cookie prefix (needs `Path=/`).
 
 ### D49 — Arabic-aware search and uniqueness of names
-`ACCEPTED` (completes D37)
+`ACCEPTED` (completes D37; its patient-search note superseded by D63)
 
 - `SearchText.Normalize` (Domain) is the only normalisation, applied to stored
   values and to search terms. Stored in plain `nvarchar(100)` columns next to the
@@ -722,8 +723,9 @@ complete overlap guard, with no locks.
   by `SetNames`. Display names are stored as entered (trimmed).
 - Search: one `search` parameter; the normalised query is split on spaces and
   **every word** must `Contains`-match one of the two normalised columns
-  (wildcards literal). A leading wildcard is fine for reference data; **Patients
-  need a prefix or full-text approach**.
+  (wildcards literal). A leading wildcard is fine for reference data. ~~Patients
+  need a prefix or full-text approach~~: **superseded by D63** (a phone or name
+  search, the name search a scan accepted for Phase 1).
 - Uniqueness over the **normalised** text, per language, among live rows, for
   **reference data only** (Specialties, Clinics). Patients get a normalised
   column for search and **no unique constraint on names**.
@@ -1362,6 +1364,83 @@ today; Later); clinic options from `/api/clinics` (would offer clinics the user
 cannot use); a native `<select multiple>` (poor on phones and with screen readers);
 a route guard for edit (only the loaded doctor knows its clinics); form-level-only
 422s (the owner wanted them next to the period).
+
+### D63 — Patients
+`ACCEPTED` (implements D38 and D44; supersedes D49's patient-search note; follows D50, D53, D55, D56)
+
+- **Patient:** `Name` (one name, stored as entered and trimmed, required, ≤ 100,
+  `nvarchar`) with `NameNormalized` for search (D49), and `Phone` (required, E.164
+  through `PhoneNumber`). Nothing else. **No unique constraint** on name or phone.
+  Soft-deletable, audited, `RowVersion`; `PUT` is a full replace. Indexes (filtered
+  on live rows, not unique) on `Phone` and `NameNormalized`.
+- **Phone key.** `PhoneNumber.Normalize(value, errorKey)` already lets the caller
+  choose the key: Patients use `error.patient.phone_invalid`, Clinics keep
+  `error.clinic.phone_invalid`; `PhoneNumber` is unchanged.
+- **Error keys:** `error.patient.not_found|name_required|name_too_long|
+  name_invalid|phone_required|phone_invalid|phone_exists`.
+- **Permissions:** four **global** ones, `patients.read` (list, get),
+  `patients.create`, `patients.edit`, `patients.delete`, each opening only its own
+  endpoint. Reading needs a permission (personal data), unlike Specialties and
+  Clinics. In `Permissions.Global` (the seeded admin gets each once through the
+  top-up, D57), in `permissions.ts`, labelled in the users scope.
+- **Search** (one `Search`). Ignoring spaces, hyphens and a leading `+`, a query of
+  **3 or more digits only** (Arabic-Indic and Persian digits folded) is a **phone
+  search**; anything else a **name search** (every word must match the normalised
+  column, D49). Phone: a leading `0` becomes `+20`, a leading `00` becomes `+`, a
+  typed `+` stays: these are a **prefix** match on the stored E.164 value; digits
+  with none of them (`1012345`) are a **contains** match. **Full-text is not
+  used** (not installed in the SQL Server Linux image the tests use): **name search
+  is a scan**, accepted for Phase 1, **to be revisited if the patient count passes
+  about 100,000 or a search takes more than 200 ms**. Sort: `name` (normalised,
+  default ascending) or `createdAt`; `Id` breaks ties.
+- **Shared list rules.** `IListQuery` and `AddListRules(sortFields)` give any list
+  the paging, sort and search-length rules; Patients (one name) cannot reuse
+  `NamedListQuery`/`NamedListing`, so their sort fields and query live with them.
+- **Duplicate-phone warning (D44), enforced by the server.** On create, and on edit
+  **when the stored phone changes**, live patients other than this one with the
+  same E.164 number make **409 `error.patient.phone_exists`** and nothing is saved.
+  The body carries **`matchCount`** and, **only for a caller who holds
+  `patients.read`**, **`matches`** (up to 5: id, name, phone, ordered by normalised
+  name then id); without it there is no name or phone anywhere in the body. The
+  client resends with **`confirmDuplicatePhone: true`** to save anyway; the flag is
+  ignored when there is no match. A typed `DuplicatePhoneException` carries the
+  matches; its message is the key only. Not a constraint: two saves at the same
+  moment may both pass (accepted). **This mechanism is the one Phase 2 reuses for
+  the patient-overlap warning (D41).**
+- **Privacy (D38, D45).** No patient name or phone in any log line or exception
+  message. A test scans the host's real console output after a create, an edit,
+  name and phone searches, the 409, a validation failure and a delete. Request
+  logs carry the path only, never the query string.
+- **Phase 2 seam:** `IPatientScheduleGuard.EnsureCanDeleteAsync` (Phase 1 allows
+  everything): deleting a patient with future appointments.
+- **Screens.** `/patients` behind `patients.read`; `/patients/new` behind
+  `patients.create`; `/patients/:id/edit` behind **`patients.read` and
+  `patients.edit`** (the page loads the patient first); Delete in the list behind
+  `patients.delete`, Edit behind `patients.edit` (`*cbCan`). A "Patients" header
+  link after Doctors, shown only with `patients.read`. Follows Clinics (D53, D56)
+  and the shared helpers (D62): URL-driven list (name ascending by default),
+  separate create and edit pages, the conflict flow, the delete dialog,
+  `supportReference`.
+- **List:** name in `<bdi dir="auto">` (its language is unknown), phone through
+  `formatPhone` in `<bdi dir="ltr">` with a `tel:` link on cards only, created
+  date; one search box whose placeholder says "name or phone".
+- **Form:** name (`dir="auto"`) and phone (as Clinics: `type="tel"`, `dir="ltr"`,
+  the hint, the untouched guard), both required. **After a create**, a user with
+  `patients.read` returns to the list with a one-time message; **without it**, the
+  page stays on an empty create form with the message.
+- **Duplicate panel:** on the 409 the input is kept and a focused panel
+  (`role="alert"`) lists the matches (name and phone; not links; "and N more" when
+  the count is larger), or **only the count** when the server sent no matches, with
+  "Save anyway" (resends with `confirmDuplicatePhone: true`) and "Cancel". Changing
+  the phone hides it. `parseApiError` reads `matchCount` and well-formed `matches`.
+
+**Why:** patients are personal data shared by every clinic: every access is a
+permission, nothing personal reaches a log or a user who may not read it, and a
+shared phone is a warning, never a block.
+**Rejected:** a unique index on phone (family members share numbers, D44);
+full-text search now (not in the test image; a scan is enough for Phase 1); a
+client-only duplicate check (the server must decide for every caller); showing the
+matches to a user without `patients.read`; reading patients without a permission.
 
 ---
 
