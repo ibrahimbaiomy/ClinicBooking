@@ -643,6 +643,9 @@ complete overlap guard, with no locks.
   `FROM node:<major>` and `engines` differ or cannot be parsed.
 - No npm, NuGet or Docker-layer caching until a run exceeds about 5 minutes.
 - Concurrency: workflow + ref, `cancel-in-progress: true`; revisit with a deploy job.
+- Every job has `timeout-minutes`: `test` 20, `web` 15, `image` 20, so a stalled run
+  fails fast instead of running for GitHub's 6-hour default. A later push or deploy
+  job gets its own.
 - The SQL Server image tag is in both `docker-compose.yml` and the Testcontainers
   fixture: keep them in sync.
 

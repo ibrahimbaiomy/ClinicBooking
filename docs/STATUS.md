@@ -108,6 +108,19 @@ password). Covered by unit tests; still to check by hand:
 
 ---
 
+## Known issues
+
+- **A stalled local test run (2026-10-08).** One full `dotnet test` run took about 31
+  minutes instead of about 3: one test (`PatientsAuthorizationTests`, a patient create)
+  hung for about 28 minutes and then got a 500. It passed alone and on a full rerun.
+  Cause unproven (the machine or the SQL Server container pausing is the guess). If it
+  happens again, before rerunning: note the failing test, take the `correlationId` from
+  the 500 (the test output or the response body), and find the logged exception with
+  that id in the test host's console output. In CI, the job timeout ends such a run
+  (D47).
+
+---
+
 ## Scope (Phases 1 to 5, worked in order)
 
 - **Phase 0, walking skeleton:** Specialties, login and refresh, health,
