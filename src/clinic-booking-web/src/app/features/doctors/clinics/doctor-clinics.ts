@@ -10,28 +10,24 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { form, FormField, requiredError, submit, TreeValidationResult, validate, ValidationError } from '@angular/forms/signals';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { Doctor, DoctorsApi } from '../../../../api/doctors-api';
 import { ApiError, parseApiError } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
-import { ToastService } from '../../../core/ui/toast.service';
 import { ClinicPermissions } from '../../../core/auth/permissions';
 import { SessionService } from '../../../core/auth/session.service';
-import { IntlPipe } from '../../../core/format/intl.pipe';
 import { LanguageService } from '../../../core/i18n/language.service';
+import { ToastService } from '../../../core/ui/toast.service';
 import { ConfirmDialog } from '../../../shared/ui/confirm-dialog';
 import { byUiName, namesFor, NameView, uiName } from '../doctor-view';
 import { DoctorsSession } from '../doctors-session';
-import { cairoTomorrow, SLOT_MINUTES } from '../slot';
 
 type LoadState = 'loading' | 'ready' | 'notFound' | 'error';
 
 const MANAGE = ClinicPermissions.DoctorsManage;
 const OVERLAP_KEY = 'error.doctor.period_overlaps_other_clinic';
-const NOT_FUTURE_KEY = 'error.doctor.effective_from_not_future';
 
 interface AssignmentView {
   clinicId: string;
@@ -55,76 +51,44 @@ interface ClinicOption {
   label: string;
 }
 
-interface SlotFields {
-  slotMinutes: string;
-  effectiveFrom: string;
-}
-
 /**
- * One doctor (D61, D62): the summary, the clinic assignments (working hours, activate, deactivate, add),
- * the slot duration and its change, and delete. Every control follows `canIn` for the clinic concerned
- * (UX only); every change shows the server's answer.
+ * A doctor's clinics (D61, D62, D64): the assignments with their state in words, activate, deactivate
+ * (confirmed), a refused reactivation in its row, add a clinic, and the working-hours link per clinic.
+ * Anyone signed in may open it; each control follows `canIn` for the clinic it concerns, so a user
+ * without doctors.manage there sees the row read-only. Changes stay on the page with a toast.
  */
 @Component({
-  selector: 'cb-doctor-detail',
-  imports: [RouterLink, TranslocoPipe, IntlPipe, ConfirmDialog, FormField],
-  templateUrl: './doctor-detail.html',
+  selector: 'cb-doctor-clinics',
+  imports: [RouterLink, TranslocoPipe, ConfirmDialog],
+  templateUrl: './doctor-clinics.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class DoctorDetail {
+export class DoctorClinicsPage {
   private readonly api = inject(DoctorsApi);
-  private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly messages = inject(ErrorMessageService);
   private readonly memory = inject(DoctorsSession);
   private readonly session = inject(SessionService);
   private readonly languages = inject(LanguageService);
+  private readonly toasts = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly id = this.route.snapshot.paramMap.get('id') ?? '';
   protected readonly listQuery = this.memory.lastQuery;
-  protected readonly slotOptions = SLOT_MINUTES;
 
   protected readonly loadState = signal<LoadState>('loading');
   protected readonly loadErrorKey = signal<string | null>(null);
   protected readonly doctor = signal<Doctor | null>(null);
-  private readonly toasts = inject(ToastService);
 
   private readonly heading = viewChild<ElementRef<HTMLElement>>('heading');
 
-  // ---- what the user may do (UX only, D57, D62)
-  /** Editing names, specialties and the slot needs doctors.manage in any of the doctor's clinics. */
-  protected readonly canManage = computed(() =>
-    (this.doctor()?.clinics ?? []).some((c) => this.session.canIn(MANAGE, c.clinicId)),
-  );
-  /** Delete needs it in all of them. */
-  protected readonly canDelete = computed(() => {
-    const clinics = this.doctor()?.clinics ?? [];
-    return clinics.length > 0 && clinics.every((c) => this.session.canIn(MANAGE, c.clinicId));
-  });
-  /** A clinic can be added by anyone who manages doctors somewhere. */
-  protected readonly canAddClinic = computed(() => this.session.canInAny(MANAGE));
-
-  // ---- the summary
   protected readonly names = computed(() => {
     const doctor = this.doctor();
     return doctor === null ? null : namesFor(doctor.nameAr, doctor.nameEn, this.languages.language());
   });
 
-  /** Today's slot length and the pending change, as numbers (int32 may arrive as a string). */
-  protected readonly slot = computed(() => {
-    const doctor = this.doctor();
-    const pending = doctor?.pendingSlotChange ?? null;
-    return {
-      current: Number(doctor?.slotMinutes ?? 0),
-      pending: pending === null ? null : { slotMinutes: Number(pending.slotMinutes), effectiveFrom: pending.effectiveFrom },
-    };
-  });
-
-  protected readonly specialties = computed(() => {
-    const language = this.languages.language();
-    return byUiName(this.doctor()?.specialties ?? [], language).map((s) => namesFor(s.nameAr, s.nameEn, language).primary);
-  });
+  /** A clinic can be added by anyone who manages doctors somewhere (the picker offers only those clinics). */
+  protected readonly canAddClinic = computed(() => this.session.canInAny(MANAGE));
 
   protected readonly assignments = computed<AssignmentView[]>(() => {
     const language = this.languages.language();
@@ -160,24 +124,6 @@ export class DoctorDetail {
     return byUiName(grants, language).map((grant) => ({ id: grant.id, label: uiName(grant, language) }));
   });
 
-  // ---- slot change
-  protected readonly changingSlot = signal(false);
-  protected readonly minDate = signal(cairoTomorrow());
-  protected readonly slotModel = signal<SlotFields>({ slotMinutes: '15', effectiveFrom: '' });
-  protected readonly slotForm = form(this.slotModel, (path) => {
-    validate(path.effectiveFrom, ({ value }) => {
-      const date = value();
-      if (date === '') return requiredError({ message: 'error.doctor.effective_from_required' });
-      return date < this.minDate() ? { kind: 'min', message: NOT_FUTURE_KEY } : undefined;
-    });
-  });
-  protected readonly slotErrorKey = signal<string | null>(null);
-
-  // ---- delete
-  protected readonly pendingDelete = signal(false);
-  protected readonly deleting = signal(false);
-  protected readonly deleteErrorKey = signal<string | null>(null);
-
   constructor() {
     afterNextRender(() => this.heading()?.nativeElement.focus());
 
@@ -206,18 +152,14 @@ export class DoctorDetail {
       });
   }
 
-  /** A server message that is not a known key is replaced by error.unexpected (never raw text). */
-  protected messageKey(message: string | undefined): string {
-    return this.messages.keyFor(message ?? '');
-  }
-
   // ---- activate and deactivate
 
   protected async activate(row: AssignmentView): Promise<void> {
     this.clearRowMessage(row.clinicId);
     this.busyRow.set(row.clinicId);
     try {
-      this.updated(await firstValueFrom(this.api.activateClinic(this.id, row.clinicId)), 'doctors.flash.clinic_activated');
+      this.doctor.set(await firstValueFrom(this.api.activateClinic(this.id, row.clinicId)));
+      this.toasts.showToast('doctors.flash.clinic_activated');
     } catch (error: unknown) {
       this.rowFailed(row.clinicId, parseApiError(error));
     } finally {
@@ -245,7 +187,8 @@ export class DoctorDetail {
     try {
       const doctor = await firstValueFrom(this.api.deactivateClinic(this.id, row.clinicId));
       this.pendingDeactivate.set(null);
-      this.updated(doctor, 'doctors.flash.clinic_deactivated');
+      this.doctor.set(doctor);
+      this.toasts.showToast('doctors.flash.clinic_deactivated');
     } catch (error: unknown) {
       const failure = parseApiError(error);
       if (failure.status === 404 && failure.key === 'error.doctor.not_found') {
@@ -293,7 +236,8 @@ export class DoctorDetail {
     try {
       const doctor = await firstValueFrom(this.api.addClinic(this.id, clinicId));
       this.picking.set(false);
-      this.updated(doctor, 'doctors.flash.clinic_added');
+      this.doctor.set(doctor);
+      this.toasts.showToast('doctors.flash.clinic_added');
     } catch (error: unknown) {
       this.addErrorKey.set(this.messages.forError(parseApiError(error)));
     } finally {
@@ -301,106 +245,7 @@ export class DoctorDetail {
     }
   }
 
-  // ---- slot change
-
-  protected openSlotChange(): void {
-    this.minDate.set(cairoTomorrow());
-    this.slotErrorKey.set(null);
-    this.slotModel.set({ slotMinutes: String(this.doctor()?.slotMinutes ?? 15), effectiveFrom: '' });
-    this.slotForm().reset();
-    this.changingSlot.set(true);
-  }
-
-  protected closeSlotChange(): void {
-    this.changingSlot.set(false);
-  }
-
-  protected async onSlotSubmit(event: Event): Promise<void> {
-    event.preventDefault();
-    this.slotErrorKey.set(null);
-    await submit(this.slotForm, {
-      action: () => this.saveSlot(),
-      onInvalid: () => this.slotForm.effectiveFrom().focusBoundControl(),
-    });
-  }
-
-  private async saveSlot(): Promise<TreeValidationResult> {
-    const { slotMinutes, effectiveFrom } = this.slotModel();
-    try {
-      const doctor = await firstValueFrom(
-        this.api.changeSlotDuration(this.id, { slotMinutes: Number(slotMinutes), effectiveFrom }),
-      );
-      this.changingSlot.set(false);
-      this.updated(doctor, 'doctors.flash.slot_changed');
-      return undefined;
-    } catch (error: unknown) {
-      return this.slotFailed(parseApiError(error));
-    }
-  }
-
-  /** 400 field keys and the 422 for the date go on their field; anything else is form-level (D62). */
-  private slotFailed(error: ApiError): TreeValidationResult {
-    const errors: ValidationError.WithFieldTree[] = [];
-    const place = (field: 'slotMinutes' | 'effectiveFrom', message: string) =>
-      errors.push({ fieldTree: this.slotForm[field], kind: 'server', message });
-
-    for (const [name, keys] of Object.entries(error.fieldErrors)) {
-      if (name === 'slotMinutes' || name === 'effectiveFrom') {
-        keys.forEach((key) => place(name, key));
-      }
-    }
-    if (errors.length === 0 && error.key === NOT_FUTURE_KEY) {
-      place('effectiveFrom', error.key);
-    }
-    if (errors.length === 0) {
-      if (error.status === 404 && error.key === 'error.doctor.not_found') {
-        this.gone();
-      } else {
-        this.slotErrorKey.set(this.messages.forError(error));
-      }
-    }
-    return errors;
-  }
-
-  // ---- delete
-
-  protected askDelete(): void {
-    this.deleteErrorKey.set(null);
-    this.pendingDelete.set(true);
-  }
-
-  protected cancelDelete(): void {
-    if (!this.deleting()) {
-      this.pendingDelete.set(false);
-    }
-  }
-
-  protected async confirmDelete(): Promise<void> {
-    this.deleting.set(true);
-    try {
-      await firstValueFrom(this.api.delete(this.id));
-      await this.leave('doctors.flash.deleted');
-    } catch (error: unknown) {
-      const failure = parseApiError(error);
-      if (failure.status === 404) {
-        // Already deleted elsewhere: the outcome is what the user wanted.
-        await this.leave('doctors.flash.already_deleted');
-      } else {
-        // error.doctor.all_clinics_required and every other failure stay in the dialog (D62).
-        this.deleteErrorKey.set(this.messages.forError(failure));
-      }
-    } finally {
-      this.deleting.set(false);
-    }
-  }
-
   // ---- shared
-
-  private updated(doctor: Doctor, flashKey: string): void {
-    this.doctor.set(doctor);
-    // i18n-keys: doctors.flash.clinic_added, doctors.flash.clinic_activated, doctors.flash.clinic_deactivated, doctors.flash.slot_changed
-    this.toasts.showToast(flashKey);
-  }
 
   /** The doctor was deleted elsewhere while this page was open. */
   private gone(): void {
@@ -433,12 +278,5 @@ export class DoctorDetail {
     if (own !== undefined) return uiName(own, language);
     const grant = this.session.user()?.clinicPermissions.find((g) => Number(g.clinicId) === clinicId);
     return grant === undefined ? null : uiName({ nameAr: grant.clinicNameAr, nameEn: grant.clinicNameEn }, language);
-  }
-
-  private async leave(flashKey: string): Promise<void> {
-    this.pendingDelete.set(false);
-    // i18n-keys: doctors.flash.deleted, doctors.flash.already_deleted
-    this.toasts.showToast(flashKey);
-    await this.router.navigate(['/doctors'], { queryParams: this.memory.lastQuery() });
   }
 }

@@ -4,7 +4,9 @@ import { TestBed } from '@angular/core/testing';
 import { Router, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { provideTranslocoScope, TranslocoService } from '@jsverse/transloco';
-import { provideAuthTesting, signIn, Stub } from '../../../../testing/auth-testing';
+import { flushProblem, provideAuthTesting, signIn, Stub } from '../../../../testing/auth-testing';
+import { installDialogPolyfill } from '../../../../testing/dialog-polyfill';
+import { toastKeys } from '../../../../testing/toast-testing';
 import {
   AHMED,
   CLINICS,
@@ -17,7 +19,7 @@ import {
   SPECIALTIES,
   SPECIALTIES_URL,
 } from '../../../../testing/doctors-testing';
-import { doctorsArabic as dar, doctorsEnglish as den } from '../../../../testing/transloco-testing';
+import { arabicTranslations as ar, doctorsArabic as dar, doctorsEnglish as den } from '../../../../testing/transloco-testing';
 import { LANGUAGE_STORAGE_KEY } from '../../../core/i18n/language';
 import { LanguageService } from '../../../core/i18n/language.service';
 import { DoctorsList } from './doctors-list';
@@ -304,7 +306,7 @@ describe('DoctorsList (D62)', () => {
     const clinics = [...cells[2].querySelectorAll('li')].map((li) => li.textContent?.replace(/\s+/g, ' ').trim());
     expect(clinics).toEqual(['عيادة النور(' + dar.assignment.inactive + ')', 'عيادة النيل']);
     expect(cells[3].textContent).toContain('15');
-    expect(row.querySelector<HTMLAnchorElement>('a')!.getAttribute('href')).toBe('/doctors/7');
+    expect(row.querySelector<HTMLAnchorElement>('a.row-clinics')!.getAttribute('href')).toBe('/doctors/7/clinics');
   });
 
   it('in English the English names lead and sort', async () => {
@@ -367,5 +369,115 @@ describe('DoctorsList (D62)', () => {
 
     http.expectOne(isDoctors).flush(pageOfDoctors([]));
     expect(router.url).toBe('/doctors');
+  });
+
+  describe('direct row actions (D64)', () => {
+    const tableActions = () => [...one('table tbody tr')!.querySelectorAll<HTMLElement>('a, button')];
+    const cardActions = () => [...one('ul.md\\:hidden > li')!.querySelectorAll<HTMLElement>('a, button')];
+    const classes = (elements: HTMLElement[]) =>
+      elements.map((element) => [...element.classList].find((name) => name.startsWith('row-')));
+    const dialog = () => one<HTMLDialogElement>('dialog')!;
+    const dialogButtons = () => [...dialog().querySelectorAll<HTMLButtonElement>(':scope > div:last-of-type button')];
+
+    async function openWith(user: Parameters<typeof open>[1]): Promise<void> {
+      await open('/doctors', user);
+      http.expectOne(isDoctors).flush(pageOfDoctors([AHMED]));
+      await settle();
+    }
+
+    beforeEach(() => installDialogPolyfill());
+
+    it('a manager of every clinic of the doctor gets Edit, Specialties, Clinics and Delete, in the table and the cards', async () => {
+      await openWith(managerOf(1, 2));
+
+      expect(classes(tableActions())).toEqual(['row-edit', 'row-specialties', 'row-clinics', 'row-delete']);
+      expect(classes(cardActions())).toEqual(['row-edit', 'row-specialties', 'row-clinics', 'row-delete']);
+      expect(tableActions().map((a) => a.getAttribute('href'))).toEqual([
+        '/doctors/7/edit',
+        '/doctors/7/specialties',
+        '/doctors/7/clinics',
+        null,
+      ]);
+      expect(tableActions().map((a) => a.textContent?.trim())).toEqual([
+        dar.actions.edit,
+        dar.actions.specialties,
+        dar.actions.clinics,
+        dar.actions.delete,
+      ]);
+    });
+
+    it('a manager of one of its clinics may edit, but not delete', async () => {
+      await openWith(managerOf(2));
+
+      expect(classes(tableActions())).toEqual(['row-edit', 'row-specialties', 'row-clinics']);
+    });
+
+    it('a manager of another clinic only, or nobody with doctors.manage, gets Clinics only (read-only there)', async () => {
+      await openWith(managerOf(3));
+      expect(classes(tableActions())).toEqual(['row-clinics']);
+    });
+
+    it('without doctors.manage anywhere: Clinics only', async () => {
+      await openWith({ clinicPermissions: [] });
+      expect(classes(tableActions())).toEqual(['row-clinics']);
+    });
+
+    it('the action row wraps (no fixed width), and every action is text', async () => {
+      await openWith(managerOf(1, 2));
+      const container = tableActions()[0].parentElement!;
+
+      expect(container.className).toContain('flex-wrap');
+      expect(tableActions().every((action) => (action.textContent?.trim() ?? '') !== '')).toBe(true);
+    });
+
+    it('Delete asks first, naming both names, focus on Cancel; success reloads the list with a toast', async () => {
+      await openWith(managerOf(1, 2));
+
+      tableActions()[3].click();
+      await settle();
+      expect(dialog().open).toBe(true);
+      expect(dialog().textContent).toContain('أحمد علي');
+      expect(dialog().textContent).toContain('Ahmed Ali');
+      expect(document.activeElement).toBe(dialogButtons()[0]);
+
+      dialogButtons()[1].click();
+      await settle();
+      http.expectOne({ method: 'DELETE', url: `${DOCTORS_URL}/7` }).flush(null);
+      await settle();
+
+      expect(dialog().open).toBe(false);
+      expect(toastKeys()).toContain('doctors.flash.deleted');
+      http.expectOne(isDoctors).flush(pageOfDoctors([]));
+    });
+
+    it('error.doctor.all_clinics_required stays in the dialog, translated; no toast', async () => {
+      await openWith(managerOf(1, 2));
+
+      tableActions()[3].click();
+      await settle();
+      dialogButtons()[1].click();
+      await settle();
+      flushProblem(http.expectOne({ method: 'DELETE', url: `${DOCTORS_URL}/7` }), 403, 'error.doctor.all_clinics_required');
+      await settle();
+
+      expect(dialog().open).toBe(true);
+      expect(dialog().textContent).toContain(ar.error.doctor.all_clinics_required);
+      expect(toastKeys()).toEqual([]);
+    });
+
+    it('a doctor already deleted elsewhere (404) closes the dialog with "already deleted" and reloads', async () => {
+      await openWith(managerOf(1, 2));
+
+      tableActions()[3].click();
+      await settle();
+      dialogButtons()[1].click();
+      await settle();
+      flushProblem(http.expectOne({ method: 'DELETE', url: `${DOCTORS_URL}/7` }), 404, 'error.doctor.not_found');
+      await settle();
+
+      expect(dialog().open).toBe(false);
+      expect(toastKeys()).toContain('doctors.flash.already_deleted');
+      http.expectOne(isDoctors).flush(pageOfDoctors([]));
+    });
   });
 });

@@ -5,10 +5,8 @@ import { Router, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { provideTranslocoScope, TranslocoService } from '@jsverse/transloco';
 import { CurrentUser } from '../../../../api/auth-api';
-import { Doctor } from '../../../../api/doctors-api';
 import { flushProblem, meBody, provideAuthTesting, signIn, Stub } from '../../../../testing/auth-testing';
 import {
-  AHMED,
   doctor,
   DOCTORS_URL,
   managerOf,
@@ -19,11 +17,11 @@ import {
 import { arabicTranslations as ar, doctorsArabic as dar } from '../../../../testing/transloco-testing';
 import { LANGUAGE_STORAGE_KEY } from '../../../core/i18n/language';
 import { LanguageService } from '../../../core/i18n/language.service';
+import { DoctorsSession } from '../doctors-session';
 import { DoctorForm } from './doctor-form';
 
 const ROUTES: Routes = [
   { path: 'doctors/new', component: DoctorForm },
-  { path: 'doctors/:id/edit', component: DoctorForm },
   { path: '**', component: Stub },
 ];
 
@@ -62,13 +60,6 @@ describe('DoctorForm (D62)', () => {
     await start('/doctors/new', user);
     http.expectOne('/api/auth/me').flush(meBody(fresh));
     http.expectOne((r) => r.url === SPECIALTIES_URL).flush(referencePage(SPECIALTIES));
-    await settle();
-  }
-
-  async function openEdit(record: Doctor = AHMED, user = managerOf(1)): Promise<void> {
-    await start('/doctors/7/edit', user);
-    http.expectOne((r) => r.url === SPECIALTIES_URL).flush(referencePage(SPECIALTIES));
-    http.expectOne(`${DOCTORS_URL}/7`).flush(record);
     await settle();
   }
 
@@ -136,7 +127,8 @@ describe('DoctorForm (D62)', () => {
       http.expectNone({ method: 'POST', url: DOCTORS_URL });
     });
 
-    it('sends trimmed names, the chosen ids and the slot, then opens the new doctor with a message', async () => {
+    it('sends trimmed names, the chosen ids and the slot, then returns to the remembered list with a toast (D64)', async () => {
+      TestBed.inject(DoctorsSession).lastQuery.set({ q: 'x' });
       await openCreate(managerOf(1, 3));
       await type('doctor-name-ar', '  أحمد علي ');
       await type('doctor-name-en', ' Ahmed Ali ');
@@ -161,7 +153,7 @@ describe('DoctorForm (D62)', () => {
       request.flush(doctor(42, 'أحمد علي', 'Ahmed Ali'));
       await settle();
 
-      expect(router.url).toBe('/doctors/42');
+      expect(router.url).toBe('/doctors?q=x');
       expect(toastKeys()).toContain('doctors.flash.created');
     });
 
@@ -191,74 +183,6 @@ describe('DoctorForm (D62)', () => {
       await settle();
       expect(text('#doctor-form-error')).toContain(ar.error.unexpected);
       expect(text('#doctor-form-error')).toContain('corr-123');
-    });
-  });
-
-  describe('edit', () => {
-    it('someone who manages none of the doctor\'s clinics is told so, without a form', async () => {
-      await openEdit(AHMED, managerOf(3));
-
-      expect(text('#doctor-form-not-allowed')).toContain(dar.form.not_allowed);
-      expect(one('form')).toBeNull();
-    });
-
-    it('a manager of one of its clinics edits names and specialties only, prefilled', async () => {
-      await openEdit(AHMED, managerOf(2));
-
-      expect(one<HTMLInputElement>('#doctor-name-ar')!.value).toBe('أحمد علي');
-      expect(one<HTMLInputElement>('#doctor-specialty-10')!.checked).toBe(true);
-      expect(one<HTMLInputElement>('#doctor-specialty-12')!.checked).toBe(false);
-      expect(one('#doctor-slot')).toBeNull();
-      expect(all('input[id^="doctor-clinic-"]')).toHaveLength(0);
-    });
-
-    it('offers the doctor\'s own specialties even when they are not in the first 100', async () => {
-      await openEdit(doctor(7, 'أ', 'A', { specialties: [{ id: 999, nameAr: 'نادر', nameEn: 'Rare' }] }));
-
-      expect(one<HTMLInputElement>('#doctor-specialty-999')!.checked).toBe(true);
-    });
-
-    it('saves a full replace with the row version and returns to the doctor with a message', async () => {
-      await openEdit();
-      await type('doctor-name-en', 'Ahmed A. Ali');
-      await check('doctor-specialty-11'); // unchecked: only Cardiology stays
-
-      await submit();
-      const request = http.expectOne({ method: 'PUT', url: `${DOCTORS_URL}/7` });
-      expect(request.request.body).toEqual({
-        nameAr: 'أحمد علي',
-        nameEn: 'Ahmed A. Ali',
-        specialtyIds: [10],
-        rowVersion: AHMED.rowVersion,
-      });
-      request.flush({ ...AHMED, nameEn: 'Ahmed A. Ali' });
-      await settle();
-
-      expect(router.url).toBe('/doctors/7');
-      expect(toastKeys()).toContain('doctors.flash.updated');
-    });
-
-    it('a 409 conflict keeps the input, disables Save until Reload, then shows the earlier entries', async () => {
-      await openEdit();
-      await type('doctor-name-en', 'Mine');
-
-      await submit();
-      flushProblem(http.expectOne({ method: 'PUT', url: `${DOCTORS_URL}/7` }), 409, 'error.concurrency.conflict');
-      await settle();
-
-      expect(text('#doctor-form-conflict')).toContain(dar.conflict.title);
-      expect(one<HTMLButtonElement>('#doctor-form-save')!.disabled).toBe(true);
-      expect(one<HTMLInputElement>('#doctor-name-en')!.value).toBe('Mine');
-
-      one<HTMLButtonElement>('#doctor-form-reload')!.click();
-      await settle();
-      http.expectOne(`${DOCTORS_URL}/7`).flush({ ...AHMED, nameEn: 'Theirs', rowVersion: 'AAAAAAAAAAk=' });
-      await settle();
-
-      expect(one<HTMLInputElement>('#doctor-name-en')!.value).toBe('Theirs');
-      expect(one<HTMLButtonElement>('#doctor-form-save')!.disabled).toBe(false);
-      expect(text('#doctor-form-earlier')).toContain('Mine');
-      expect(text('#doctor-form-earlier')).toContain('قلب');
     });
   });
 });

@@ -21,17 +21,17 @@ import {
   validate,
   ValidationError,
 } from '@angular/forms/signals';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
-import { Doctor, DoctorsApi } from '../../../../api/doctors-api';
+import { DoctorsApi } from '../../../../api/doctors-api';
 import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
-import { ToastService } from '../../../core/ui/toast.service';
 import { ClinicPermissions } from '../../../core/auth/permissions';
 import { SessionService } from '../../../core/auth/session.service';
 import { IntlPipe } from '../../../core/format/intl.pipe';
 import { LanguageService } from '../../../core/i18n/language.service';
+import { ToastService } from '../../../core/ui/toast.service';
 import { byUiName, DoctorReferenceData, namesFor, NameView, ReferenceOption } from '../doctor-view';
 import { DoctorsSession } from '../doctors-session';
 import { SLOT_MINUTES } from '../slot';
@@ -43,13 +43,11 @@ export const MAX_CLINICS = 20;
 export const DEFAULT_SLOT_MINUTES = 15;
 
 const MANAGE = ClinicPermissions.DoctorsManage;
-const CONFLICT_KEY = 'error.concurrency.conflict';
 const NAME_KEY = /^error\.doctor\.name_(ar|en)_/;
 const SPECIALTY_KEY = /^error\.doctor\.(specialties_|specialty_)/;
 const CLINIC_KEY = /^error\.doctor\.clinics_/;
 const SLOT_KEY = /^error\.doctor\.slot_minutes_/;
 
-type LoadState = 'loading' | 'ready' | 'notFound' | 'notAllowed' | 'error';
 type Field = 'nameAr' | 'nameEn' | 'specialtyIds' | 'clinicIds' | 'slotMinutes';
 
 interface DoctorFields {
@@ -75,9 +73,10 @@ function nameProblem(raw: string, language: 'ar' | 'en') {
 }
 
 /**
- * Create (`/doctors/new`: names, specialties, clinics, slot length) and edit (`/doctors/:id/edit`: names and
- * specialties, a full replace with the row version, D61). Clinics offered on create are only those where the
- * user manages doctors, read from the session after a refresh (D62).
+ * Create a doctor (`/doctors/new`: names, specialties, clinics, slot length; D61, D62). Clinics offered are
+ * only those where the user manages doctors, read from the session after a refresh. After a save: the
+ * remembered list with a toast (D64; the detail page is gone). Editing has its own pages
+ * (`/doctors/:id/edit`, `/doctors/:id/specialties`, `/doctors/:id/clinics`).
  */
 @Component({
   selector: 'cb-doctor-form',
@@ -89,7 +88,6 @@ export class DoctorForm {
   private readonly api = inject(DoctorsApi);
   private readonly reference = inject(DoctorReferenceData);
   private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
   private readonly messages = inject(ErrorMessageService);
   private readonly memory = inject(DoctorsSession);
   private readonly toasts = inject(ToastService);
@@ -98,10 +96,8 @@ export class DoctorForm {
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
 
-  private readonly id = this.route.snapshot.paramMap.get('id');
-  protected readonly isNew = this.id === null;
-  protected readonly doctorId = this.id ?? '';
   protected readonly slotOptions = SLOT_MINUTES;
+  protected readonly listQuery = this.memory.lastQuery;
 
   protected readonly model = signal<DoctorFields>({
     nameAr: '',
@@ -119,41 +115,30 @@ export class DoctorForm {
       return value().length > MAX_SPECIALTIES ? { kind: 'max', message: 'error.doctor.specialties_too_many' } : undefined;
     });
     validate(path.clinicIds, ({ value }) => {
-      if (!this.isNew) return undefined;
       if (value().length === 0) return requiredError({ message: 'error.doctor.clinics_required' });
       return value().length > MAX_CLINICS ? { kind: 'max', message: 'error.doctor.clinics_too_many' } : undefined;
     });
   });
 
-  protected readonly loadState = signal<LoadState>('loading');
-  protected readonly loadErrorKey = signal<string | null>(null);
-  protected readonly record = signal<Doctor | null>(null);
-
+  /** The session is refreshed first, so a grant made after sign-in is offered at once (D62). */
+  protected readonly ready = signal(false);
   protected readonly formErrorKey = signal<string | null>(null);
   protected readonly correlationId = signal<string | null>(null);
-  protected readonly conflict = signal(false);
-  protected readonly reloading = signal(false);
-  protected readonly earlier = signal<DoctorFields | null>(null);
 
   // ---- options
   private readonly specialtyList = signal<ReferenceOption[]>([]);
   protected readonly specialtiesIncomplete = signal(false);
   protected readonly specialtiesFailed = signal(false);
 
-  /** The loaded specialties, plus the doctor's own (they may lie beyond the first 100), by UI-language name. */
   protected readonly specialtyOptions = computed<OptionView[]>(() => {
     const language = this.languages.language();
-    const byId = new Map(this.specialtyList().map((option) => [option.id, option]));
-    for (const own of this.record()?.specialties ?? []) {
-      byId.set(String(own.id), { id: String(own.id), nameAr: own.nameAr, nameEn: own.nameEn });
-    }
-    return byUiName([...byId.values()], language).map((option) => ({
+    return byUiName(this.specialtyList(), language).map((option) => ({
       id: option.id,
       name: namesFor(option.nameAr, option.nameEn, language).primary,
     }));
   });
 
-  /** Create only: clinics where the user manages doctors (D62). */
+  /** Clinics where the user manages doctors (D62). */
   protected readonly clinicOptions = computed<OptionView[]>(() => {
     const language = this.languages.language();
     const grants = (this.session.user()?.clinicPermissions ?? [])
@@ -165,45 +150,13 @@ export class DoctorForm {
     }));
   });
 
-  /** The earlier entries after a conflict reload, with specialty names instead of ids. */
-  protected readonly earlierSpecialties = computed(() => {
-    const ids = new Set(this.earlier()?.specialtyIds ?? []);
-    return this.specialtyOptions().filter((option) => ids.has(option.id));
-  });
-
   private readonly heading = viewChild<ElementRef<HTMLElement>>('heading');
-  private readonly banner = viewChild<ElementRef<HTMLElement>>('banner');
   private readonly host = inject(ElementRef<HTMLElement>);
 
   constructor() {
     afterNextRender(() => this.heading()?.nativeElement.focus());
     this.loadSpecialties();
-
-    if (this.isNew) {
-      void this.openCreate();
-    } else if (this.id !== null && /^\d+$/.test(this.id)) {
-      this.load();
-    } else {
-      this.loadState.set('notFound');
-    }
-  }
-
-  protected load(): void {
-    this.loadState.set('loading');
-    this.api
-      .get(this.id as string)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (record) => {
-          this.show(record);
-          this.loadState.set(this.mayEdit(record) ? 'ready' : 'notAllowed');
-        },
-        error: (error: unknown) => {
-          const failure = parseApiError(error);
-          this.loadErrorKey.set(this.messages.forError(failure));
-          this.loadState.set(failure.status === 404 ? 'notFound' : 'error');
-        },
-      });
+    void this.session.refreshUser().finally(() => this.ready.set(true));
   }
 
   protected isChecked(field: 'specialtyIds' | 'clinicIds', id: string): boolean {
@@ -230,43 +183,8 @@ export class DoctorForm {
     });
   }
 
-  protected reload(): void {
-    this.reloading.set(true);
-    const mine = this.model();
-    this.api
-      .get(this.id as string)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (record) => {
-          this.earlier.set(mine);
-          this.show(record);
-          this.conflict.set(false);
-          this.reloading.set(false);
-        },
-        error: (error: unknown) => {
-          const failure = parseApiError(error);
-          this.reloading.set(false);
-          if (failure.status === 404) {
-            this.loadState.set('notFound');
-          } else {
-            this.formErrorKey.set(this.messages.forError(failure));
-          }
-        },
-      });
-  }
-
-  protected dismissEarlier(): void {
-    this.earlier.set(null);
-  }
-
   protected messageKey(message: string | undefined): string {
     return this.messages.keyFor(message ?? '');
-  }
-
-  /** Create: the session is refreshed first, so a grant made after sign-in is offered at once (D62). */
-  private async openCreate(): Promise<void> {
-    await this.session.refreshUser();
-    this.loadState.set('ready');
   }
 
   private loadSpecialties(): void {
@@ -282,49 +200,28 @@ export class DoctorForm {
       });
   }
 
-  /** UX only: doctors.manage in any of the doctor's clinics (D61). */
-  private mayEdit(record: Doctor): boolean {
-    return record.clinics.some((clinic) => this.session.canIn(MANAGE, clinic.clinicId));
-  }
-
-  private show(record: Doctor): void {
-    this.record.set(record);
-    this.model.set({
-      nameAr: record.nameAr,
-      nameEn: record.nameEn,
-      specialtyIds: record.specialties.map((s) => String(s.id)),
-      clinicIds: [],
-      slotMinutes: String(record.slotMinutes),
-    });
-  }
-
   private async save(): Promise<TreeValidationResult> {
     const { nameAr, nameEn, specialtyIds, clinicIds, slotMinutes } = this.model();
-    const names = { nameAr: nameAr.trim(), nameEn: nameEn.trim(), specialtyIds: specialtyIds.map(Number) };
-    let saved: Doctor;
-
     try {
-      saved = this.isNew
-        ? await firstValueFrom(this.api.create({ ...names, clinicIds: clinicIds.map(Number), slotMinutes: Number(slotMinutes) }))
-        : await firstValueFrom(this.api.update(this.id as string, { ...names, rowVersion: this.record()?.rowVersion ?? null }));
+      await firstValueFrom(
+        this.api.create({
+          nameAr: nameAr.trim(),
+          nameEn: nameEn.trim(),
+          specialtyIds: specialtyIds.map(Number),
+          clinicIds: clinicIds.map(Number),
+          slotMinutes: Number(slotMinutes),
+        }),
+      );
     } catch (error: unknown) {
       return this.failed(parseApiError(error));
     }
 
-    if (this.isNew) {
-
-      this.toasts.showToast('doctors.flash.created');
-
-    } else {
-
-      this.toasts.showToast('doctors.flash.updated');
-
-    }
-    await this.router.navigate(['/doctors', String(saved.id)]);
+    this.toasts.showToast('doctors.flash.created');
+    await this.router.navigate(['/doctors'], { queryParams: this.memory.lastQuery() });
     return undefined;
   }
 
-  /** Field keys on their fields (specialty_unavailable on the specialties), 409 conflict banner, else form-level. */
+  /** Field keys on their fields (specialty_unavailable on the specialties), else form-level (403 included). */
   private failed(error: ApiError): TreeValidationResult {
     const errors: ValidationError.WithFieldTree[] = [];
     const fields: readonly Field[] = ['nameAr', 'nameEn', 'specialtyIds', 'clinicIds', 'slotMinutes'];
@@ -345,13 +242,7 @@ export class DoctorForm {
       else if (SLOT_KEY.test(error.key)) place('slotMinutes', error.key);
     }
 
-    if (error.key === CONFLICT_KEY) {
-      this.conflict.set(true);
-      afterNextRender(() => this.banner()?.nativeElement.focus(), { injector: this.injector });
-    } else if (error.status === 404 && !this.isNew) {
-      this.loadErrorKey.set(this.messages.forError(error));
-      this.loadState.set('notFound');
-    } else if (errors.length === 0) {
+    if (errors.length === 0) {
       // 403 (a clinic not managed any more) and everything unexplained: form-level (D62).
       this.formErrorKey.set(this.messages.forError(error));
       this.correlationId.set(supportReference(error));

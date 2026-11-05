@@ -1,8 +1,6 @@
 {
   "title": "Doctors",
   "new": "New doctor",
-  "open": "Open",
-  "open_named": "Open {{ name }}",
   "loading": "Loading…",
   "retry": "Try again",
   "correlation": "Reference for support: {{ id }}",
@@ -60,7 +58,8 @@
     "clinic_activated": "The doctor works at this clinic again.",
     "clinic_deactivated": "The doctor no longer works at this clinic.",
     "slot_changed": "The new appointment length was scheduled.",
-    "hours_saved": "The working hours were saved."
+    "hours_saved": "The working hours were saved.",
+    "specialties_updated": "The specialties were saved."
   },
   "form": {
     "title_new": "New doctor",
@@ -77,8 +76,7 @@
     "save": "Save",
     "saving": "Saving…",
     "cancel": "Cancel",
-    "not_allowed": "You cannot edit this doctor: you do not manage doctors in any of the doctor's clinics.",
-    "back": "Back to the doctor"
+    "not_allowed": "You cannot edit this doctor: you do not manage doctors in any of the doctor's clinics."
   },
   "conflict": {
     "title": "This doctor was changed by someone else",
@@ -95,11 +93,7 @@
     "back": "Back to the list of doctors"
   },
   "detail": {
-    "back": "Back to doctors",
-    "created_at": "Added",
-    "updated_at": "Last changed",
-    "never_updated": "Not changed since it was added",
-    "edit": "Edit names and specialties",
+    "back": "Back to the list of doctors",
     "clinics_title": "Clinics",
     "status": "Status",
     "working_hours": "Working hours",
@@ -119,14 +113,12 @@
     "slot_title": "Appointment length",
     "slot_current": "Now: {{ minutes }}",
     "slot_pending": "From {{ date }}: {{ minutes }}",
-    "slot_change": "Change the appointment length",
     "slot_minutes": "New length",
     "slot_effective_from": "Starting on",
     "slot_replaces": "A new change replaces the change that is already scheduled.",
     "slot_save": "Schedule the change",
     "slot_saving": "Saving…",
     "cancel": "Cancel",
-    "delete": "Delete doctor",
     "deactivate_dialog": {
       "title": "Deactivate at this clinic?",
       "message": "The doctor will be marked as no longer working at {{ name }}. The working hours there are kept and can be used again if the doctor returns.",
@@ -144,7 +136,7 @@
   },
   "hours": {
     "title": "Working hours",
-    "back": "Back to the doctor",
+    "back": "Back to the doctor's clinics",
     "inactive": "The doctor is not active at this clinic. These hours are kept but not used until the doctor is activated here again.",
     "read_only": "You can view these hours. Only someone who manages doctors in this clinic can change them.",
     "no_periods": "No working hours",
@@ -168,5 +160,22 @@
     "thursday": "Thursday",
     "friday": "Friday",
     "saturday": "Saturday"
+  },
+  "actions": {
+    "edit": "Edit",
+    "edit_named": "Edit {{ name }}",
+    "specialties": "Specialties",
+    "specialties_named": "Specialties of {{ name }}",
+    "clinics": "Clinics",
+    "clinics_named": "Clinics of {{ name }}",
+    "delete": "Delete",
+    "delete_named": "Delete {{ name }}"
+  },
+  "edit": {
+    "names_title": "Names",
+    "names_save": "Save the names"
+  },
+  "specialties_page": {
+    "title": "Specialties"
   }
 }

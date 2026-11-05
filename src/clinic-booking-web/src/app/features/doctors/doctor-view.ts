@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { map, Observable } from 'rxjs';
 import { ClinicsApi } from '../../../api/clinics-api';
 import { SpecialtiesApi } from '../../../api/specialties-api';
+import { ClinicPermissions } from '../../core/auth/permissions';
 import { Language } from '../../core/i18n/language';
 
 export interface NameView {
@@ -34,6 +35,24 @@ export function byUiName<T extends { nameAr: string; nameEn: string }>(items: re
   const collator = (collators[language] ??= new Intl.Collator(language, { sensitivity: 'base', numeric: true }));
   return [...items].sort((a, b) => collator.compare(uiName(a, language), uiName(b, language)));
 }
+
+/** Something that can answer `canIn` (the session), so these rules stay testable without one. */
+interface ClinicGrants {
+  canIn(permission: string, clinicId: number | string): boolean;
+}
+
+const MANAGE = ClinicPermissions.DoctorsManage;
+
+/**
+ * Edit names, specialties and the slot: doctors.manage in ANY of the doctor's clinics (D61, D62, D64).
+ * UX only: the API decides.
+ */
+export const managesAnyClinicOf = (grants: ClinicGrants, clinics: readonly { clinicId: number | string }[]): boolean =>
+  clinics.some((clinic) => grants.canIn(MANAGE, clinic.clinicId));
+
+/** Delete: doctors.manage in ALL of the doctor's clinics (D61, D62, D64). UX only: the API decides. */
+export const managesEveryClinicOf = (grants: ClinicGrants, clinics: readonly { clinicId: number | string }[]): boolean =>
+  clinics.length > 0 && clinics.every((clinic) => grants.canIn(MANAGE, clinic.clinicId));
 
 /** A specialty or clinic offered in a select or a checkbox group. */
 export interface ReferenceOption {

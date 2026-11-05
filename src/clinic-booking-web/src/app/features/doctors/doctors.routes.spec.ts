@@ -47,13 +47,21 @@ describe('Doctors routes (D62)', () => {
     expect(router.url).toBe('/doctors/new');
   });
 
-  it('the detail and edit pages need only a signed-in user (the page decides after loading)', async () => {
+  it('the edit, specialties and clinics pages need only a signed-in user (the page decides after loading)', async () => {
     await signIn([]);
 
-    await router.navigateByUrl('/doctors/7/edit');
-    expect(router.url).toBe('/doctors/7/edit');
+    for (const page of ['edit', 'specialties', 'clinics']) {
+      await router.navigateByUrl(`/doctors/7/${page}`);
+      expect(router.url).toBe(`/doctors/7/${page}`);
+    }
+  });
+
+  it('the detail page is gone: an old /doctors/:id link opens the Clinics page (D64)', async () => {
+    await signIn([]);
+
     await router.navigateByUrl('/doctors/7');
-    expect(router.url).toBe('/doctors/7');
+
+    expect(router.url).toBe('/doctors/7/clinics');
   });
 
   it('a user who must change the password goes to /change-password first', async () => {

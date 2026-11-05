@@ -272,12 +272,64 @@
   </ul>
 </ng-template>
 
+<!-- Direct row actions (D64): text buttons that wrap at 360 px. The API still decides. -->
 <ng-template #actions let-row>
-  <a
-    [routerLink]="['/doctors', row.id]"
-    class="inline-block rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-    [attr.aria-label]="'doctors.open_named' | transloco: { name: row.primary.text }"
-  >
-    {{ 'doctors.open' | transloco }}
-  </a>
+  <div class="flex flex-wrap gap-2">
+    @if (row.canEdit) {
+      <a
+        [routerLink]="['/doctors', row.id, 'edit']"
+        class="row-edit inline-block rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [attr.aria-label]="'doctors.actions.edit_named' | transloco: { name: row.primary.text }"
+      >
+        {{ 'doctors.actions.edit' | transloco }}
+      </a>
+      <a
+        [routerLink]="['/doctors', row.id, 'specialties']"
+        class="row-specialties inline-block rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        [attr.aria-label]="'doctors.actions.specialties_named' | transloco: { name: row.primary.text }"
+      >
+        {{ 'doctors.actions.specialties' | transloco }}
+      </a>
+    }
+    <a
+      [routerLink]="['/doctors', row.id, 'clinics']"
+      class="row-clinics inline-block rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      [attr.aria-label]="'doctors.actions.clinics_named' | transloco: { name: row.primary.text }"
+    >
+      {{ 'doctors.actions.clinics' | transloco }}
+    </a>
+    @if (row.canDelete) {
+      <button
+        type="button"
+        class="row-delete rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+        [attr.aria-label]="'doctors.actions.delete_named' | transloco: { name: row.primary.text }"
+        (click)="askDelete(row)"
+      >
+        {{ 'doctors.actions.delete' | transloco }}
+      </button>
+    }
+  </div>
 </ng-template>
+
+<cb-confirm-dialog
+  [open]="pendingDelete() !== null"
+  [busy]="deleting()"
+  [errorKey]="deleteErrorKey()"
+  (confirmed)="confirmDelete()"
+  (cancelled)="cancelDelete()"
+>
+  <span cbDialogTitle>{{ 'doctors.detail.delete_dialog.title' | transloco }}</span>
+  <p>{{ 'doctors.detail.delete_dialog.message' | transloco }}</p>
+  @if (pendingDelete(); as row) {
+    <p class="font-medium"><bdi lang="ar" dir="rtl">{{ row.nameAr }}</bdi></p>
+    <p class="font-medium"><bdi lang="en" dir="ltr">{{ row.nameEn }}</bdi></p>
+  }
+  <span cbDialogCancel>{{ 'doctors.detail.delete_dialog.cancel' | transloco }}</span>
+  <span cbDialogConfirm>
+    @if (deleting()) {
+      {{ 'doctors.detail.delete_dialog.deleting' | transloco }}
+    } @else {
+      {{ 'doctors.detail.delete_dialog.confirm' | transloco }}
+    }
+  </span>
+</cb-confirm-dialog>

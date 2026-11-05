@@ -84,6 +84,14 @@ describe('WorkingHoursPage (D62)', () => {
   afterEach(() => http.verify());
 
   describe('the week', () => {
+    it('links back to the doctor\'s Clinics page (D64)', async () => {
+      await open();
+
+      const back = one<HTMLAnchorElement>('a')!;
+      expect(back.getAttribute('href')).toBe('/doctors/7/clinics');
+      expect(back.textContent?.trim()).toBe(dar.hours.back);
+    });
+
     it('names the doctor and the clinic and shows Saturday to Friday, each day by start', async () => {
       await open();
 

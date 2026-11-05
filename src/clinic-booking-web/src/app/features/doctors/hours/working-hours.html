@@ -1,6 +1,6 @@
 <section class="mx-auto max-w-3xl space-y-4">
   <a
-    [routerLink]="['/doctors', doctorId]"
+    [routerLink]="['/doctors', doctorId, 'clinics']"
     class="inline-block rounded text-sm text-blue-700 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
   >
     {{ 'doctors.hours.back' | transloco }}
@@ -227,7 +227,7 @@
               }
             </button>
             <a
-              [routerLink]="['/doctors', doctorId]"
+              [routerLink]="['/doctors', doctorId, 'clinics']"
               class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
             >
               {{ 'doctors.hours.cancel' | transloco }}

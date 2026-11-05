@@ -1,0 +1,197 @@
+<section class="mx-auto max-w-3xl space-y-6">
+  <a
+    routerLink="/doctors"
+    [queryParams]="listQuery()"
+    class="inline-block rounded text-sm text-blue-700 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+  >
+    {{ 'doctors.detail.back' | transloco }}
+  </a>
+
+  @switch (loadState()) {
+    @case ('loading') {
+      <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">{{ 'doctors.detail.clinics_title' | transloco }}</h2>
+      <p class="text-slate-600" aria-busy="true">{{ 'doctors.loading' | transloco }}</p>
+    }
+    @case ('notFound') {
+      <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">{{ 'doctors.not_found.title' | transloco }}</h2>
+      <div role="alert" class="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-900">
+        <p>{{ 'doctors.not_found.message' | transloco }}</p>
+        <a routerLink="/doctors" [queryParams]="listQuery()" class="inline-block text-blue-700 underline">
+          {{ 'doctors.not_found.back' | transloco }}
+        </a>
+      </div>
+    }
+    @case ('error') {
+      <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">{{ 'doctors.detail.clinics_title' | transloco }}</h2>
+      <div role="alert" class="space-y-3 rounded-lg bg-red-50 p-4 text-red-800">
+        <!-- i18n-keys: error.unexpected -->
+        <p>{{ loadErrorKey() | transloco }}</p>
+        <button
+          type="button"
+          class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+          (click)="load()"
+        >
+          {{ 'doctors.retry' | transloco }}
+        </button>
+      </div>
+    }
+    @default {
+      @if (names(); as name) {
+        <div>
+          <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">
+            {{ 'doctors.detail.clinics_title' | transloco }}:
+            <bdi [attr.lang]="name.primary.lang" [attr.dir]="name.primary.dir">{{ name.primary.text }}</bdi>
+          </h2>
+          <p class="text-slate-600"><bdi [attr.lang]="name.secondary.lang" [attr.dir]="name.secondary.dir">{{ name.secondary.text }}</bdi></p>
+        </div>
+      }
+
+      <ul class="space-y-3">
+        @for (row of assignments(); track row.clinicId) {
+          <li class="space-y-2 rounded-lg border border-slate-200 bg-white p-4" [attr.data-clinic]="row.clinicId">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div class="font-medium"><bdi [attr.lang]="row.primary.lang" [attr.dir]="row.primary.dir">{{ row.primary.text }}</bdi></div>
+                <div class="text-sm text-slate-500"><bdi [attr.lang]="row.secondary.lang" [attr.dir]="row.secondary.dir">{{ row.secondary.text }}</bdi></div>
+              </div>
+              <p class="text-sm">
+                <span class="text-slate-600">{{ 'doctors.detail.status' | transloco }}:</span>
+                @if (row.isActive) {
+                  <span class="font-medium text-green-800">{{ 'doctors.assignment.active' | transloco }}</span>
+                } @else {
+                  <span class="font-medium text-slate-700">{{ 'doctors.assignment.inactive' | transloco }}</span>
+                }
+              </p>
+            </div>
+            @if (row.manageable) {
+              <div class="flex flex-wrap gap-2">
+                <a
+                  class="hours-link rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                  [routerLink]="['/doctors', id, 'clinics', row.clinicId, 'hours']"
+                  [attr.aria-label]="'doctors.detail.working_hours_named' | transloco: { name: row.label }"
+                >
+                  {{ 'doctors.detail.working_hours' | transloco }}
+                </a>
+                @if (row.isActive) {
+                  <button
+                    type="button"
+                    class="deactivate rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                    [attr.aria-label]="'doctors.detail.deactivate_named' | transloco: { name: row.label }"
+                    [disabled]="busyRow() !== null"
+                    (click)="askDeactivate(row)"
+                  >
+                    {{ 'doctors.detail.deactivate' | transloco }}
+                  </button>
+                } @else {
+                  <button
+                    type="button"
+                    class="activate rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                    [attr.aria-label]="'doctors.detail.activate_named' | transloco: { name: row.label }"
+                    [attr.aria-busy]="busyRow() === row.clinicId"
+                    [disabled]="busyRow() !== null"
+                    (click)="activate(row)"
+                  >
+                    @if (busyRow() === row.clinicId) {
+                      {{ 'doctors.detail.activating' | transloco }}
+                    } @else {
+                      {{ 'doctors.detail.activate' | transloco }}
+                    }
+                  </button>
+                }
+              </div>
+            }
+            <div class="row-message" aria-live="polite">
+              @if (rowMessages()[row.clinicId]; as message) {
+                <!-- i18n-keys: doctors.detail.overlap_named, error.doctor.period_overlaps_other_clinic, error.unexpected -->
+                <p role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ message.key | transloco: { clinic: message.clinic } }}</p>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+
+      @if (canAddClinic()) {
+        @if (!picking()) {
+          <button
+            id="doctor-add-clinic"
+            type="button"
+            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            (click)="openPicker()"
+          >
+            {{ 'doctors.detail.add_clinic' | transloco }}
+          </button>
+        } @else {
+          <form id="doctor-add-clinic-form" class="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4" [attr.aria-busy]="refreshingOptions() || adding()" (submit)="addClinic($event)">
+            @if (refreshingOptions()) {
+              <p class="text-sm text-slate-600">{{ 'doctors.loading' | transloco }}</p>
+            } @else if (addOptions().length === 0) {
+              <p class="text-sm text-slate-700">{{ 'doctors.detail.add_clinic_none' | transloco }}</p>
+            } @else {
+              <label for="doctor-add-clinic-select" class="block text-sm font-medium">{{ 'doctors.detail.add_clinic_label' | transloco }}</label>
+              <select
+                id="doctor-add-clinic-select"
+                class="max-w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                (change)="onChooseClinic($event)"
+              >
+                <option value="" [selected]="chosenClinic() === ''">{{ 'doctors.detail.add_clinic_choose' | transloco }}</option>
+                @for (option of addOptions(); track option.id) {
+                  <option [value]="option.id" [selected]="option.id === chosenClinic()">{{ option.label }}</option>
+                }
+              </select>
+            }
+            <div aria-live="polite">
+              @if (addErrorKey(); as key) {
+                <!-- i18n-keys: error.unexpected -->
+                <p class="text-sm text-red-700">{{ key | transloco }}</p>
+              }
+            </div>
+            <div class="flex flex-wrap gap-2">
+              @if (addOptions().length !== 0 && !refreshingOptions()) {
+                <button
+                  type="submit"
+                  class="rounded-lg bg-blue-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                  [disabled]="chosenClinic() === '' || adding()"
+                >
+                  @if (adding()) {
+                    {{ 'doctors.detail.adding' | transloco }}
+                  } @else {
+                    {{ 'doctors.detail.add' | transloco }}
+                  }
+                </button>
+              }
+              <button
+                type="button"
+                class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                [disabled]="adding()"
+                (click)="closePicker()"
+              >
+                {{ 'doctors.detail.cancel' | transloco }}
+              </button>
+            </div>
+          </form>
+        }
+      }
+    }
+  }
+</section>
+
+<cb-confirm-dialog
+  [open]="pendingDeactivate() !== null"
+  [busy]="busyRow() !== null"
+  [errorKey]="deactivateErrorKey()"
+  (confirmed)="confirmDeactivate()"
+  (cancelled)="cancelDeactivate()"
+>
+  <span cbDialogTitle>{{ 'doctors.detail.deactivate_dialog.title' | transloco }}</span>
+  @if (pendingDeactivate(); as row) {
+    <p>{{ 'doctors.detail.deactivate_dialog.message' | transloco: { name: row.label } }}</p>
+  }
+  <span cbDialogCancel>{{ 'doctors.detail.deactivate_dialog.cancel' | transloco }}</span>
+  <span cbDialogConfirm>
+    @if (busyRow() !== null) {
+      {{ 'doctors.detail.deactivate_dialog.deactivating' | transloco }}
+    } @else {
+      {{ 'doctors.detail.deactivate_dialog.confirm' | transloco }}
+    }
+  </span>
+</cb-confirm-dialog>

@@ -1,0 +1,238 @@
+<section class="mx-auto max-w-xl space-y-6">
+  <a
+    routerLink="/doctors"
+    [queryParams]="listQuery()"
+    class="inline-block rounded text-sm text-blue-700 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+  >
+    {{ 'doctors.detail.back' | transloco }}
+  </a>
+
+  <h2 #heading tabindex="-1" class="text-xl font-semibold outline-none">{{ 'doctors.form.title_edit' | transloco }}</h2>
+
+  @switch (loadState()) {
+    @case ('loading') {
+      <p class="text-slate-600" aria-busy="true">{{ 'doctors.loading' | transloco }}</p>
+    }
+    @case ('notFound') {
+      <div role="alert" class="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-900">
+        <p class="font-medium">{{ 'doctors.not_found.title' | transloco }}</p>
+        <p>{{ 'doctors.not_found.message' | transloco }}</p>
+        <a routerLink="/doctors" [queryParams]="listQuery()" class="inline-block text-blue-700 underline">{{ 'doctors.not_found.back' | transloco }}</a>
+      </div>
+    }
+    @case ('notAllowed') {
+      <div id="doctor-edit-not-allowed" role="alert" class="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-900">
+        <p>{{ 'doctors.form.not_allowed' | transloco }}</p>
+        <a routerLink="/doctors" [queryParams]="listQuery()" class="inline-block text-blue-700 underline">{{ 'doctors.not_found.back' | transloco }}</a>
+      </div>
+    }
+    @case ('error') {
+      <div role="alert" class="space-y-3 rounded-lg bg-red-50 p-4 text-red-800">
+        <!-- i18n-keys: error.unexpected -->
+        <p>{{ loadErrorKey() | transloco }}</p>
+        <button
+          type="button"
+          class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+          (click)="load()"
+        >
+          {{ 'doctors.retry' | transloco }}
+        </button>
+      </div>
+    }
+    @default {
+      <!-- ---- names -->
+      <section aria-labelledby="doctor-names-title" class="space-y-4">
+        <h3 id="doctor-names-title" class="text-lg font-semibold">{{ 'doctors.edit.names_title' | transloco }}</h3>
+
+        <div #banner tabindex="-1" role="alert" aria-live="assertive" class="outline-none">
+          @if (conflict()) {
+            <div id="doctor-edit-conflict" class="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-900">
+              <p class="font-medium">{{ 'doctors.conflict.title' | transloco }}</p>
+              <p>{{ 'doctors.conflict.message' | transloco }}</p>
+              <button
+                id="doctor-edit-reload"
+                type="button"
+                class="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+                [disabled]="reloading()"
+                [attr.aria-busy]="reloading()"
+                (click)="reload()"
+              >
+                @if (reloading()) {
+                  {{ 'doctors.conflict.reloading' | transloco }}
+                } @else {
+                  {{ 'doctors.conflict.reload' | transloco }}
+                }
+              </button>
+            </div>
+          }
+          @if (formErrorKey(); as key) {
+            <div id="doctor-edit-error" class="rounded-lg bg-red-50 p-3 text-sm text-red-800">
+              <!-- i18n-keys: error.unexpected -->
+              <p>{{ key | transloco }}</p>
+              @if (correlationId(); as id) {
+                <p class="mt-1 text-xs" dir="ltr">{{ 'doctors.correlation' | transloco: { id: id } }}</p>
+              }
+            </div>
+          }
+        </div>
+
+        @if (earlier(); as mine) {
+          <div id="doctor-edit-earlier" class="space-y-2 rounded-lg border border-slate-300 bg-slate-50 p-4 text-sm">
+            <p class="font-medium">{{ 'doctors.conflict.earlier_title' | transloco }}</p>
+            <p class="text-slate-600">{{ 'doctors.conflict.earlier_hint' | transloco }}</p>
+            <p><bdi lang="ar" dir="rtl">{{ mine.nameAr }}</bdi></p>
+            <p><bdi lang="en" dir="ltr">{{ mine.nameEn }}</bdi></p>
+            <button type="button" class="text-blue-700 underline" (click)="dismissEarlier()">{{ 'doctors.conflict.dismiss' | transloco }}</button>
+          </div>
+        }
+
+        <form id="doctor-names-form" novalidate class="space-y-4" (submit)="onSubmit($event)">
+          <div>
+            <label for="doctor-name-ar" class="mb-1 block text-sm font-medium">{{ 'doctors.form.name_ar' | transloco }}</label>
+            <input
+              id="doctor-name-ar"
+              type="text"
+              lang="ar"
+              dir="rtl"
+              autocomplete="off"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              [formField]="namesForm.nameAr"
+              [attr.aria-invalid]="namesForm.nameAr().touched() && namesForm.nameAr().invalid()"
+              aria-describedby="doctor-name-ar-error"
+            />
+            <div id="doctor-name-ar-error" aria-live="polite">
+              @if (namesForm.nameAr().touched()) {
+                @for (error of namesForm.nameAr().errors(); track $index) {
+                  <!-- i18n-keys: error.doctor.name_ar_required, error.doctor.name_ar_too_long, error.doctor.name_ar_invalid, error.validation.invalid, error.unexpected -->
+                  <p class="mt-1 text-sm text-red-700">{{ messageKey(error.message) | transloco }}</p>
+                }
+              }
+            </div>
+          </div>
+
+          <div>
+            <label for="doctor-name-en" class="mb-1 block text-sm font-medium">{{ 'doctors.form.name_en' | transloco }}</label>
+            <input
+              id="doctor-name-en"
+              type="text"
+              lang="en"
+              dir="ltr"
+              autocomplete="off"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              [formField]="namesForm.nameEn"
+              [attr.aria-invalid]="namesForm.nameEn().touched() && namesForm.nameEn().invalid()"
+              aria-describedby="doctor-name-en-error"
+            />
+            <div id="doctor-name-en-error" aria-live="polite">
+              @if (namesForm.nameEn().touched()) {
+                @for (error of namesForm.nameEn().errors(); track $index) {
+                  <!-- i18n-keys: error.doctor.name_en_required, error.doctor.name_en_too_long, error.doctor.name_en_invalid, error.validation.invalid, error.unexpected -->
+                  <p class="mt-1 text-sm text-red-700">{{ messageKey(error.message) | transloco }}</p>
+                }
+              }
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-3">
+            <button
+              id="doctor-names-save"
+              type="submit"
+              class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              [disabled]="namesForm().submitting() || conflict()"
+              [attr.aria-busy]="namesForm().submitting()"
+            >
+              @if (namesForm().submitting()) {
+                {{ 'doctors.form.saving' | transloco }}
+              } @else {
+                {{ 'doctors.edit.names_save' | transloco }}
+              }
+            </button>
+            <a
+              routerLink="/doctors"
+              [queryParams]="listQuery()"
+              class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            >
+              {{ 'doctors.form.cancel' | transloco }}
+            </a>
+          </div>
+        </form>
+      </section>
+
+      <!-- ---- slot duration: its own request and its own errors (D64) -->
+      <section aria-labelledby="doctor-slot-title" class="space-y-3 border-t border-slate-200 pt-6">
+        <h3 id="doctor-slot-title" class="text-lg font-semibold">{{ 'doctors.detail.slot_title' | transloco }}</h3>
+        <p id="doctor-slot-current">
+          {{ 'doctors.detail.slot_current' | transloco: { minutes: ('doctors.minutes' | transloco: { count: (slot().current | intl: 'number') }) } }}
+        </p>
+        @if (slot().pending; as pending) {
+          <p id="doctor-slot-pending" class="text-slate-700">
+            {{ 'doctors.detail.slot_pending' | transloco: { date: (pending.effectiveFrom | intl: 'date'), minutes: ('doctors.minutes' | transloco: { count: (pending.slotMinutes | intl: 'number') }) } }}
+          </p>
+        }
+
+        <form id="doctor-slot-form" novalidate class="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4" (submit)="onSlotSubmit($event)">
+          <p class="text-sm text-slate-700">{{ 'doctors.detail.slot_replaces' | transloco }}</p>
+          <div>
+            <label for="doctor-slot-minutes" class="mb-1 block text-sm font-medium">{{ 'doctors.detail.slot_minutes' | transloco }}</label>
+            <select
+              id="doctor-slot-minutes"
+              class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              [formField]="slotForm.slotMinutes"
+              aria-describedby="doctor-slot-minutes-error"
+            >
+              @for (minutes of slotOptions; track minutes) {
+                <option [value]="'' + minutes">{{ 'doctors.form.slot_option' | transloco: { count: (minutes | intl: 'number') } }}</option>
+              }
+            </select>
+            <div id="doctor-slot-minutes-error" aria-live="polite">
+              @for (error of slotForm.slotMinutes().errors(); track $index) {
+                <!-- i18n-keys: error.doctor.slot_minutes_required, error.doctor.slot_minutes_invalid, error.validation.invalid, error.unexpected -->
+                <p class="mt-1 text-sm text-red-700">{{ messageKey(error.message) | transloco }}</p>
+              }
+            </div>
+          </div>
+          <div>
+            <label for="doctor-slot-date" class="mb-1 block text-sm font-medium">{{ 'doctors.detail.slot_effective_from' | transloco }}</label>
+            <input
+              id="doctor-slot-date"
+              type="date"
+              dir="ltr"
+              class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              [formField]="slotForm.effectiveFrom"
+              [attr.min]="minDate()"
+              [attr.aria-invalid]="slotForm.effectiveFrom().touched() && slotForm.effectiveFrom().invalid()"
+              aria-describedby="doctor-slot-date-error"
+            />
+            <div id="doctor-slot-date-error" aria-live="polite">
+              @if (slotForm.effectiveFrom().touched()) {
+                @for (error of slotForm.effectiveFrom().errors(); track $index) {
+                  <!-- i18n-keys: error.doctor.effective_from_required, error.doctor.effective_from_not_future, error.validation.invalid, error.unexpected -->
+                  <p class="mt-1 text-sm text-red-700">{{ messageKey(error.message) | transloco }}</p>
+                }
+              }
+            </div>
+          </div>
+          <div id="doctor-slot-error" aria-live="polite">
+            @if (slotErrorKey(); as key) {
+              <!-- i18n-keys: error.unexpected -->
+              <p class="text-sm text-red-700">{{ key | transloco }}</p>
+            }
+          </div>
+          <button
+            id="doctor-slot-save"
+            type="submit"
+            class="rounded-lg bg-blue-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            [disabled]="slotForm().submitting()"
+            [attr.aria-busy]="slotForm().submitting()"
+          >
+            @if (slotForm().submitting()) {
+              {{ 'doctors.detail.slot_saving' | transloco }}
+            } @else {
+              {{ 'doctors.detail.slot_save' | transloco }}
+            }
+          </button>
+        </form>
+      </section>
+    }
+  }
+</section>

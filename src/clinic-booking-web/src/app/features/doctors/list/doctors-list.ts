@@ -14,7 +14,7 @@ import {
 import { rxResource, takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { catchError, debounceTime, map, of, Subject } from 'rxjs';
+import { catchError, debounceTime, firstValueFrom, map, of, Subject } from 'rxjs';
 import { DoctorPage, DoctorsApi } from '../../../../api/doctors-api';
 import { ApiError, NETWORK_ERROR_KEY, parseApiError, UNEXPECTED_ERROR_KEY } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
@@ -23,11 +23,21 @@ import { SessionService } from '../../../core/auth/session.service';
 import { IntlPipe } from '../../../core/format/intl.pipe';
 import { LanguageService } from '../../../core/i18n/language.service';
 import { Pager } from '../../../shared/ui/pager';
+import { ConfirmDialog } from '../../../shared/ui/confirm-dialog';
+import { ToastService } from '../../../core/ui/toast.service';
 import { FilterPanel } from '../../../shared/ui/filter-panel';
 import { SortButton } from '../../../shared/ui/sort-button';
 import { ariaSort, columnDirection, namesColumn, nextSort, singleColumn, SortColumn } from '../../../shared/list/header-sort';
 import { DoctorsSession } from '../doctors-session';
-import { byUiName, DoctorReferenceData, namesFor, NameView, ReferenceList } from '../doctor-view';
+import {
+  byUiName,
+  DoctorReferenceData,
+  managesAnyClinicOf,
+  managesEveryClinicOf,
+  namesFor,
+  NameView,
+  ReferenceList,
+} from '../doctor-view';
 import {
   isSameListState,
   ListState,
@@ -67,6 +77,12 @@ interface FilterDraft {
 
 interface RowView {
   id: string;
+  nameAr: string;
+  nameEn: string;
+  /** Edit and Specialties: doctors.manage in ANY of the doctor's clinics (UX only, D64). */
+  canEdit: boolean;
+  /** Delete: doctors.manage in ALL of them (UX only, D64). */
+  canDelete: boolean;
   primary: NameView;
   secondary: NameView;
   specialties: NameView[];
@@ -81,7 +97,7 @@ interface RowView {
  */
 @Component({
   selector: 'cb-doctors-list',
-  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, Pager, FilterPanel],
+  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, Pager, FilterPanel, ConfirmDialog],
   templateUrl: './doctors-list.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -94,6 +110,7 @@ export class DoctorsList {
   private readonly memory = inject(DoctorsSession);
   private readonly languages = inject(LanguageService);
   private readonly session = inject(SessionService);
+  private readonly toasts = inject(ToastService);
 
   protected readonly statusFilters = STATUS_FILTERS;
   protected readonly maxSearchLength = MAX_SEARCH_LENGTH;
@@ -171,7 +188,11 @@ export class DoctorsList {
     const language = this.languages.language();
     return (this.pageResult()?.items ?? []).map((item) => ({
       id: String(item.id),
+      nameAr: item.nameAr,
+      nameEn: item.nameEn,
       ...namesFor(item.nameAr, item.nameEn, language),
+      canEdit: managesAnyClinicOf(this.session, item.clinics),
+      canDelete: managesEveryClinicOf(this.session, item.clinics),
       specialties: byUiName(item.specialties, language).map((s) => namesFor(s.nameAr, s.nameEn, language).primary),
       clinics: byUiName(item.clinics, language).map((c) => ({
         id: String(c.clinicId),
@@ -310,6 +331,52 @@ export class DoctorsList {
 
   protected goToPage(page: number): void {
     this.apply({ page });
+  }
+
+  // ---- delete from the row (D64): the dialog names both names; 404 means already deleted
+  protected readonly pendingDelete = signal<RowView | null>(null);
+  protected readonly deleting = signal(false);
+  protected readonly deleteErrorKey = signal<string | null>(null);
+
+  protected askDelete(row: RowView): void {
+    this.deleteErrorKey.set(null);
+    this.pendingDelete.set(row);
+  }
+
+  protected cancelDelete(): void {
+    if (!this.deleting()) {
+      this.pendingDelete.set(null);
+    }
+  }
+
+  protected async confirmDelete(): Promise<void> {
+    const row = this.pendingDelete();
+    if (row === null) return;
+
+    this.deleting.set(true);
+    try {
+      await firstValueFrom(this.api.delete(row.id));
+      this.toasts.showToast('doctors.flash.deleted');
+      this.finishDelete();
+    } catch (error: unknown) {
+      const failure = parseApiError(error);
+      if (failure.status === 404) {
+        // Already deleted elsewhere: the outcome is what the user wanted.
+        this.toasts.showToast('doctors.flash.already_deleted');
+        this.finishDelete();
+      } else {
+        // error.doctor.all_clinics_required and every other failure stay in the dialog (D62).
+        this.deleteErrorKey.set(this.messages.forError(failure));
+      }
+    } finally {
+      this.deleting.set(false);
+    }
+  }
+
+  private finishDelete(): void {
+    this.pendingDelete.set(null);
+    this.resource.reload();
+    this.heading()?.nativeElement.focus();
   }
 
   protected retry(): void {
