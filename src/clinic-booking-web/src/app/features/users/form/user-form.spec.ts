@@ -106,16 +106,16 @@ describe('UserForm (create a user, D57, D59)', () => {
       expect(document.activeElement).toBe(one('h2'));
     });
 
-    it('the toggle is one pattern: a fixed label with aria-pressed', async () => {
-      const toggle = one<HTMLButtonElement>('button[aria-controls=user-temporary-password]')!;
-      expect(toggle.textContent?.trim()).toBe(uar.form.show_password);
-      expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    it('the toggle is one pattern: a real checkbox with a visible label (D64)', async () => {
+      const toggle = one<HTMLInputElement>('input[type=checkbox][aria-controls=user-temporary-password]')!;
+      expect(one(`label[for="${toggle.id}"]`)?.textContent?.trim()).toBe(uar.form.show_password);
+      expect(toggle.checked).toBe(false);
 
       toggle.click();
       await settle();
 
-      expect(toggle.textContent?.trim()).toBe(uar.form.show_password);
-      expect(toggle.getAttribute('aria-pressed')).toBe('true');
+      expect(one(`label[for="${toggle.id}"]`)?.textContent?.trim()).toBe(uar.form.show_password);
+      expect(toggle.checked).toBe(true);
       expect(passwordField().type).toBe('text');
     });
 
@@ -220,7 +220,7 @@ describe('UserForm (create a user, D57, D59)', () => {
     it('the typed password is nowhere after the submit: not in the DOM, the URL, the router state or storage', async () => {
       document.body.appendChild(root());
       await fill();
-      one<HTMLButtonElement>('button[aria-controls=user-temporary-password]')!.click(); // shown while typing
+      one<HTMLInputElement>('input[type=checkbox][aria-controls=user-temporary-password]')!.click(); // shown while typing
       await settle();
 
       await submit();

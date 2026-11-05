@@ -166,38 +166,38 @@ describe('ChangePassword page (D58, D59)', () => {
   });
 
   describe('show and hide', () => {
-    it('uses one pattern: a fixed label with aria-pressed, never a label that changes too', async () => {
+    it('uses one pattern: a real checkbox with a visible label that never changes (D64)', async () => {
       await open();
-      const toggle = one<HTMLButtonElement>('button[aria-controls=cp-current]')!;
+      const toggle = one<HTMLInputElement>('input[type=checkbox][aria-controls=cp-current]')!;
 
-      expect(toggle.textContent?.trim()).toBe(aar.show_current);
-      expect(toggle.getAttribute('aria-pressed')).toBe('false');
+      expect(one(`label[for="${toggle.id}"]`)?.textContent?.trim()).toBe(aar.show_current);
+      expect(toggle.checked).toBe(false);
       expect(current().type).toBe('password');
 
       toggle.click();
       await settle();
 
-      expect(toggle.textContent?.trim()).toBe(aar.show_current);
-      expect(toggle.getAttribute('aria-pressed')).toBe('true');
+      expect(one(`label[for="${toggle.id}"]`)?.textContent?.trim()).toBe(aar.show_current);
+      expect(toggle.checked).toBe(true);
       expect(current().type).toBe('text');
 
       toggle.click();
       await settle();
 
-      expect(toggle.textContent?.trim()).toBe(aar.show_current);
-      expect(toggle.getAttribute('aria-pressed')).toBe('false');
+      expect(one(`label[for="${toggle.id}"]`)?.textContent?.trim()).toBe(aar.show_current);
+      expect(toggle.checked).toBe(false);
       expect(current().type).toBe('password');
     });
 
     it('the second toggle shows and hides the new password and its confirmation together', async () => {
       await open();
-      const toggle = one<HTMLButtonElement>('button[aria-controls="cp-new cp-confirm"]')!;
+      const toggle = one<HTMLInputElement>('input[type=checkbox][aria-controls="cp-new cp-confirm"]')!;
 
       toggle.click();
       await settle();
 
-      expect(toggle.textContent?.trim()).toBe(aar.show_new);
-      expect(toggle.getAttribute('aria-pressed')).toBe('true');
+      expect(one(`label[for="${toggle.id}"]`)?.textContent?.trim()).toBe(aar.show_new);
+      expect(toggle.checked).toBe(true);
       expect(fresh().type).toBe('text');
       expect(confirm().type).toBe('text');
     });
@@ -205,8 +205,8 @@ describe('ChangePassword page (D58, D59)', () => {
     it('the fields are hidden again after a request is sent', async () => {
       await open();
       await fill();
-      one<HTMLButtonElement>('button[aria-controls=cp-current]')!.click();
-      one<HTMLButtonElement>('button[aria-controls="cp-new cp-confirm"]')!.click();
+      one<HTMLInputElement>('input[type=checkbox][aria-controls=cp-current]')!.click();
+      one<HTMLInputElement>('input[type=checkbox][aria-controls="cp-new cp-confirm"]')!.click();
       await settle();
 
       await submit();
@@ -217,6 +217,9 @@ describe('ChangePassword page (D58, D59)', () => {
       expect(current().type).toBe('password');
       expect(fresh().type).toBe('password');
       expect(confirm().type).toBe('password');
+      // The checkboxes are reset too (D59, D64).
+      expect(one<HTMLInputElement>('input[type=checkbox][aria-controls=cp-current]')!.checked).toBe(false);
+      expect(one<HTMLInputElement>('input[type=checkbox][aria-controls="cp-new cp-confirm"]')!.checked).toBe(false);
     });
   });
 

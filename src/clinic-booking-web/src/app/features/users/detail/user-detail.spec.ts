@@ -375,15 +375,15 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       expect(one('label[for=reset-password]')!.textContent?.trim()).toBe(uar.detail.reset.password);
     });
 
-    it('the show toggle is one pattern: a fixed label with aria-pressed', async () => {
+    it('the show toggle is one pattern: a real checkbox with a visible label (D64)', async () => {
       await openReset();
-      const toggle = one<HTMLButtonElement>('button[aria-controls=reset-password]')!;
+      const toggle = one<HTMLInputElement>('input[type=checkbox][aria-controls=reset-password]')!;
 
       toggle.click();
       await settle();
 
-      expect(toggle.textContent?.trim()).toBe(uar.detail.reset.show_password);
-      expect(toggle.getAttribute('aria-pressed')).toBe('true');
+      expect(one(`label[for="${toggle.id}"]`)?.textContent?.trim()).toBe(uar.detail.reset.show_password);
+      expect(toggle.checked).toBe(true);
       expect(resetField().type).toBe('text');
     });
 

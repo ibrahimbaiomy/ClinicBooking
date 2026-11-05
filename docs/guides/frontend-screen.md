@@ -81,10 +81,10 @@ page that needs a clinic-scoped permission anywhere uses `clinicPermissionInAnyG
 ## Special fields and lists (D59)
 
 - **A password or other secret:** read once, empty the field **before** the
-  answer comes back (success or failure), reset the show toggle; keep it out of
+  answer comes back (success or failure), uncheck the "show password" checkbox; keep it out of
   the URL, router state, storage and any signal that outlives the form. Server
-  messages for the field live in a small keys-only signal. The show/hide toggle
-  is a button with a **fixed** label and `aria-pressed`. Tests search the DOM,
+  messages for the field live in a small keys-only signal. "Show password" is
+  a real checkbox with a visible label (D64). Tests search the DOM,
   URL, router state and storage for a recognisable value.
 - **A dialog that asks for input:** pass `focusSelector` to `cb-confirm-dialog`
   so the field takes the focus; Cancel, Esc and any other close empty it.

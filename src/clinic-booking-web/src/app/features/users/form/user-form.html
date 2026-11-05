@@ -65,15 +65,17 @@
         aria-describedby="user-password-hint user-password-error"
         (input)="clearServerErrors('temporaryPassword')"
       />
-      <button
-        type="button"
-        class="mt-1 rounded text-sm text-blue-700 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        aria-controls="user-temporary-password"
-        [attr.aria-pressed]="showPassword()"
-        (click)="togglePassword()"
-      >
-        {{ 'users.form.show_password' | transloco }}
-      </button>
+      <div class="mt-2 flex items-center gap-2">
+        <input
+          id="user-temporary-password-show"
+          type="checkbox"
+          class="size-4 rounded border-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          aria-controls="user-temporary-password"
+          [checked]="showPassword()"
+          (change)="togglePassword()"
+        />
+        <label for="user-temporary-password-show" class="text-sm">{{ 'users.form.show_password' | transloco }}</label>
+      </div>
       <p id="user-password-hint" class="mt-1 text-sm text-slate-600">
         {{ 'users.form.temporary_password_hint' | transloco }}
       </p>
