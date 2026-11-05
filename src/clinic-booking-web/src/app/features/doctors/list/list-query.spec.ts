@@ -45,14 +45,14 @@ describe('doctors list-query (D62)', () => {
   });
 
   it('the API query names each filter only when it is set', () => {
-    expect(toApiQuery(DEFAULT_LIST_STATE)).toEqual({ Page: 1, PageSize: 20, SortBy: 'nameAr', SortDirection: 'asc' });
+    expect(toApiQuery(DEFAULT_LIST_STATE)).toEqual({ Page: 1, PageSize: 10, SortBy: 'nameAr', SortDirection: 'asc' });
     expect(toApiQuery({ ...DEFAULT_LIST_STATE, search: 'x', specialty: '5', clinic: '3', status: 'active' })).toEqual({
       Search: 'x',
       SpecialtyId: '5',
       ClinicId: '3',
       IsActive: true,
       Page: 1,
-      PageSize: 20,
+      PageSize: 10,
       SortBy: 'nameAr',
       SortDirection: 'asc',
     });

@@ -104,19 +104,19 @@ describe('SpecialtiesList', () => {
       expect(params.get('SortBy')).toBe('nameAr');
       expect(params.get('SortDirection')).toBe('asc');
       expect(params.get('Page')).toBe('1');
-      expect(params.get('PageSize')).toBe('20');
+      expect(params.get('PageSize')).toBe('10');
       expect(params.has('Search')).toBe(false);
       expect(router.url).toBe('/specialties');
       flush(request, pageOf([CARDIOLOGY]));
     });
 
     it('reads search, page, size and sort from the URL', async () => {
-      await open('/specialties?q=%D9%82%D9%84%D8%A8&page=2&size=10&sort=createdAt&dir=desc');
+      await open('/specialties?q=%D9%82%D9%84%D8%A8&page=2&size=50&sort=createdAt&dir=desc');
 
       const params = nextList().request.params;
       expect(params.get('Search')).toBe('قلب');
       expect(params.get('Page')).toBe('2');
-      expect(params.get('PageSize')).toBe('10');
+      expect(params.get('PageSize')).toBe('50');
       expect(params.get('SortBy')).toBe('createdAt');
       expect(params.get('SortDirection')).toBe('desc');
       expect(one<HTMLInputElement>('#specialties-search')!.value).toBe('قلب');
@@ -127,7 +127,7 @@ describe('SpecialtiesList', () => {
 
       const params = nextList().request.params;
       expect(params.get('Page')).toBe('1');
-      expect(params.get('PageSize')).toBe('20');
+      expect(params.get('PageSize')).toBe('10');
       expect(params.get('SortBy')).toBe('nameAr');
       expect(params.get('SortDirection')).toBe('asc');
     });
@@ -405,7 +405,7 @@ describe('SpecialtiesList', () => {
   describe('sort, size and paging', () => {
     beforeEach(async () => {
       await open('/specialties?page=2');
-      flush(nextList(), pageOf([CARDIOLOGY], 45, 2));
+      flush(nextList(), pageOf([CARDIOLOGY], 25, 2));
       await settle();
     });
 
@@ -446,7 +446,7 @@ describe('SpecialtiesList', () => {
       buttons()[1].click();
       await settle();
       expect(router.url).toBe('/specialties?page=3');
-      flush(nextList(), pageOf([CARDIOLOGY], 45, 3));
+      flush(nextList(), pageOf([CARDIOLOGY], 25, 3));
       await settle();
       expect(buttons()[1].disabled).toBe(true);
 
@@ -459,7 +459,7 @@ describe('SpecialtiesList', () => {
     it('disables Previous on the first page', async () => {
       await router.navigateByUrl('/specialties');
       await settle();
-      flush(nextList(), pageOf([CARDIOLOGY], 45, 1));
+      flush(nextList(), pageOf([CARDIOLOGY], 25, 1));
       await settle();
 
       expect(all<HTMLButtonElement>('cb-pager button')[0].disabled).toBe(true);
@@ -468,7 +468,7 @@ describe('SpecialtiesList', () => {
     it('steps back to the last page when the URL points past the end', async () => {
       await router.navigateByUrl('/specialties?page=9');
       await settle();
-      flush(nextList(), pageOf([], 45, 9));
+      flush(nextList(), pageOf([], 25, 9));
       await settle();
 
       expect(router.url).toBe('/specialties?page=3');
@@ -603,7 +603,7 @@ describe('SpecialtiesList', () => {
     });
 
     it('deleting the last row of the last page steps back one page', async () => {
-      await open('/specialties?page=3&size=10');
+      await open('/specialties?page=3');
       flush(nextList(), pageOf([item(21, 'آخر', 'Last')], 21, 3, 10));
       await settle();
       await askDelete();
@@ -616,7 +616,7 @@ describe('SpecialtiesList', () => {
       flush(nextList(), pageOf([], 20, 3, 10)); // page 3 no longer exists
       await settle();
 
-      expect(router.url).toBe('/specialties?page=2&size=10');
+      expect(router.url).toBe('/specialties?page=2');
       const params = nextList().request.params;
       expect(params.get('Page')).toBe('2');
       expect(params.get('PageSize')).toBe('10');

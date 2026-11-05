@@ -6,7 +6,6 @@
   "loading": "جارٍ التحميل…",
   "retry": "إعادة المحاولة",
   "correlation": "مرجع للدعم الفني: {{ id }}",
-  "page_size": "لكل صفحة",
   "results": "عرض {{ from }}–{{ to }} من {{ total }}",
   "minutes": "{{ count }} دقيقة",
   "search": {

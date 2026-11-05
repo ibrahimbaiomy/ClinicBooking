@@ -86,7 +86,7 @@ describe('UsersList (D57, D59)', () => {
       expect(request.request.params.get('SortBy')).toBe('userName');
       expect(request.request.params.get('SortDirection')).toBe('asc');
       expect(request.request.params.get('Page')).toBe('1');
-      expect(request.request.params.get('PageSize')).toBe('20');
+      expect(request.request.params.get('PageSize')).toBe('10');
       expect(request.request.params.has('Search')).toBe(false);
       expect(request.request.params.has('IsActive')).toBe(false);
       expect(router.url).toBe('/users');
@@ -112,7 +112,7 @@ describe('UsersList (D57, D59)', () => {
 
       const params = nextList().request.params;
       expect(params.get('Page')).toBe('1');
-      expect(params.get('PageSize')).toBe('20');
+      expect(params.get('PageSize')).toBe('10');
       expect(params.get('SortBy')).toBe('userName');
       expect(params.get('SortDirection')).toBe('asc');
       expect(params.has('IsActive')).toBe(false);
@@ -183,7 +183,7 @@ describe('UsersList (D57, D59)', () => {
     });
 
     it('shows the result range in the live region', async () => {
-      await open('/users?page=2&size=10');
+      await open('/users?page=2');
       flush(nextList(), pageOfUsers([ANN], 11, 2, 10));
       await settle();
 
@@ -335,11 +335,11 @@ describe('UsersList (D57, D59)', () => {
 
     it('a page past the end steps back to the last page', async () => {
       await open('/users?page=9');
-      flush(nextList(), pageOfUsers([], 25, 9));
+      flush(nextList(), pageOfUsers([], 15, 9));
       await settle();
 
       expect(router.url).toBe('/users?page=2');
-      flush(nextList(), pageOfUsers([ANN], 25, 2));
+      flush(nextList(), pageOfUsers([ANN], 15, 2));
     });
   });
 

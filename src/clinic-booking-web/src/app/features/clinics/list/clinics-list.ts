@@ -33,7 +33,6 @@ import {
   ListState,
   MAX_SEARCH_LENGTH,
   normalizeSearch,
-  PAGE_SIZES,
   parseListState,
   SORT_FIELDS,
   SortDirection,
@@ -86,7 +85,6 @@ export class ClinicsList {
 
   protected readonly permissions = Permissions;
   protected readonly sortFields = SORT_FIELDS;
-  protected readonly pageSizes = PAGE_SIZES;
   protected readonly maxSearchLength = MAX_SEARCH_LENGTH;
 
   private readonly heading = viewChild<ElementRef<HTMLElement>>('heading');
@@ -227,8 +225,8 @@ export class ClinicsList {
     this.apply({ sortDirection: next, page: 1 });
   }
 
-  protected onPageSize(event: Event): void {
-    this.apply({ pageSize: Number((event.target as HTMLSelectElement).value), page: 1 });
+  protected onPageSize(pageSize: number): void {
+    this.apply({ pageSize, page: 1 });
   }
 
   protected goToPage(page: number): void {

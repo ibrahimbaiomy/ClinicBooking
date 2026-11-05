@@ -13,7 +13,7 @@ const parse = (params: Record<string, string>) => parseListState(convertToParamM
 
 describe('list query', () => {
   it('pins the defaults in one place: Arabic name ascending, page 1, 20 per page', () => {
-    expect(DEFAULT_LIST_STATE).toEqual({ search: '', page: 1, pageSize: 20, sortBy: 'nameAr', sortDirection: 'asc' });
+    expect(DEFAULT_LIST_STATE).toEqual({ search: '', page: 1, pageSize: 10, sortBy: 'nameAr', sortDirection: 'asc' });
   });
 
   it('the default list has a clean URL', () => {
@@ -24,7 +24,7 @@ describe('list query', () => {
   it('the default list sends an explicit API query (defaults are never left to the server)', () => {
     expect(toApiQuery(DEFAULT_LIST_STATE)).toEqual({
       Page: 1,
-      PageSize: 20,
+      PageSize: 10,
       SortBy: 'nameAr',
       SortDirection: 'asc',
     });

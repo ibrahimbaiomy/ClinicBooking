@@ -28,7 +28,8 @@
     "label": "Pagination",
     "previous": "Previous",
     "next": "Next",
-    "page_of": "Page {{ page }} of {{ total }}"
+    "page_of": "Page {{ page }} of {{ total }}",
+    "page_size": "Per page"
   },
   "login": {
     "title": "Sign in",

@@ -104,19 +104,19 @@ describe('ClinicsList', () => {
       expect(params.get('SortBy')).toBe('nameAr');
       expect(params.get('SortDirection')).toBe('asc');
       expect(params.get('Page')).toBe('1');
-      expect(params.get('PageSize')).toBe('20');
+      expect(params.get('PageSize')).toBe('10');
       expect(params.has('Search')).toBe(false);
       expect(router.url).toBe('/clinics');
       flush(request, pageOfClinics([NILE]));
     });
 
     it('reads search, page, size and sort from the URL', async () => {
-      await open('/clinics?q=%D9%82%D9%84%D8%A8&page=2&size=10&sort=createdAt&dir=desc');
+      await open('/clinics?q=%D9%82%D9%84%D8%A8&page=2&size=50&sort=createdAt&dir=desc');
 
       const params = nextList().request.params;
       expect(params.get('Search')).toBe('قلب');
       expect(params.get('Page')).toBe('2');
-      expect(params.get('PageSize')).toBe('10');
+      expect(params.get('PageSize')).toBe('50');
       expect(params.get('SortBy')).toBe('createdAt');
       expect(params.get('SortDirection')).toBe('desc');
       expect(one<HTMLInputElement>('#clinics-search')!.value).toBe('قلب');
@@ -127,7 +127,7 @@ describe('ClinicsList', () => {
 
       const params = nextList().request.params;
       expect(params.get('Page')).toBe('1');
-      expect(params.get('PageSize')).toBe('20');
+      expect(params.get('PageSize')).toBe('10');
       expect(params.get('SortBy')).toBe('nameAr');
       expect(params.get('SortDirection')).toBe('asc');
     });
@@ -406,7 +406,7 @@ describe('ClinicsList', () => {
   describe('sort, size and paging', () => {
     beforeEach(async () => {
       await open('/clinics?page=2');
-      flush(nextList(), pageOfClinics([NILE], 45, 2));
+      flush(nextList(), pageOfClinics([NILE], 25, 2));
       await settle();
     });
 
@@ -447,7 +447,7 @@ describe('ClinicsList', () => {
       buttons()[1].click();
       await settle();
       expect(router.url).toBe('/clinics?page=3');
-      flush(nextList(), pageOfClinics([NILE], 45, 3));
+      flush(nextList(), pageOfClinics([NILE], 25, 3));
       await settle();
       expect(buttons()[1].disabled).toBe(true);
 
@@ -460,7 +460,7 @@ describe('ClinicsList', () => {
     it('disables Previous on the first page', async () => {
       await router.navigateByUrl('/clinics');
       await settle();
-      flush(nextList(), pageOfClinics([NILE], 45, 1));
+      flush(nextList(), pageOfClinics([NILE], 25, 1));
       await settle();
 
       expect(all<HTMLButtonElement>('cb-pager button')[0].disabled).toBe(true);
@@ -469,7 +469,7 @@ describe('ClinicsList', () => {
     it('steps back to the last page when the URL points past the end', async () => {
       await router.navigateByUrl('/clinics?page=9');
       await settle();
-      flush(nextList(), pageOfClinics([], 45, 9));
+      flush(nextList(), pageOfClinics([], 25, 9));
       await settle();
 
       expect(router.url).toBe('/clinics?page=3');
@@ -602,7 +602,7 @@ describe('ClinicsList', () => {
     });
 
     it('deleting the last row of the last page steps back one page', async () => {
-      await open('/clinics?page=3&size=10');
+      await open('/clinics?page=3');
       flush(nextList(), pageOfClinics([clinic(21, 'آخر', 'Last')], 21, 3, 10));
       await settle();
       await askDelete();
@@ -615,7 +615,7 @@ describe('ClinicsList', () => {
       flush(nextList(), pageOfClinics([], 20, 3, 10)); // page 3 no longer exists
       await settle();
 
-      expect(router.url).toBe('/clinics?page=2&size=10');
+      expect(router.url).toBe('/clinics?page=2');
       const params = nextList().request.params;
       expect(params.get('Page')).toBe('2');
       expect(params.get('PageSize')).toBe('10');

@@ -29,7 +29,6 @@ import {
   ListState,
   MAX_SEARCH_LENGTH,
   normalizeSearch,
-  PAGE_SIZES,
   parseListState,
   SortDirection,
   SortField,
@@ -86,7 +85,6 @@ export class DoctorsList {
   private readonly languages = inject(LanguageService);
   private readonly session = inject(SessionService);
 
-  protected readonly pageSizes = PAGE_SIZES;
   protected readonly statusFilters = STATUS_FILTERS;
   protected readonly maxSearchLength = MAX_SEARCH_LENGTH;
 
@@ -259,8 +257,8 @@ export class DoctorsList {
     this.apply({ sortDirection: next, page: 1 });
   }
 
-  protected onPageSize(event: Event): void {
-    this.apply({ pageSize: Number((event.target as HTMLSelectElement).value), page: 1 });
+  protected onPageSize(pageSize: number): void {
+    this.apply({ pageSize, page: 1 });
   }
 
   protected goToPage(page: number): void {

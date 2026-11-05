@@ -17,7 +17,7 @@ describe('users list query', () => {
       search: '',
       status: 'all',
       page: 1,
-      pageSize: 20,
+      pageSize: 10,
       sortBy: 'userName',
       sortDirection: 'asc',
     });
@@ -26,7 +26,7 @@ describe('users list query', () => {
   it('the default list has a clean URL and an explicit API query without a status', () => {
     expect(toQueryParams(DEFAULT_LIST_STATE)).toEqual({});
     expect(parse({})).toEqual(DEFAULT_LIST_STATE);
-    expect(toApiQuery(DEFAULT_LIST_STATE)).toEqual({ Page: 1, PageSize: 20, SortBy: 'userName', SortDirection: 'asc' });
+    expect(toApiQuery(DEFAULT_LIST_STATE)).toEqual({ Page: 1, PageSize: 10, SortBy: 'userName', SortDirection: 'asc' });
   });
 
   it('reads every parameter from the URL', () => {
@@ -47,11 +47,11 @@ describe('users list query', () => {
   });
 
   it('writes only what differs from the defaults, and round-trips', () => {
-    const state = { search: 'ann', status: 'active', page: 2, pageSize: 10, sortBy: 'createdAt', sortDirection: 'desc' } as const;
+    const state = { search: 'ann', status: 'active', page: 2, pageSize: 20, sortBy: 'createdAt', sortDirection: 'desc' } as const;
 
     const params = toQueryParams(state);
 
-    expect(params).toEqual({ q: 'ann', status: 'active', page: 2, size: 10, sort: 'createdAt', dir: 'desc' });
+    expect(params).toEqual({ q: 'ann', status: 'active', page: 2, size: 20, sort: 'createdAt', dir: 'desc' });
     expect(parse(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])))).toEqual(state);
   });
 

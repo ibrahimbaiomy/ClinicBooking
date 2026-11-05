@@ -74,20 +74,6 @@
       }
     </button>
 
-    <div>
-      <label for="users-size" class="mb-1 block text-sm font-medium">
-        {{ 'users.page_size' | transloco }}
-      </label>
-      <select
-        id="users-size"
-        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        (change)="onPageSize($event)"
-      >
-        @for (size of pageSizes; track size) {
-          <option [value]="size" [selected]="size === state().pageSize">{{ size | intl: 'number' }}</option>
-        }
-      </select>
-    </div>
   </form>
 
   <div [attr.aria-busy]="loading()">
@@ -191,7 +177,14 @@
         </ul>
 
         <div class="mt-4">
-          <cb-pager [page]="state().page" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
+          <cb-pager
+            sizeId="users-size"
+            [page]="state().page"
+            [totalPages]="totalPages()"
+            [pageSize]="state().pageSize"
+            (pageChange)="goToPage($event)"
+            (pageSizeChange)="onPageSize($event)"
+          />
         </div>
       }
     }

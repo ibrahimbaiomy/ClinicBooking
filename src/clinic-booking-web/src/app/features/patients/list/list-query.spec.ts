@@ -7,7 +7,7 @@ describe('patients list-query (D63)', () => {
   it('an empty URL is the default state: name ascending', () => {
     expect(parse({})).toEqual(DEFAULT_LIST_STATE);
     expect(toQueryParams(DEFAULT_LIST_STATE)).toEqual({});
-    expect(toApiQuery(DEFAULT_LIST_STATE)).toEqual({ Page: 1, PageSize: 20, SortBy: 'name', SortDirection: 'asc' });
+    expect(toApiQuery(DEFAULT_LIST_STATE)).toEqual({ Page: 1, PageSize: 10, SortBy: 'name', SortDirection: 'asc' });
   });
 
   it('round-trips a phone search, paging and the creation sort', () => {

@@ -1,24 +1,36 @@
-<nav
-  class="flex items-center justify-between gap-3"
-  [attr.aria-label]="'pager.label' | transloco"
->
-  <button
-    type="button"
-    class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-    [disabled]="page() <= 1"
-    (click)="pageChange.emit(page() - 1)"
-  >
-    {{ 'pager.previous' | transloco }}
-  </button>
-  <span class="text-sm text-slate-600">
-    {{ 'pager.page_of' | transloco: { page: page(), total: totalPages() } }}
-  </span>
-  <button
-    type="button"
-    class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-    [disabled]="totalPages() <= page()"
-    (click)="pageChange.emit(page() + 1)"
-  >
-    {{ 'pager.next' | transloco }}
-  </button>
-</nav>
+<div class="flex flex-wrap items-center justify-between gap-3">
+  <nav class="flex items-center gap-3" [attr.aria-label]="'pager.label' | transloco">
+    <button
+      type="button"
+      class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      [disabled]="page() <= 1"
+      (click)="pageChange.emit(page() - 1)"
+    >
+      {{ 'pager.previous' | transloco }}
+    </button>
+    <span class="whitespace-nowrap text-sm text-slate-600">
+      {{ 'pager.page_of' | transloco: { page: page(), total: totalPages() } }}
+    </span>
+    <button
+      type="button"
+      class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      [disabled]="totalPages() <= page()"
+      (click)="pageChange.emit(page() + 1)"
+    >
+      {{ 'pager.next' | transloco }}
+    </button>
+  </nav>
+
+  <div class="flex items-center gap-2">
+    <label [for]="sizeId()" class="text-sm font-medium">{{ 'pager.page_size' | transloco }}</label>
+    <select
+      [id]="sizeId()"
+      class="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      (change)="onSize($event)"
+    >
+      @for (size of pageSizes; track size) {
+        <option [value]="size" [selected]="size === pageSize()">{{ size | intl: 'number' }}</option>
+      }
+    </select>
+  </div>
+</div>

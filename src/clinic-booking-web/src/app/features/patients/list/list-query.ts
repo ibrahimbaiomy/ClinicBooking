@@ -20,11 +20,11 @@ export type SortField = (typeof SORT_FIELDS)[number];
 
 export type ListState = PagedSortedState<SortField>;
 
-/** The one place the defaults live: name ascending, page 1, 20 per page (D53, D63). */
+/** The one place the defaults live: name ascending, page 1, 10 per page (D53, D63). */
 export const DEFAULT_LIST_STATE: ListState = {
   search: '',
   page: 1,
-  pageSize: 20,
+  pageSize: 10,
   sortBy: 'name',
   sortDirection: 'asc',
 };

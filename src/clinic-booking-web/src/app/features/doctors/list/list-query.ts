@@ -32,14 +32,14 @@ export interface ListState extends PagedSortedState<SortField> {
   status: StatusFilter;
 }
 
-/** The one place the defaults live: Arabic name ascending, no filter, page 1, 20 per page (D53, D62). */
+/** The one place the defaults live: Arabic name ascending, no filter, page 1, 10 per page (D53, D62). */
 export const DEFAULT_LIST_STATE: ListState = {
   search: '',
   specialty: '',
   clinic: '',
   status: 'all',
   page: 1,
-  pageSize: 20,
+  pageSize: 10,
   sortBy: 'nameAr',
   sortDirection: 'asc',
 };

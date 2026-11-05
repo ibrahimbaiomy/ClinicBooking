@@ -25,12 +25,12 @@ export interface ListState extends PagedSortedState<SortField> {
   status: StatusFilter;
 }
 
-/** The one place the defaults live: user name ascending, every status, page 1, 20 per page (D53, D59). */
+/** The one place the defaults live: user name ascending, every status, page 1, 10 per page (D53, D59). */
 export const DEFAULT_LIST_STATE: ListState = {
   search: '',
   status: 'all',
   page: 1,
-  pageSize: 20,
+  pageSize: 10,
   sortBy: 'userName',
   sortDirection: 'asc',
 };

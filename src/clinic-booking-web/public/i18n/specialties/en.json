@@ -6,7 +6,6 @@
   "loading": "Loading…",
   "retry": "Try again",
   "correlation": "Reference for support: {{ id }}",
-  "page_size": "Per page",
   "results": "Showing {{ from }}–{{ to }} of {{ total }}",
   "search": {
     "label": "Search",

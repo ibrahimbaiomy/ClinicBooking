@@ -24,7 +24,7 @@ export type ListState = PagedSortedState<SortField>;
 export const DEFAULT_LIST_STATE: ListState = {
   search: '',
   page: 1,
-  pageSize: 20,
+  pageSize: 10,
   sortBy: 'nameAr',
   sortDirection: 'asc',
 };
