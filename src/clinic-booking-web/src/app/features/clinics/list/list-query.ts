@@ -14,7 +14,7 @@ export { MAX_SEARCH_LENGTH, normalizeSearch, PAGE_SIZES, SORT_DIRECTIONS } from 
 export type { SortDirection };
 
 /** Mirror of the API's allowed values (the schema types them as plain strings; ListClinicsQuery). */
-export const SORT_FIELDS = ['nameAr', 'nameEn', 'createdAt'] as const;
+export const SORT_FIELDS = ['nameAr', 'nameEn', 'phone', 'address', 'createdAt'] as const;
 
 export type SortField = (typeof SORT_FIELDS)[number];
 

@@ -76,32 +76,35 @@
       }
     </div>
 
-    <div>
-      <label for="doctors-sort" class="mb-1 block text-sm font-medium">{{ 'doctors.sort.label' | transloco }}</label>
-      <select
-        id="doctors-sort"
-        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        [value]="state().sortBy"
-        (change)="onSort($event)"
+    <!-- The cards view (below md) sorts here; the table sorts from its headers (D64). -->
+    <div class="flex flex-wrap items-end gap-3 md:hidden">
+      <div>
+        <label for="doctors-sort" class="mb-1 block text-sm font-medium">{{ 'doctors.sort.label' | transloco }}</label>
+        <select
+          id="doctors-sort"
+          class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          [value]="state().sortBy"
+          (change)="onSort($event)"
+        >
+          <option value="nameAr">{{ 'doctors.sort.name_ar' | transloco }}</option>
+          <option value="nameEn">{{ 'doctors.sort.name_en' | transloco }}</option>
+          <option value="slotMinutes">{{ 'doctors.sort.slot_minutes' | transloco }}</option>
+          <option value="createdAt">{{ 'doctors.sort.created_at' | transloco }}</option>
+        </select>
+      </div>
+
+      <button
+        type="button"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        (click)="toggleDirection()"
       >
-        <option value="nameAr">{{ 'doctors.sort.name_ar' | transloco }}</option>
-        <option value="nameEn">{{ 'doctors.sort.name_en' | transloco }}</option>
-        <option value="createdAt">{{ 'doctors.sort.created_at' | transloco }}</option>
-      </select>
+        @if (state().sortDirection === 'asc') {
+          {{ 'doctors.sort.asc' | transloco }}
+        } @else {
+          {{ 'doctors.sort.desc' | transloco }}
+        }
+      </button>
     </div>
-
-    <button
-      type="button"
-      class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-      (click)="toggleDirection()"
-    >
-      @if (state().sortDirection === 'asc') {
-        {{ 'doctors.sort.asc' | transloco }}
-      } @else {
-        {{ 'doctors.sort.desc' | transloco }}
-      }
-    </button>
-
   </form>
 
   @if (optionsIncomplete()) {
@@ -159,16 +162,19 @@
           <caption class="sr-only">{{ 'doctors.table.caption' | transloco }}</caption>
           <thead class="bg-slate-100 text-sm text-slate-700">
             <tr>
-              <th
-                scope="col"
-                class="px-4 py-3 text-start font-semibold"
-                [attr.aria-sort]="state().sortBy !== 'createdAt' ? (state().sortDirection === 'asc' ? 'ascending' : 'descending') : null"
-              >
-                {{ 'doctors.table.doctor' | transloco }}
+              <th scope="col" class="px-4 py-3 text-start font-semibold" [attr.aria-sort]="ariaSortOf(nameColumn())">
+                <cb-sort-button [direction]="direction(nameColumn())" (sort)="sortByColumn(nameColumn())">
+                  {{ 'doctors.table.doctor' | transloco }}
+                </cb-sort-button>
               </th>
+              <!-- Several values per row: not sortable (D64). -->
               <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'doctors.table.specialties' | transloco }}</th>
               <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'doctors.table.clinics' | transloco }}</th>
-              <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'doctors.table.slot' | transloco }}</th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold" [attr.aria-sort]="ariaSortOf(slotColumn)">
+                <cb-sort-button [direction]="direction(slotColumn)" (sort)="sortByColumn(slotColumn)">
+                  {{ 'doctors.table.slot' | transloco }}
+                </cb-sort-button>
+              </th>
               <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'doctors.table.actions' | transloco }}</th>
             </tr>
           </thead>

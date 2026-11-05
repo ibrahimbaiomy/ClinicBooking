@@ -16,6 +16,8 @@
     "label": "Sort by",
     "name_ar": "Arabic name",
     "name_en": "English name",
+    "phone": "Phone",
+    "address": "Address",
     "created_at": "Date created",
     "asc": "Ascending",
     "desc": "Descending"

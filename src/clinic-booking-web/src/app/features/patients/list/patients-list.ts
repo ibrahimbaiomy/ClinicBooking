@@ -26,6 +26,8 @@ import { IntlPipe } from '../../../core/format/intl.pipe';
 import { PhonePipe } from '../../../core/format/phone.pipe';
 import { ConfirmDialog } from '../../../shared/ui/confirm-dialog';
 import { Pager } from '../../../shared/ui/pager';
+import { SortButton } from '../../../shared/ui/sort-button';
+import { ariaSort, columnDirection, nextSort, singleColumn, SortColumn } from '../../../shared/list/header-sort';
 import { PatientsSession } from '../patients-session';
 import {
   isSameListState,
@@ -56,7 +58,7 @@ interface RowView {
 
 @Component({
   selector: 'cb-patients-list',
-  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, PhonePipe, CanDirective, Pager, ConfirmDialog],
+  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, PhonePipe, CanDirective, Pager, ConfirmDialog],
   templateUrl: './patients-list.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -209,6 +211,23 @@ export class PatientsList {
 
   protected onPageSize(pageSize: number): void {
     this.apply({ pageSize, page: 1 });
+  }
+
+  // ---- sorting from the table headers (D64): first click ascending, the same column again toggles
+  protected readonly nameColumn = singleColumn<SortField>('name');
+  protected readonly phoneColumn = singleColumn<SortField>('phone');
+  protected readonly createdColumn = singleColumn<SortField>('createdAt');
+
+  protected direction(column: SortColumn<SortField>): SortDirection | null {
+    return columnDirection(this.state(), column);
+  }
+
+  protected ariaSortOf(column: SortColumn<SortField>): 'ascending' | 'descending' | null {
+    return ariaSort(this.direction(column));
+  }
+
+  protected sortByColumn(column: SortColumn<SortField>): void {
+    this.apply({ ...nextSort(this.state(), column), page: 1 });
   }
 
   protected goToPage(page: number): void {

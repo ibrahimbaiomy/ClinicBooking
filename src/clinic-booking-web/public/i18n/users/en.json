@@ -21,6 +21,8 @@
   "sort": {
     "label": "Sort by",
     "user_name": "User name",
+    "status": "Status",
+    "password": "Password change required",
     "created_at": "Date created",
     "asc": "Ascending",
     "desc": "Descending"
@@ -29,6 +31,7 @@
     "caption": "List of users",
     "user_name": "User name",
     "status": "Status",
+    "password": "Password",
     "created": "Created",
     "actions": "Actions"
   },

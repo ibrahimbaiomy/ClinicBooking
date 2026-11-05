@@ -22,6 +22,8 @@ import { SessionService } from '../../../core/auth/session.service';
 import { IntlPipe } from '../../../core/format/intl.pipe';
 import { LanguageService } from '../../../core/i18n/language.service';
 import { Pager } from '../../../shared/ui/pager';
+import { SortButton } from '../../../shared/ui/sort-button';
+import { ariaSort, columnDirection, namesColumn, nextSort, singleColumn, SortColumn } from '../../../shared/list/header-sort';
 import { DoctorsSession } from '../doctors-session';
 import { byUiName, DoctorReferenceData, namesFor, NameView, ReferenceList } from '../doctor-view';
 import {
@@ -71,7 +73,7 @@ interface RowView {
  */
 @Component({
   selector: 'cb-doctors-list',
-  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, Pager],
+  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, Pager],
   templateUrl: './doctors-list.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -259,6 +261,22 @@ export class DoctorsList {
 
   protected onPageSize(pageSize: number): void {
     this.apply({ pageSize, page: 1 });
+  }
+
+  // ---- sorting from the table headers (D64): first click ascending, the same column again toggles
+  protected readonly nameColumn = computed<SortColumn<SortField>>(() => namesColumn(this.languages.language()));
+  protected readonly slotColumn = singleColumn<SortField>('slotMinutes');
+
+  protected direction(column: SortColumn<SortField>): SortDirection | null {
+    return columnDirection(this.state(), column);
+  }
+
+  protected ariaSortOf(column: SortColumn<SortField>): 'ascending' | 'descending' | null {
+    return ariaSort(this.direction(column));
+  }
+
+  protected sortByColumn(column: SortColumn<SortField>): void {
+    this.apply({ ...nextSort(this.state(), column), page: 1 });
   }
 
   protected goToPage(page: number): void {

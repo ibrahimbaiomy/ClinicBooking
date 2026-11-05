@@ -148,6 +148,32 @@ describe('DoctorsList (D62)', () => {
     expect(router.url).toBe('/doctors?specialty=10');
   });
 
+  it('sorts from the name and slot headers; the specialties, clinics and actions columns are not sortable (D64)', async () => {
+    await open('/doctors?page=2', managerOf(1), 'en');
+    http.expectOne(isDoctors).flush(pageOfDoctors([AHMED], 30, 2));
+    await settle();
+
+    const headers = all<HTMLTableCellElement>('thead th');
+    expect(headers.map((th) => th.querySelector('cb-sort-button') !== null)).toEqual([true, false, false, true, false]);
+    expect(headers.map((th) => th.querySelector('svg') !== null)).toEqual([true, false, false, true, false]);
+    expect(headers[0].getAttribute('aria-sort')).toBe('ascending');
+
+    headers[3].querySelector<HTMLButtonElement>('button')!.click();
+    await settle();
+    expect(router.url).toBe('/doctors?sort=slotMinutes');
+    const params = http.expectOne(isDoctors).request.params;
+    expect(params.get('SortBy')).toBe('slotMinutes');
+    expect(params.get('Page')).toBe('1');
+    await settle();
+    expect(all<HTMLTableCellElement>('thead th')[3].getAttribute('aria-sort')).toBe('ascending');
+
+    // In English the names column starts with the English name.
+    all<HTMLTableCellElement>('thead th')[0].querySelector<HTMLButtonElement>('button')!.click();
+    await settle();
+    expect(router.url).toBe('/doctors?sort=nameEn');
+    http.expectOne(isDoctors);
+  });
+
   it('shows both names, the specialties in the UI language order, the clinics with an inactive one in words, and the slot', async () => {
     await open();
     http.expectOne(isDoctors).flush(pageOfDoctors([AHMED]));

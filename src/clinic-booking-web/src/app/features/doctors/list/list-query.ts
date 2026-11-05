@@ -15,7 +15,7 @@ export { MAX_SEARCH_LENGTH, normalizeSearch, PAGE_SIZES, SORT_DIRECTIONS } from 
 export type { SortDirection };
 
 /** Mirror of the API's allowed values (the schema types them as plain strings; ListDoctorsQuery). */
-export const SORT_FIELDS = ['nameAr', 'nameEn', 'createdAt'] as const;
+export const SORT_FIELDS = ['nameAr', 'nameEn', 'slotMinutes', 'createdAt'] as const;
 
 /** `active` in the URL; it means something only with a clinic (error.doctor.is_active_requires_clinic, D61). */
 export const STATUS_FILTERS = ['all', 'active', 'inactive'] as const;

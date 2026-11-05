@@ -14,7 +14,7 @@ export { MAX_SEARCH_LENGTH, normalizeSearch, PAGE_SIZES, SORT_DIRECTIONS } from 
 export type { SortDirection };
 
 /** Mirror of the API's allowed values (ListPatientsQuery, D63). */
-export const SORT_FIELDS = ['name', 'createdAt'] as const;
+export const SORT_FIELDS = ['name', 'phone', 'createdAt'] as const;
 
 export type SortField = (typeof SORT_FIELDS)[number];
 

@@ -243,6 +243,31 @@ describe('UsersList (D57, D59)', () => {
     });
   });
 
+  describe('sorting from the table headers (D64)', () => {
+    it('status and password change are separate sortable columns; the actions column is not', async () => {
+      await open('/users?page=2');
+      flush(nextList(), pageOfUsers([ANN, CARL], 30, 2));
+      await settle();
+
+      const headers = () => all<HTMLTableCellElement>('thead th');
+      expect(headers().map((th) => th.querySelector('cb-sort-button') !== null)).toEqual([true, true, true, true, false]);
+      expect(tableRows()[1].querySelectorAll('td')[1].textContent).toContain(uar.status.must_change);
+      expect(tableRows()[0].querySelectorAll('td')[1].textContent).toContain(uar.detail.password_ok);
+
+      headers()[2].querySelector<HTMLButtonElement>('button')!.click();
+      await settle();
+      expect(router.url).toBe('/users?sort=mustChangePassword');
+      expect(nextList().request.params.get('SortBy')).toBe('mustChangePassword');
+      await settle();
+      expect(headers()[2].getAttribute('aria-sort')).toBe('ascending');
+
+      headers()[1].querySelector<HTMLButtonElement>('button')!.click();
+      await settle();
+      expect(router.url).toBe('/users?sort=isActive');
+      expect(nextList().request.params.get('SortBy')).toBe('isActive');
+    });
+  });
+
   describe('search, filter, sort and paging', () => {
     it('typing is debounced, replaces the URL and returns to page 1', async () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'Date'] });

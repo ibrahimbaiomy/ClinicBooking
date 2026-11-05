@@ -20,6 +20,8 @@ import { ApiError, NETWORK_ERROR_KEY, parseApiError, UNEXPECTED_ERROR_KEY } from
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
 import { IntlPipe } from '../../../core/format/intl.pipe';
 import { Pager } from '../../../shared/ui/pager';
+import { SortButton } from '../../../shared/ui/sort-button';
+import { ariaSort, columnDirection, nextSort, singleColumn, SortColumn } from '../../../shared/list/header-sort';
 import { UsersSession } from '../users-session';
 import {
   isSameListState,
@@ -52,7 +54,7 @@ interface RowView {
 /** Users (D57, D59): search by user name, filter by status, sort, page. The URL is the state (D53). */
 @Component({
   selector: 'cb-users-list',
-  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, Pager],
+  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, Pager],
   templateUrl: './users-list.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -202,6 +204,24 @@ export class UsersList {
 
   protected onPageSize(pageSize: number): void {
     this.apply({ pageSize, page: 1 });
+  }
+
+  // ---- sorting from the table headers (D64): first click ascending, the same column again toggles
+  protected readonly userNameColumn = singleColumn<SortField>('userName');
+  protected readonly statusColumn = singleColumn<SortField>('isActive');
+  protected readonly passwordColumn = singleColumn<SortField>('mustChangePassword');
+  protected readonly createdColumn = singleColumn<SortField>('createdAt');
+
+  protected direction(column: SortColumn<SortField>): SortDirection | null {
+    return columnDirection(this.state(), column);
+  }
+
+  protected ariaSortOf(column: SortColumn<SortField>): 'ascending' | 'descending' | null {
+    return ariaSort(this.direction(column));
+  }
+
+  protected sortByColumn(column: SortColumn<SortField>): void {
+    this.apply({ ...nextSort(this.state(), column), page: 1 });
   }
 
   protected goToPage(page: number): void {

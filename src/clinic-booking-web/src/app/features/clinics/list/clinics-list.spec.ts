@@ -403,6 +403,67 @@ describe('ClinicsList', () => {
     });
   });
 
+  describe('sorting from the table headers (D64)', () => {
+    const headers = () => all<HTMLTableCellElement>('thead th');
+    const headerButton = (index: number) => headers()[index].querySelector<HTMLButtonElement>('cb-sort-button button');
+
+    beforeEach(async () => {
+      await open('/clinics?page=2');
+      flush(nextList(), pageOfClinics([NILE], 25, 2));
+      await settle();
+    });
+
+    it('every single-valued column has a button with a direction icon; the actions column has none', () => {
+      expect(headers().map((th) => th.querySelector('cb-sort-button') !== null)).toEqual([true, true, true, true, false]);
+      expect(headers()[0].getAttribute('aria-sort')).toBe('ascending');
+      expect(headers()[1].hasAttribute('aria-sort')).toBe(false);
+      expect(headers()[0].querySelector('svg')?.getAttribute('data-direction')).toBe('asc');
+      expect(headers()[1].querySelector('svg')?.getAttribute('data-direction')).toBe('none');
+      expect(headers()[0].querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+      // The cards view keeps its own sort control, hidden from md up, listing every field.
+      expect(one('#clinics-sort')!.closest('.md\\:hidden')).not.toBeNull();
+      expect(all<HTMLOptionElement>('#clinics-sort option').map((o) => o.value)).toEqual(['nameAr', 'nameEn', 'phone', 'address', 'createdAt']);
+    });
+
+    it('a new column starts ascending, the same column again toggles, and every change returns to page 1', async () => {
+      headerButton(1)!.click();
+      await settle();
+      expect(router.url).toBe('/clinics?sort=phone');
+      expect(nextList().request.params.get('SortBy')).toBe('phone');
+      await settle();
+      expect(headers()[1].getAttribute('aria-sort')).toBe('ascending');
+      expect(headers()[0].hasAttribute('aria-sort')).toBe(false);
+
+      headerButton(1)!.click();
+      await settle();
+      expect(router.url).toBe('/clinics?sort=phone&dir=desc');
+      const params = nextList().request.params;
+      expect(params.get('SortBy')).toBe('phone');
+      expect(params.get('SortDirection')).toBe('desc');
+      expect(params.get('Page')).toBe('1');
+      await settle();
+      expect(headers()[1].getAttribute('aria-sort')).toBe('descending');
+
+      headerButton(2)!.click();
+      await settle();
+      expect(router.url).toBe('/clinics?sort=address');
+      nextList();
+    });
+
+    it('the name column toggles while sorted by either name, and the created column sorts by date', async () => {
+      headerButton(0)!.click();
+      await settle();
+      expect(router.url).toBe('/clinics?dir=desc');
+      nextList();
+      await settle();
+
+      headerButton(3)!.click();
+      await settle();
+      expect(router.url).toBe('/clinics?sort=createdAt');
+      nextList();
+    });
+  });
+
   describe('sort, size and paging', () => {
     beforeEach(async () => {
       await open('/clinics?page=2');

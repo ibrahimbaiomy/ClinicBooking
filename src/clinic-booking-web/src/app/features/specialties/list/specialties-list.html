@@ -30,34 +30,36 @@
       />
     </div>
 
-    <div>
-      <label for="specialties-sort" class="mb-1 block text-sm font-medium">
-        {{ 'specialties.sort.label' | transloco }}
-      </label>
-      <select
-        id="specialties-sort"
-        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        [value]="state().sortBy"
-        (change)="onSort($event)"
+    <!-- The cards view (below md) sorts here; the table sorts from its headers (D64). -->
+    <div class="flex flex-wrap items-end gap-3 md:hidden">
+      <div>
+        <label for="specialties-sort" class="mb-1 block text-sm font-medium">
+          {{ 'specialties.sort.label' | transloco }}
+        </label>
+        <select
+          id="specialties-sort"
+          class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          [value]="state().sortBy"
+          (change)="onSort($event)"
+        >
+          <option value="nameAr">{{ 'specialties.sort.name_ar' | transloco }}</option>
+          <option value="nameEn">{{ 'specialties.sort.name_en' | transloco }}</option>
+          <option value="createdAt">{{ 'specialties.sort.created_at' | transloco }}</option>
+        </select>
+      </div>
+
+      <button
+        type="button"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        (click)="toggleDirection()"
       >
-        <option value="nameAr">{{ 'specialties.sort.name_ar' | transloco }}</option>
-        <option value="nameEn">{{ 'specialties.sort.name_en' | transloco }}</option>
-        <option value="createdAt">{{ 'specialties.sort.created_at' | transloco }}</option>
-      </select>
+        @if (state().sortDirection === 'asc') {
+          {{ 'specialties.sort.asc' | transloco }}
+        } @else {
+          {{ 'specialties.sort.desc' | transloco }}
+        }
+      </button>
     </div>
-
-    <button
-      type="button"
-      class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-      (click)="toggleDirection()"
-    >
-      @if (state().sortDirection === 'asc') {
-        {{ 'specialties.sort.asc' | transloco }}
-      } @else {
-        {{ 'specialties.sort.desc' | transloco }}
-      }
-    </button>
-
   </form>
 
   <div [attr.aria-busy]="loading()">
@@ -107,19 +109,15 @@
           <caption class="sr-only">{{ 'specialties.table.caption' | transloco }}</caption>
           <thead class="bg-slate-100 text-sm text-slate-700">
             <tr>
-              <th
-                scope="col"
-                class="px-4 py-3 text-start font-semibold"
-                [attr.aria-sort]="state().sortBy !== 'createdAt' ? (state().sortDirection === 'asc' ? 'ascending' : 'descending') : null"
-              >
-                {{ 'specialties.table.specialty' | transloco }}
+              <th scope="col" class="px-4 py-3 text-start font-semibold" [attr.aria-sort]="ariaSortOf(nameColumn())">
+                <cb-sort-button [direction]="direction(nameColumn())" (sort)="sortByColumn(nameColumn())">
+                  {{ 'specialties.table.specialty' | transloco }}
+                </cb-sort-button>
               </th>
-              <th
-                scope="col"
-                class="px-4 py-3 text-start font-semibold"
-                [attr.aria-sort]="state().sortBy === 'createdAt' ? (state().sortDirection === 'asc' ? 'ascending' : 'descending') : null"
-              >
-                {{ 'specialties.table.created' | transloco }}
+              <th scope="col" class="px-4 py-3 text-start font-semibold" [attr.aria-sort]="ariaSortOf(createdColumn)">
+                <cb-sort-button [direction]="direction(createdColumn)" (sort)="sortByColumn(createdColumn)">
+                  {{ 'specialties.table.created' | transloco }}
+                </cb-sort-button>
               </th>
               <th scope="col" class="px-4 py-3 text-start font-semibold">
                 {{ 'specialties.table.actions' | transloco }}

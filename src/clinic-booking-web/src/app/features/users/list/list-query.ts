@@ -15,7 +15,7 @@ export { MAX_SEARCH_LENGTH, normalizeSearch, PAGE_SIZES, SORT_DIRECTIONS } from 
 export type { SortDirection };
 
 /** Mirror of the API's allowed values (the schema types them as plain strings; ListUsersQuery). */
-export const SORT_FIELDS = ['userName', 'createdAt'] as const;
+export const SORT_FIELDS = ['userName', 'isActive', 'mustChangePassword', 'createdAt'] as const;
 export const STATUS_FILTERS = ['all', 'active', 'disabled'] as const;
 
 export type SortField = (typeof SORT_FIELDS)[number];

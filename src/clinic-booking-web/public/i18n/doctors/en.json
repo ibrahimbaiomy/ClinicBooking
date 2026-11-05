@@ -30,6 +30,7 @@
     "label": "Sort by",
     "name_ar": "Arabic name",
     "name_en": "English name",
+    "slot_minutes": "Appointment length",
     "created_at": "Date added",
     "asc": "Ascending",
     "desc": "Descending"

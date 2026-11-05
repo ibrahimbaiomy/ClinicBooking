@@ -1,0 +1,27 @@
+<button
+  type="button"
+  class="-mx-1 inline-flex items-center gap-1 rounded px-1 text-start font-semibold hover:text-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+  (click)="sort.emit()"
+>
+  <ng-content />
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    class="size-4 shrink-0"
+    [class.text-slate-400]="direction() === null"
+    [attr.data-direction]="direction() ?? 'none'"
+  >
+    @switch (direction()) {
+      @case ('asc') {
+        <path fill-rule="evenodd" d="M10 4a.75.75 0 0 1 .53.22l4.25 4.25a.75.75 0 1 1-1.06 1.06l-2.97-2.97V15.25a.75.75 0 0 1-1.5 0V6.56L6.28 9.53a.75.75 0 0 1-1.06-1.06l4.25-4.25A.75.75 0 0 1 10 4Z" clip-rule="evenodd" />
+      }
+      @case ('desc') {
+        <path fill-rule="evenodd" d="M10 16a.75.75 0 0 1-.53-.22l-4.25-4.25a.75.75 0 1 1 1.06-1.06l2.97 2.97V4.75a.75.75 0 0 1 1.5 0v8.69l2.97-2.97a.75.75 0 1 1 1.06 1.06l-4.25 4.25A.75.75 0 0 1 10 16Z" clip-rule="evenodd" />
+      }
+      @default {
+        <path fill-rule="evenodd" d="M10 3a.75.75 0 0 1 .55.24l3.25 3.5a.75.75 0 1 1-1.1 1.02L10 4.85 7.3 7.76a.75.75 0 1 1-1.1-1.02l3.25-3.5A.75.75 0 0 1 10 3Zm-3.76 9.2a.75.75 0 0 1 1.06.04L10 15.15l2.7-2.91a.75.75 0 1 1 1.1 1.02l-3.25 3.5a.75.75 0 0 1-1.1 0l-3.25-3.5a.75.75 0 0 1 .04-1.06Z" clip-rule="evenodd" />
+      }
+    }
+  </svg>
+</button>

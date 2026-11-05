@@ -30,34 +30,38 @@
       />
     </div>
 
-    <div>
-      <label for="clinics-sort" class="mb-1 block text-sm font-medium">
-        {{ 'clinics.sort.label' | transloco }}
-      </label>
-      <select
-        id="clinics-sort"
-        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        [value]="state().sortBy"
-        (change)="onSort($event)"
+    <!-- The cards view (below md) sorts here; the table sorts from its headers (D64). -->
+    <div class="flex flex-wrap items-end gap-3 md:hidden">
+      <div>
+        <label for="clinics-sort" class="mb-1 block text-sm font-medium">
+          {{ 'clinics.sort.label' | transloco }}
+        </label>
+        <select
+          id="clinics-sort"
+          class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          [value]="state().sortBy"
+          (change)="onSort($event)"
+        >
+          <option value="nameAr">{{ 'clinics.sort.name_ar' | transloco }}</option>
+          <option value="nameEn">{{ 'clinics.sort.name_en' | transloco }}</option>
+          <option value="phone">{{ 'clinics.sort.phone' | transloco }}</option>
+          <option value="address">{{ 'clinics.sort.address' | transloco }}</option>
+          <option value="createdAt">{{ 'clinics.sort.created_at' | transloco }}</option>
+        </select>
+      </div>
+
+      <button
+        type="button"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        (click)="toggleDirection()"
       >
-        <option value="nameAr">{{ 'clinics.sort.name_ar' | transloco }}</option>
-        <option value="nameEn">{{ 'clinics.sort.name_en' | transloco }}</option>
-        <option value="createdAt">{{ 'clinics.sort.created_at' | transloco }}</option>
-      </select>
+        @if (state().sortDirection === 'asc') {
+          {{ 'clinics.sort.asc' | transloco }}
+        } @else {
+          {{ 'clinics.sort.desc' | transloco }}
+        }
+      </button>
     </div>
-
-    <button
-      type="button"
-      class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-      (click)="toggleDirection()"
-    >
-      @if (state().sortDirection === 'asc') {
-        {{ 'clinics.sort.asc' | transloco }}
-      } @else {
-        {{ 'clinics.sort.desc' | transloco }}
-      }
-    </button>
-
   </form>
 
   <div [attr.aria-busy]="loading()">
@@ -107,25 +111,29 @@
           <caption class="sr-only">{{ 'clinics.table.caption' | transloco }}</caption>
           <thead class="bg-slate-100 text-sm text-slate-700">
             <tr>
-              <th
-                scope="col"
-                class="px-4 py-3 text-start font-semibold"
-                [attr.aria-sort]="state().sortBy !== 'createdAt' ? (state().sortDirection === 'asc' ? 'ascending' : 'descending') : null"
-              >
-                {{ 'clinics.table.clinic' | transloco }}
+              <th scope="col" class="px-4 py-3 text-start font-semibold" [attr.aria-sort]="ariaSortOf(nameColumn())">
+                <cb-sort-button [direction]="direction(nameColumn())" (sort)="sortByColumn(nameColumn())">
+                  {{ 'clinics.table.clinic' | transloco }}
+                </cb-sort-button>
               </th>
-              <th scope="col" class="px-4 py-3 text-start font-semibold">
-                {{ 'clinics.table.phone' | transloco }}
+              <th scope="col" class="px-4 py-3 text-start font-semibold" [attr.aria-sort]="ariaSortOf(phoneColumn)">
+                <cb-sort-button [direction]="direction(phoneColumn)" (sort)="sortByColumn(phoneColumn)">
+                  {{ 'clinics.table.phone' | transloco }}
+                </cb-sort-button>
               </th>
-              <th scope="col" class="px-4 py-3 text-start font-semibold">
-                {{ 'clinics.table.address' | transloco }}
+              <th scope="col" class="px-4 py-3 text-start font-semibold" [attr.aria-sort]="ariaSortOf(addressColumn)">
+                <cb-sort-button [direction]="direction(addressColumn)" (sort)="sortByColumn(addressColumn)">
+                  {{ 'clinics.table.address' | transloco }}
+                </cb-sort-button>
               </th>
               <th
                 scope="col"
                 class="hidden px-4 py-3 text-start font-semibold lg:table-cell"
-                [attr.aria-sort]="state().sortBy === 'createdAt' ? (state().sortDirection === 'asc' ? 'ascending' : 'descending') : null"
+                [attr.aria-sort]="ariaSortOf(createdColumn)"
               >
-                {{ 'clinics.table.created' | transloco }}
+                <cb-sort-button [direction]="direction(createdColumn)" (sort)="sortByColumn(createdColumn)">
+                  {{ 'clinics.table.created' | transloco }}
+                </cb-sort-button>
               </th>
               <th scope="col" class="px-4 py-3 text-start font-semibold">
                 {{ 'clinics.table.actions' | transloco }}

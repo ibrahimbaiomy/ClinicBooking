@@ -27,6 +27,8 @@ import { PhonePipe } from '../../../core/format/phone.pipe';
 import { LanguageService } from '../../../core/i18n/language.service';
 import { ConfirmDialog } from '../../../shared/ui/confirm-dialog';
 import { Pager } from '../../../shared/ui/pager';
+import { SortButton } from '../../../shared/ui/sort-button';
+import { ariaSort, columnDirection, namesColumn, nextSort, singleColumn, SortColumn } from '../../../shared/list/header-sort';
 import { ClinicsSession } from '../clinics-session';
 import {
   isSameListState,
@@ -70,7 +72,7 @@ const EN = (text: string): NameView => ({ text, lang: 'en', dir: 'ltr' });
 
 @Component({
   selector: 'cb-clinics-list',
-  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, PhonePipe, CanDirective, Pager, ConfirmDialog],
+  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, PhonePipe, CanDirective, Pager, ConfirmDialog],
   templateUrl: './clinics-list.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -227,6 +229,24 @@ export class ClinicsList {
 
   protected onPageSize(pageSize: number): void {
     this.apply({ pageSize, page: 1 });
+  }
+
+  // ---- sorting from the table headers (D64): first click ascending, the same column again toggles
+  protected readonly nameColumn = computed<SortColumn<SortField>>(() => namesColumn(this.languages.language()));
+  protected readonly phoneColumn = singleColumn<SortField>('phone');
+  protected readonly addressColumn = singleColumn<SortField>('address');
+  protected readonly createdColumn = singleColumn<SortField>('createdAt');
+
+  protected direction(column: SortColumn<SortField>): SortDirection | null {
+    return columnDirection(this.state(), column);
+  }
+
+  protected ariaSortOf(column: SortColumn<SortField>): 'ascending' | 'descending' | null {
+    return ariaSort(this.direction(column));
+  }
+
+  protected sortByColumn(column: SortColumn<SortField>): void {
+    this.apply({ ...nextSort(this.state(), column), page: 1 });
   }
 
   protected goToPage(page: number): void {
