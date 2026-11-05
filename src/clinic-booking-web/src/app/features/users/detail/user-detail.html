@@ -71,18 +71,25 @@
             }
           </div>
 
+          @if (user.isProtected) {
+            <p id="user-protected-note" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{{ 'users.detail.protected_note' | transloco }}</p>
+          }
           @if (isOwn()) {
             <p class="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{{ 'users.detail.own_account' | transloco }}</p>
           } @else {
             <div class="flex flex-wrap gap-2">
+              <!-- The protected administrator: no disable and no reset; only its owner changes the password (D64). -->
               @if (user.isActive) {
-                <button
-                  type="button"
-                  class="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
-                  (click)="askDisable()"
-                >
-                  {{ 'users.detail.disable.action' | transloco }}
-                </button>
+                @if (!user.isProtected) {
+                  <button
+                    id="user-disable"
+                    type="button"
+                    class="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+                    (click)="askDisable()"
+                  >
+                    {{ 'users.detail.disable.action' | transloco }}
+                  </button>
+                }
               } @else {
                 <button
                   type="button"
@@ -94,20 +101,23 @@
                   {{ 'users.detail.enable.action' | transloco }}
                 </button>
               }
-              <button
-                type="button"
-                class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                (click)="askReset()"
-              >
-                {{ 'users.detail.reset.action' | transloco }}
-              </button>
+              @if (!user.isProtected) {
+                <button
+                  id="user-reset"
+                  type="button"
+                  class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                  (click)="askReset()"
+                >
+                  {{ 'users.detail.reset.action' | transloco }}
+                </button>
+              }
             </div>
           }
         </div>
 
         @if (assignable(); as lists) {
-          <cb-global-permissions-editor [user]="user" [names]="lists.global" (saved)="onSaved($event)" />
-          <cb-clinic-permissions-editor [user]="user" [names]="lists.clinicScoped" (saved)="onSaved($event)" />
+          <cb-global-permissions-editor [names]="lists.global" [isOwn]="isOwn()" />
+          <cb-clinic-permissions-editor [names]="lists.clinicScoped" />
         } @else if (assignableFailed()) {
           <div role="alert" class="space-y-3 rounded-lg bg-red-50 p-4 text-red-800">
             <!-- i18n-keys: error.unexpected -->

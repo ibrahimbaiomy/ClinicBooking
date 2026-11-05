@@ -6,9 +6,10 @@
         class="mt-1 size-4 rounded border-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
         [id]="idOf(name)"
         [checked]="selected().has(name)"
-        [disabled]="disabled()"
-        [attr.aria-describedby]="labels.labelOf(name) ? idOf(name) + '-description' : null"
-        (change)="onChange(name)"
+        [disabled]="pending().has(name) || locked()[name] !== undefined"
+        [attr.aria-busy]="pending().has(name)"
+        [attr.aria-describedby]="describedBy(name)"
+        (change)="onChange(name, $event)"
       />
       <div class="min-w-0">
         @if (labels.labelOf(name); as text) {
@@ -17,6 +18,18 @@
         } @else {
           <label [for]="idOf(name)" class="block font-medium"><bdi dir="ltr">{{ name }}</bdi></label>
         }
+        @if (locked()[name]; as hint) {
+          <!-- i18n-keys: users.global.locked -->
+          <p [id]="idOf(name) + '-locked'" class="text-sm text-amber-900">{{ hint | transloco }}</p>
+        }
+        <div [id]="idOf(name) + '-state'" aria-live="polite">
+          @if (errors()[name]; as key) {
+            <!-- i18n-keys: error.user.last_administrator, error.user.protected_keeps_users_manage, error.user.not_found, error.clinic.not_found, error.user.permission_unknown, error.concurrency.conflict, error.unexpected -->
+            <p role="alert" class="permission-error text-sm text-red-700">{{ key | transloco }}</p>
+          } @else if (saved().has(name)) {
+            <p class="permission-saved text-sm text-green-800">{{ 'users.saved' | transloco }}</p>
+          }
+        </div>
       </div>
     </li>
   }

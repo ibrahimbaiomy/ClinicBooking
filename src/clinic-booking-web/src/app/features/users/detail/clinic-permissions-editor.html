@@ -8,12 +8,12 @@
 
   <ul class="space-y-3">
     @for (card of cards(); track card.id) {
-      <li class="space-y-3 rounded-lg border border-slate-200 p-3">
+      <li class="space-y-3 rounded-lg border border-slate-200 p-3" [attr.data-clinic]="card.id">
         <fieldset class="min-w-0 space-y-3">
           <legend class="mb-2">
             <span class="block font-medium"><bdi [attr.lang]="card.primary.lang" [attr.dir]="card.primary.dir">{{ card.primary.text }}</bdi></span>
             <span class="block text-sm text-slate-500"><bdi [attr.lang]="card.secondary.lang" [attr.dir]="card.secondary.dir">{{ card.secondary.text }}</bdi></span>
-            @if (!card.stored) {
+            @if (card.picked) {
               <span class="mt-1 inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-900">{{ 'users.clinics.unsaved' | transloco }}</span>
             }
           </legend>
@@ -21,53 +21,23 @@
           <cb-permission-checklist
             [idPrefix]="'clinic-' + card.id"
             [names]="names()"
-            [selected]="selectionOf(card.id)"
-            [disabled]="busyId() !== null"
-            (toggled)="toggle(card.id, $event)"
+            [selected]="card.selected"
+            [pending]="card.pending"
+            [saved]="card.saved"
+            [errors]="card.errors"
+            (toggled)="onToggled(card, $event)"
           />
         </fieldset>
 
-        <div role="alert" aria-live="assertive">
-          @if (errors()[card.id]; as key) {
-            <!-- i18n-keys: error.user.not_found, error.clinic.not_found, error.user.permission_unknown, error.concurrency.conflict, error.unexpected -->
-            <p class="rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ key | transloco }}</p>
-          }
-        </div>
-
-        <div class="flex flex-wrap gap-2">
+        @if (canCancel(card)) {
           <button
             type="button"
-            class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-            [disabled]="busyId() !== null || !canSave(card)"
-            [attr.aria-busy]="busyId() === card.id"
-            (click)="save(card)"
+            class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            (click)="cancelAdded(card)"
           >
-            @if (busyId() === card.id) {
-              {{ 'users.clinics.saving' | transloco }}
-            } @else {
-              {{ 'users.clinics.save' | transloco }}
-            }
+            {{ 'users.clinics.cancel_add' | transloco }}
           </button>
-          @if (card.stored) {
-            <button
-              type="button"
-              class="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-50 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
-              [disabled]="busyId() !== null"
-              (click)="removeAll(card)"
-            >
-              {{ 'users.clinics.remove_all' | transloco }}
-            </button>
-          } @else {
-            <button
-              type="button"
-              class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-              [disabled]="busyId() !== null"
-              (click)="cancelAdded(card)"
-            >
-              {{ 'users.clinics.cancel_add' | transloco }}
-            </button>
-          }
-        </div>
+        }
       </li>
     }
   </ul>

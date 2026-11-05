@@ -16,6 +16,7 @@ import { ASSIGNABLE, clinicGrant, detail, PERMISSIONS_URL } from '../../../../te
 import { SessionService } from '../../../core/auth/session.service';
 import { LANGUAGE_STORAGE_KEY } from '../../../core/i18n/language';
 import { LanguageService } from '../../../core/i18n/language.service';
+import { APP_SETTINGS } from '../../../app-settings';
 import { PASSWORD_MAX_LENGTH, UserDetailPage } from './user-detail';
 
 const ROUTES: Routes = [
@@ -45,7 +46,8 @@ describe('UserDetailPage (D57, D58, D59)', () => {
   const one = <T extends Element>(selector: string) => root().querySelector<T>(selector);
   const text = (selector: string) => one(selector)?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
   const button = (label: string) => all<HTMLButtonElement>('button').find((b) => b.textContent?.trim() === label);
-  const dialogs = () => all<HTMLDialogElement>('dialog');
+  // The page's own dialogs (disable, reset); the permission editor has its own (D64).
+  const dialogs = () => all<HTMLDialogElement>('dialog').filter((dialog) => dialog.closest('cb-global-permissions-editor') === null);
   const disableDialog = () => dialogs()[0];
   const resetDialog = () => dialogs()[1];
   const dialogButtons = (dialog: HTMLDialogElement) => [...dialog.querySelectorAll<HTMLButtonElement>(':scope > div:last-of-type button')];
@@ -57,6 +59,13 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       await Promise.resolve();
     }
     await new Promise((resolve) => setTimeout(resolve, 0));
+    harness.detectChanges();
+  }
+
+  async function settleFake(ms = 0): Promise<void> {
+    await vi.advanceTimersByTimeAsync(ms);
+    harness.detectChanges();
+    await vi.advanceTimersByTimeAsync(0);
     harness.detectChanges();
   }
 
@@ -523,12 +532,13 @@ describe('UserDetailPage (D57, D58, D59)', () => {
     });
   });
 
-  describe('the global permissions editor', () => {
+  describe('the global permissions editor (saves on each change, D64)', () => {
     const editor = () => one('cb-global-permissions-editor')!;
     const boxes = () => [...editor().querySelectorAll<HTMLInputElement>('input[type=checkbox]')];
-    const save = () => [...editor().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === uar.global.save)!;
+    const stateOf = (box: HTMLInputElement) => one(`#${box.id}-state`)!;
+    const globalPut = () => http.expectOne(`${USER_URL}/global-permissions`);
 
-    it('lists the names the API sends, each with its label and description, the held ones checked', async () => {
+    it('lists the names the API sends, each with its label and description, the held ones checked, and no Save button', async () => {
       await open();
 
       expect(boxes()).toHaveLength(3);
@@ -536,10 +546,10 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       expect(editor().textContent).toContain(uar.permissions.users.manage.label);
       expect(editor().textContent).toContain(uar.permissions.users.manage.description);
       expect(editor().textContent).toContain(uar.permissions.clinics.manage.label);
-      // The checkbox is labelled by its label, and described by the description.
       const first = boxes()[0];
       expect(editor().querySelector(`label[for=${first.id}]`)!.textContent).toBe(uar.permissions.users.manage.label);
-      expect(first.getAttribute('aria-describedby')).toBeTruthy();
+      expect(first.getAttribute('aria-describedby')).toContain(`${first.id}-description`);
+      expect(editor().querySelector('section')!.querySelectorAll('button')).toHaveLength(0);
     });
 
     it('shows a bare name, left to right, for a permission that has no label yet', async () => {
@@ -558,130 +568,162 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       expect(bare.getAttribute('dir')).toBe('ltr');
     });
 
-    it('Save is off until something changes', async () => {
+    it('a change sends the full set in the API order at once, disables that checkbox meanwhile, then shows the server state', async () => {
       await open();
-      expect(save().disabled).toBe(true);
 
-      boxes()[0].click();
+      boxes()[1].click(); // specialties.manage
       await settle();
-      expect(save().disabled).toBe(false);
+      expect(boxes()[1].disabled).toBe(true);
+      expect(boxes()[1].getAttribute('aria-busy')).toBe('true');
+      expect(boxes()[0].disabled).toBe(false);
 
-      boxes()[0].click();
+      const put = globalPut();
+      expect(put.request.method).toBe('PUT');
+      expect(put.request.body).toEqual({ permissions: ['specialties.manage', 'clinics.manage'] });
+      put.flush({ ...ANN, globalPermissions: ['specialties.manage', 'clinics.manage'] });
       await settle();
-      expect(save().disabled).toBe(true);
+
+      expect(boxes()[1].disabled).toBe(false);
+      expect(boxes().map((box) => box.checked)).toEqual([false, true, true]);
+      expect(toastKeys()).toEqual([]); // a small "Saved" next to the item, not a toast
     });
 
-    it('saves the full set in the API order, then reloads and shows the server state (last write wins)', async () => {
+    it('several changes go one request at a time, in order, each with every earlier change in it', async () => {
       await open();
-      boxes()[1].click(); // specialties.manage
-      boxes()[0].click(); // users.manage
+
+      boxes()[1].click(); // + specialties.manage
+      boxes()[2].click(); // - clinics.manage
       await settle();
 
-      save().click();
+      const first = globalPut();
+      expect(first.request.body).toEqual({ permissions: ['specialties.manage', 'clinics.manage'] });
+      http.expectNone(`${USER_URL}/global-permissions`); // the second waits for the first
+      expect(boxes()[2].disabled).toBe(true); // queued counts as pending
+      first.flush({ ...ANN, globalPermissions: ['specialties.manage', 'clinics.manage'] });
       await settle();
-      const put = http.expectOne(`${USER_URL}/global-permissions`);
-      expect(put.request.method).toBe('PUT');
-      expect(put.request.body).toEqual({ permissions: ['users.manage', 'specialties.manage', 'clinics.manage'] });
-      put.flush(ANN);
-      await settle();
-      // The reload answers with what the server really has, which differs from what was sent.
-      http.expectOne(USER_URL).flush({ ...ANN, globalPermissions: ['specialties.manage'] });
+
+      const second = globalPut();
+      expect(second.request.body).toEqual({ permissions: ['specialties.manage'] });
+      second.flush({ ...ANN, globalPermissions: ['specialties.manage'] });
       await settle();
 
       expect(boxes().map((box) => box.checked)).toEqual([false, true, false]);
-      expect(toastKeys()).toContain('users.flash.global_saved');
     });
 
-    it('an empty set is a valid save', async () => {
+    it('shows "Saved" next to the changed item for the configured duration', async () => {
       await open();
-      boxes()[2].click(); // un-check clinics.manage
-      await settle();
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+      try {
+        boxes()[1].click();
+        await settleFake();
+        globalPut().flush({ ...ANN, globalPermissions: ['specialties.manage', 'clinics.manage'] });
+        await settleFake();
 
-      save().click();
-      await settle();
+        expect(stateOf(boxes()[1]).textContent?.trim()).toBe(uar.saved);
+        expect(stateOf(boxes()[0]).textContent?.trim()).toBe('');
 
-      const put = http.expectOne(`${USER_URL}/global-permissions`);
-      expect(put.request.body).toEqual({ permissions: [] });
-      put.flush(detail(5, 'ann'));
-      await settle();
-      http.expectOne(USER_URL).flush(detail(5, 'ann'));
-      await settle();
-
-      expect(boxes().every((box) => !box.checked)).toBe(true);
-      expect(text('cb-global-permissions-editor')).toContain(uar.global.none);
+        await settleFake(APP_SETTINGS.messageDurationMs - 1);
+        expect(stateOf(boxes()[1]).textContent?.trim()).toBe(uar.saved);
+        await settleFake(1);
+        expect(stateOf(boxes()[1]).textContent?.trim()).toBe('');
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
-    it('falls back to the answer of the PUT when the reload fails', async () => {
-      await open();
+    it('a refusal puts that checkbox back to the server state and shows the translated error next to it', async () => {
+      await open(detail(5, 'ann', { globalPermissions: ['users.manage'] }));
+
+      boxes()[0].click(); // remove users.manage
+      await settle();
+      flushProblem(globalPut(), 422, 'error.user.last_administrator');
+      await settle();
+
+      expect(boxes()[0].checked).toBe(true);
+      expect(boxes()[0].disabled).toBe(false);
+      expect(stateOf(boxes()[0]).querySelector('[role=alert]')!.textContent).toContain(ar.error.user.last_administrator);
+      expect(toastKeys()).toEqual([]);
+
+      // A new change of that item clears its error.
       boxes()[0].click();
       await settle();
-
-      save().click();
+      expect(stateOf(boxes()[0]).textContent?.trim()).toBe('');
+      globalPut().flush(detail(5, 'ann'));
       await settle();
-      http.expectOne(`${USER_URL}/global-permissions`).flush({ ...ANN, globalPermissions: ['users.manage', 'clinics.manage'] });
-      await settle();
-      flushProblem(http.expectOne(USER_URL), 500, 'error.unexpected');
-      await settle();
-
-      expect(boxes().map((box) => box.checked)).toEqual([true, false, true]);
     });
 
-    it('the last-administrator refusal is an alert in the editor, and the boxes stay as the user left them', async () => {
-      await open(detail(5, 'ann', { globalPermissions: ['users.manage'] }), { meId: 5 });
-      boxes()[0].click();
+    it('a failed change does not undo a later one queued for the same set', async () => {
+      await open(detail(5, 'ann', { globalPermissions: ['users.manage'] }));
+
+      boxes()[0].click(); // - users.manage (will fail)
+      boxes()[1].click(); // + specialties.manage
+      await settle();
+      flushProblem(globalPut(), 422, 'error.user.last_administrator');
       await settle();
 
-      save().click();
+      const second = globalPut();
+      expect(second.request.body).toEqual({ permissions: ['users.manage', 'specialties.manage'] });
+      second.flush(detail(5, 'ann', { globalPermissions: ['users.manage', 'specialties.manage'] }));
       await settle();
-      flushProblem(http.expectOne(`${USER_URL}/global-permissions`), 422, 'error.user.last_administrator');
-      await settle();
-
-      expect(text('cb-global-permissions-editor [role=alert]')).toContain(ar.error.user.last_administrator);
-      expect(boxes()[0].checked).toBe(false);
-      http.expectNone(USER_URL);
-    });
-
-    it('a keyed refusal shows no reference to quote; an unexpected failure does (D52)', async () => {
-      await open(detail(5, 'ann', { globalPermissions: ['users.manage'] }), { meId: 5 });
-      boxes()[0].click();
-      await settle();
-
-      save().click();
-      await settle();
-      flushProblem(http.expectOne(`${USER_URL}/global-permissions`), 422, 'error.user.last_administrator');
-      await settle();
-      expect(text('cb-global-permissions-editor')).not.toContain('corr-123');
-
-      save().click();
-      await settle();
-      flushProblem(http.expectOne(`${USER_URL}/global-permissions`), 500, 'error.unexpected');
-      await settle();
-      expect(text('cb-global-permissions-editor [role=alert]')).toContain(ar.error.unexpected);
-      expect(text('cb-global-permissions-editor')).toContain('corr-123');
-    });
-
-    it('a 404 is shown translated', async () => {
-      await open();
-      boxes()[0].click();
-      await settle();
-
-      save().click();
-      await settle();
-      flushProblem(http.expectOne(`${USER_URL}/global-permissions`), 404, 'error.user.not_found');
-      await settle();
-
-      expect(text('cb-global-permissions-editor [role=alert]')).toContain(ar.error.user.not_found);
+      expect(boxes().map((box) => box.checked)).toEqual([true, true, false]);
     });
   });
 
-  describe('the clinic permissions editor', () => {
+  describe('the protected administrator (D64)', () => {
+    const PROTECTED = detail(5, 'root', { isProtected: true, globalPermissions: ['users.manage', 'clinics.manage'] });
+    const globalBoxes = () => [...one('cb-global-permissions-editor')!.querySelectorAll<HTMLInputElement>('input[type=checkbox]')];
+
+    it('says the account is protected, offers no disable and no reset, and locks users.manage', async () => {
+      await open(PROTECTED);
+
+      expect(text('#user-protected-note')).toBe(uar.detail.protected_note);
+      expect(one('#user-disable')).toBeNull();
+      expect(one('#user-reset')).toBeNull();
+      expect(button(uar.detail.disable.action)).toBeUndefined();
+      expect(button(uar.detail.reset.action)).toBeUndefined();
+
+      const usersManage = globalBoxes()[0];
+      expect(usersManage.checked).toBe(true);
+      expect(usersManage.disabled).toBe(true);
+      expect(text(`#${usersManage.id}-locked`)).toBe(uar.global.locked);
+      // Its other permissions still change.
+      expect(globalBoxes()[2].disabled).toBe(false);
+    });
+
+    it('a protected user without users.manage may be granted it', async () => {
+      await open(detail(5, 'root', { isProtected: true }));
+
+      expect(globalBoxes()[0].disabled).toBe(false);
+      globalBoxes()[0].click();
+      await settle();
+      http.expectOne(`${USER_URL}/global-permissions`).flush(detail(5, 'root', { isProtected: true, globalPermissions: ['users.manage'] }));
+      await settle();
+      expect(globalBoxes()[0].disabled).toBe(true);
+    });
+
+    it('an ordinary user has no note and keeps disable and reset', async () => {
+      await open();
+
+      expect(one('#user-protected-note')).toBeNull();
+      expect(one('#user-disable')).not.toBeNull();
+      expect(one('#user-reset')).not.toBeNull();
+    });
+  });
+
+  describe('the clinic permissions editor (saves on each change, D64)', () => {
     const editor = () => one('cb-clinic-permissions-editor')!;
     const cards = () => [...editor().querySelectorAll<HTMLLIElement>(':scope > section > ul > li')];
     const cardButton = (card: HTMLElement, label: string) =>
-      [...card.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === label)!;
+      [...card.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === label);
     const boxesOf = (card: HTMLElement) => [...card.querySelectorAll<HTMLInputElement>('input[type=checkbox]')];
+    const TWO_CLINICS = detail(5, 'ann', {
+      clinicPermissions: [
+        clinicGrant(9, 'عيادة النيل', 'Nile Clinic', ['doctors.manage']),
+        clinicGrant(10, 'عيادة النور', 'Al Noor Clinic', ['doctors.manage']),
+      ],
+    });
 
-    it('lists each clinic with both names (the UI language first), and the names the API sends', async () => {
+    it('lists each clinic with both names (the UI language first), and has no Save or "Remove all"', async () => {
       await open();
 
       expect(cards()).toHaveLength(1);
@@ -690,7 +732,7 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       expect(names[0].getAttribute('lang')).toBe('ar');
       expect(names[1].getAttribute('dir')).toBe('ltr');
       expect(boxesOf(cards()[0]).map((box) => box.checked)).toEqual([true]);
-      expect(cards()[0].textContent).toContain(uar.permissions.doctors.manage.label);
+      expect(cards()[0].querySelectorAll('button')).toHaveLength(0);
     });
 
     it('shows the English name first in the English UI', async () => {
@@ -699,86 +741,53 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       expect([...cards()[0].querySelectorAll('legend bdi')].map((n) => n.textContent)).toEqual(['Nile Clinic', 'عيادة النيل']);
     });
 
-    it('saving a clinic is a full replace for that clinic, then the detail is reloaded', async () => {
+    it('a change is a full replace for that clinic; the card stays, unchecked, when its last permission goes', async () => {
       await open();
-      boxesOf(cards()[0])[0].click(); // un-check doctors.manage
-      boxesOf(cards()[0])[0].click(); // and check it again: no change
-      await settle();
-      expect(cardButton(cards()[0], uar.clinics.save).disabled).toBe(true);
 
       boxesOf(cards()[0])[0].click();
       await settle();
-      cardButton(cards()[0], uar.clinics.save).click();
-      await settle();
-
+      expect(boxesOf(cards()[0])[0].disabled).toBe(true);
       const put = http.expectOne(`${USER_URL}/clinics/9/permissions`);
       expect(put.request.method).toBe('PUT');
       expect(put.request.body).toEqual({ permissions: [] });
-      put.flush(detail(5, 'ann'));
-      await settle();
-      http.expectOne(USER_URL).flush(detail(5, 'ann', { globalPermissions: ['clinics.manage'] }));
+      put.flush(detail(5, 'ann', { globalPermissions: ['clinics.manage'] }));
       await settle();
 
-      expect(cards()).toHaveLength(0); // the server no longer lists the clinic
-      expect(toastKeys()).toContain('users.flash.clinic_saved');
+      expect(cards()).toHaveLength(1); // kept until the page is left
+      expect(boxesOf(cards()[0])[0].checked).toBe(false);
+      expect(cards()[0].textContent).toContain(uar.saved);
+      expect(cards()[0].textContent).not.toContain(uar.clinics.unsaved);
     });
 
-    it('"Remove all" sends an empty set', async () => {
-      await open();
+    it('a refusal for one clinic returns its checkbox and shows the error on that clinic only', async () => {
+      await open(TWO_CLINICS);
 
-      cardButton(cards()[0], uar.clinics.remove_all).click();
-      await settle();
-
-      const put = http.expectOne(`${USER_URL}/clinics/9/permissions`);
-      expect(put.request.body).toEqual({ permissions: [] });
-      put.flush(detail(5, 'ann'));
-      await settle();
-      http.expectOne(USER_URL).flush(detail(5, 'ann'));
-      await settle();
-      expect(cards()).toHaveLength(0);
-    });
-
-    it('a refusal for one clinic is shown on its card only', async () => {
-      await open(
-        detail(5, 'ann', {
-          clinicPermissions: [
-            clinicGrant(9, 'عيادة النيل', 'Nile Clinic', ['doctors.manage']),
-            clinicGrant(10, 'عيادة النور', 'Al Noor Clinic', ['doctors.manage']),
-          ],
-        }),
-      );
-
-      cardButton(cards()[1], uar.clinics.remove_all).click();
+      boxesOf(cards()[1])[0].click();
       await settle();
       flushProblem(http.expectOne(`${USER_URL}/clinics/10/permissions`), 404, 'error.clinic.not_found');
       await settle();
 
+      expect(boxesOf(cards()[1])[0].checked).toBe(true);
       expect(cards()[1].querySelector('[role=alert]')!.textContent).toContain(ar.error.clinic.not_found);
-      expect(cards()[0].querySelector('[role=alert]')!.textContent?.trim()).toBe('');
+      expect(cards()[0].querySelector('[role=alert]')).toBeNull();
     });
 
-    it('unsaved edits of another clinic survive a save of this one', async () => {
-      await open(
-        detail(5, 'ann', {
-          clinicPermissions: [
-            clinicGrant(9, 'عيادة النيل', 'Nile Clinic', ['doctors.manage']),
-            clinicGrant(10, 'عيادة النور', 'Al Noor Clinic', ['doctors.manage']),
-          ],
-        }),
-      );
-      boxesOf(cards()[1])[0].click(); // an unsaved edit in the second clinic
+    it('changes in two clinics go one at a time, in order', async () => {
+      await open(TWO_CLINICS);
 
-      cardButton(cards()[0], uar.clinics.remove_all).click();
-      await settle();
-      http.expectOne(`${USER_URL}/clinics/9/permissions`).flush(detail(5, 'ann'));
-      await settle();
-      http.expectOne(USER_URL).flush(
-        detail(5, 'ann', { clinicPermissions: [clinicGrant(10, 'عيادة النور', 'Al Noor Clinic', ['doctors.manage'])] }),
-      );
+      boxesOf(cards()[0])[0].click();
+      boxesOf(cards()[1])[0].click();
       await settle();
 
-      expect(cards()).toHaveLength(1);
-      expect(boxesOf(cards()[0])[0].checked).toBe(false); // the edit is still there
+      const first = http.expectOne(`${USER_URL}/clinics/9/permissions`);
+      http.expectNone(`${USER_URL}/clinics/10/permissions`);
+      first.flush(detail(5, 'ann', { clinicPermissions: [clinicGrant(10, 'عيادة النور', 'Al Noor Clinic', ['doctors.manage'])] }));
+      await settle();
+      http.expectOne(`${USER_URL}/clinics/10/permissions`).flush(detail(5, 'ann'));
+      await settle();
+
+      expect(cards()).toHaveLength(2);
+      expect(cards().map((card) => boxesOf(card)[0].checked)).toEqual([false, false]);
     });
 
     describe('adding a clinic', () => {
@@ -798,12 +807,12 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       const page = (items: ReturnType<typeof clinic>[], totalCount = items.length) => ({ items, page: 1, pageSize: 20, totalCount });
 
       async function openPicker(): Promise<TestRequest> {
-        cardButton(editor() as HTMLElement, uar.clinics.add).click();
+        cardButton(editor() as HTMLElement, uar.clinics.add)!.click();
         await settle();
         return clinicRequest();
       }
 
-      it('opens a search over the clinics list, the first 20 matches, newest nothing special', async () => {
+      it('opens a search over the clinics list, the first 20 matches, without the clinics already shown', async () => {
         await open();
 
         const request = await openPicker();
@@ -814,11 +823,9 @@ describe('UserDetailPage (D57, D58, D59)', () => {
         request.flush(page([clinic(9, 'عيادة النيل', 'Nile Clinic'), clinic(10, 'عيادة النور', 'Al Noor Clinic')]));
         await settle();
 
-        // A clinic the user already has is not offered again.
         const offered = [...picker().querySelectorAll('ul button')].map((b) => b.textContent?.replace(/\s+/g, ' ').trim());
         expect(offered).toHaveLength(1);
         expect(offered[0]).toContain('عيادة النور');
-        expect(document.activeElement).not.toBeNull();
       });
 
       it('says when there are more clinics than shown, and asks to refine the search', async () => {
@@ -855,7 +862,7 @@ describe('UserDetailPage (D57, D58, D59)', () => {
         expect(picker().textContent).toContain(uar.clinics.no_matches);
 
         search().value = 'zzz';
-        search().dispatchEvent(new InputEvent('input', { isComposing: true })); // typed, not yet debounced
+        search().dispatchEvent(new InputEvent('input', { isComposing: true }));
         one<HTMLFormElement>('[role=search]')!.dispatchEvent(new Event('submit', { cancelable: true }));
         await settle();
         flushProblem(clinicRequest(), 500, 'error.unexpected');
@@ -867,48 +874,30 @@ describe('UserDetailPage (D57, D58, D59)', () => {
         clinicRequest().flush(page([]));
       });
 
-      it('picking a clinic adds an unsaved card with nothing selected; Save needs a selection', async () => {
+      it('a picked clinic is unsaved until its first checked permission saves it', async () => {
         await open(detail(5, 'ann'));
         (await openPicker()).flush(page([clinic(10, 'عيادة النور', 'Al Noor Clinic')]));
         await settle();
-
         picker().querySelector<HTMLButtonElement>('ul button')!.click();
         await settle();
 
         expect(cards()).toHaveLength(1);
         expect(cards()[0].textContent).toContain(uar.clinics.unsaved);
         expect(boxesOf(cards()[0])[0].checked).toBe(false);
-        expect(cardButton(cards()[0], uar.clinics.save).disabled).toBe(true);
         expect(editor().querySelector('[role=search]')).toBeNull(); // the picker closed
+        http.expectNone(`${USER_URL}/clinics/10/permissions`);
 
         boxesOf(cards()[0])[0].click();
-        await settle();
-        expect(cardButton(cards()[0], uar.clinics.save).disabled).toBe(false);
-      });
-
-      it('saving a new clinic sends the full set for it, then shows the server state', async () => {
-        await open(detail(5, 'ann'));
-        (await openPicker()).flush(page([clinic(10, 'عيادة النور', 'Al Noor Clinic')]));
-        await settle();
-        picker().querySelector<HTMLButtonElement>('ul button')!.click();
-        await settle();
-        boxesOf(cards()[0])[0].click();
-        await settle();
-
-        cardButton(cards()[0], uar.clinics.save).click();
         await settle();
         const put = http.expectOne(`${USER_URL}/clinics/10/permissions`);
         expect(put.request.body).toEqual({ permissions: ['doctors.manage'] });
-        put.flush(detail(5, 'ann'));
-        await settle();
-        http.expectOne(USER_URL).flush(
-          detail(5, 'ann', { clinicPermissions: [clinicGrant(10, 'عيادة النور', 'Al Noor Clinic', ['doctors.manage'])] }),
-        );
+        put.flush(detail(5, 'ann', { clinicPermissions: [clinicGrant(10, 'عيادة النور', 'Al Noor Clinic', ['doctors.manage'])] }));
         await settle();
 
         expect(cards()).toHaveLength(1);
         expect(cards()[0].textContent).not.toContain(uar.clinics.unsaved);
-        expect(cardButton(cards()[0], uar.clinics.remove_all)).toBeDefined();
+        expect(boxesOf(cards()[0])[0].checked).toBe(true);
+        expect(cardButton(cards()[0], uar.clinics.cancel_add)).toBeUndefined();
       });
 
       it('Cancel on an unsaved card removes it without a request; Cancel in the picker closes it', async () => {
@@ -918,7 +907,7 @@ describe('UserDetailPage (D57, D58, D59)', () => {
         picker().querySelector<HTMLButtonElement>('ul button')!.click();
         await settle();
 
-        cardButton(cards()[0], uar.clinics.cancel_add).click();
+        cardButton(cards()[0], uar.clinics.cancel_add)!.click();
         await settle();
         expect(cards()).toHaveLength(0);
 
@@ -932,31 +921,21 @@ describe('UserDetailPage (D57, D58, D59)', () => {
     });
   });
 
-  describe('saving your own permissions keeps the session honest', () => {
+  describe('your own permissions (D59, D64)', () => {
     const ownAdmin = detail(5, 'ann', {
       globalPermissions: ['users.manage', 'clinics.manage'],
       clinicPermissions: [clinicGrant(9, 'عيادة النيل', 'Nile Clinic', ['doctors.manage'])],
     });
     const globalBoxes = () => [...one('cb-global-permissions-editor')!.querySelectorAll<HTMLInputElement>('input[type=checkbox]')];
+    const removalDialog = () => one<HTMLDialogElement>('cb-global-permissions-editor dialog')!;
 
-    async function saveGlobal(change: () => void, reloaded: UserDetail): Promise<void> {
-      change();
-      await settle();
-      [...one('cb-global-permissions-editor')!.querySelectorAll<HTMLButtonElement>('button')]
-        .find((b) => b.textContent?.trim() === uar.global.save)!
-        .click();
-      await settle();
-      http.expectOne(`${USER_URL}/global-permissions`).flush(reloaded);
-      await settle();
-      http.expectOne(USER_URL).flush(reloaded);
-      await settle();
-    }
-
-    it('refreshes the session after saving your own global permissions and stays when users.manage is kept', async () => {
+    it('refreshes the session after a change and stays when users.manage is kept', async () => {
       await open(ownAdmin, { meId: 5, me: { permissions: ['users.manage', 'clinics.manage'] } });
 
-      const reloaded = { ...ownAdmin, globalPermissions: ['users.manage'] };
-      await saveGlobal(() => globalBoxes()[2].click(), reloaded);
+      globalBoxes()[2].click();
+      await settle();
+      http.expectOne(`${USER_URL}/global-permissions`).flush({ ...ownAdmin, globalPermissions: ['users.manage'] });
+      await settle();
       http.expectOne(ME).flush(meBody({ id: 5, permissions: ['users.manage'] }));
       await settle();
 
@@ -965,10 +944,36 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       expect(router.url).toBe('/users/5');
     });
 
-    it('goes to the home page when the saved change removed your own users.manage', async () => {
+    it('removing your own users.manage asks first; Cancel keeps it and sends nothing', async () => {
       await open(ownAdmin, { meId: 5, me: { permissions: ['users.manage', 'clinics.manage'] } });
 
-      await saveGlobal(() => globalBoxes()[0].click(), { ...ownAdmin, globalPermissions: ['clinics.manage'] });
+      globalBoxes()[0].click();
+      await settle();
+
+      expect(removalDialog().hasAttribute('open')).toBe(true);
+      expect(removalDialog().textContent).toContain(uar.global.remove_own.message);
+      expect(globalBoxes()[0].checked).toBe(true);
+      http.expectNone(`${USER_URL}/global-permissions`);
+
+      dialogButtons(removalDialog())[0].click(); // Cancel
+      await settle();
+      expect(removalDialog().hasAttribute('open')).toBe(false);
+      expect(globalBoxes()[0].checked).toBe(true);
+      http.expectNone(`${USER_URL}/global-permissions`);
+    });
+
+    it('confirmed: saves, refreshes the session and leaves for the home page (D59)', async () => {
+      await open(ownAdmin, { meId: 5, me: { permissions: ['users.manage', 'clinics.manage'] } });
+
+      globalBoxes()[0].click();
+      await settle();
+      dialogButtons(removalDialog())[1].click(); // Confirm
+      await settle();
+
+      const put = http.expectOne(`${USER_URL}/global-permissions`);
+      expect(put.request.body).toEqual({ permissions: ['clinics.manage'] });
+      put.flush({ ...ownAdmin, globalPermissions: ['clinics.manage'] });
+      await settle();
       http.expectOne(ME).flush(meBody({ id: 5, permissions: ['clinics.manage'] }));
       await settle();
 
@@ -976,16 +981,14 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       expect(router.url).toBe('/');
     });
 
-    it('refreshes the session after saving your own clinic permissions too', async () => {
+    it('refreshes the session after a change to your own clinic permissions too', async () => {
       await open(ownAdmin, { meId: 5, me: { permissions: ['users.manage'], clinicPermissions: ownAdmin.clinicPermissions } });
       expect(session.canIn('doctors.manage', 9)).toBe(true);
 
       const card = one('cb-clinic-permissions-editor')!.querySelector<HTMLElement>(':scope > section > ul > li')!;
-      [...card.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === uar.clinics.remove_all)!.click();
+      card.querySelector<HTMLInputElement>('input[type=checkbox]')!.click();
       await settle();
       http.expectOne(`${USER_URL}/clinics/9/permissions`).flush({ ...ownAdmin, clinicPermissions: [] });
-      await settle();
-      http.expectOne(USER_URL).flush({ ...ownAdmin, clinicPermissions: [] });
       await settle();
       http.expectOne(ME).flush(meBody({ id: 5, permissions: ['users.manage'], clinicPermissions: [] }));
       await settle();
@@ -997,7 +1000,10 @@ describe('UserDetailPage (D57, D58, D59)', () => {
     it('stays put, with the old session, when the refresh itself fails', async () => {
       await open(ownAdmin, { meId: 5, me: { permissions: ['users.manage', 'clinics.manage'] } });
 
-      await saveGlobal(() => globalBoxes()[2].click(), { ...ownAdmin, globalPermissions: ['users.manage'] });
+      globalBoxes()[2].click();
+      await settle();
+      http.expectOne(`${USER_URL}/global-permissions`).flush({ ...ownAdmin, globalPermissions: ['users.manage'] });
+      await settle();
       flushProblem(http.expectOne(ME), 500, 'error.unexpected');
       await settle();
 
@@ -1005,19 +1011,13 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       expect(router.url).toBe('/users/5');
     });
 
-    it("does not touch the session when somebody else's permissions are saved", async () => {
-      await open(ANN, { meId: 1, me: { permissions: ['users.manage'] } });
+    it("another user's users.manage needs no confirmation and does not touch the session", async () => {
+      await open(detail(5, 'ann', { globalPermissions: ['users.manage'] }), { meId: 1, me: { permissions: ['users.manage'] } });
 
-      const boxes = [...one('cb-global-permissions-editor')!.querySelectorAll<HTMLInputElement>('input[type=checkbox]')];
-      boxes[0].click();
+      globalBoxes()[0].click();
       await settle();
-      [...one('cb-global-permissions-editor')!.querySelectorAll<HTMLButtonElement>('button')]
-        .find((b) => b.textContent?.trim() === uar.global.save)!
-        .click();
-      await settle();
-      http.expectOne(`${USER_URL}/global-permissions`).flush(ANN);
-      await settle();
-      http.expectOne(USER_URL).flush(ANN);
+      expect(removalDialog().hasAttribute('open')).toBe(false);
+      http.expectOne(`${USER_URL}/global-permissions`).flush(detail(5, 'ann'));
       await settle();
 
       http.expectNone(ME);

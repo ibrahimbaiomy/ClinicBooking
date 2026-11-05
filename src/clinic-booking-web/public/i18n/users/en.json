@@ -1,4 +1,5 @@
 {
+  "saved": "Saved",
   "title": "Users",
   "new": "New user",
   "open": "Open",
@@ -59,9 +60,7 @@
     "created": "The user was created. Give them the temporary password yourself; it is not shown again.",
     "enabled": "The user was enabled.",
     "disabled": "The user was disabled.",
-    "password_reset": "The password was reset. Give the user the new temporary password yourself.",
-    "global_saved": "The global permissions were saved.",
-    "clinic_saved": "The permissions for this clinic were saved."
+    "password_reset": "The password was reset. Give the user the new temporary password yourself."
   },
   "detail": {
     "title": "User",
@@ -70,6 +69,7 @@
     "password": "Password",
     "password_ok": "Set by the user",
     "own_account": "This is your account. You cannot disable it or reset its password here.",
+    "protected_note": "This account is protected: it cannot be disabled, it keeps user management, and only its owner changes its password.",
     "not_found": {
       "title": "User not found",
       "message": "This user does not exist.",
@@ -101,16 +101,18 @@
     "title": "Global permissions",
     "intro": "These apply to the whole system.",
     "none": "This user has no global permissions.",
-    "save": "Save permissions",
-    "saving": "Saving…"
+    "remove_own": {
+      "title": "Remove your own user management?",
+      "message": "You will no longer be able to manage users, and you will leave this page.",
+      "cancel": "Keep it",
+      "confirm": "Remove it"
+    },
+    "locked": "Protected account: it always keeps this permission."
   },
   "clinics": {
     "title": "Clinic permissions",
     "intro": "These apply only in the clinic they are granted for.",
     "none": "This user has no clinic permissions yet.",
-    "save": "Save",
-    "saving": "Saving…",
-    "remove_all": "Remove all permissions in this clinic",
     "unsaved": "Not saved yet",
     "add": "Add a clinic",
     "search_label": "Search for a clinic",

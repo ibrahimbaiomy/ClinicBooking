@@ -3,36 +3,24 @@ import {
   Component,
   computed,
   DestroyRef,
+  effect,
   inject,
   input,
-  output,
   signal,
+  untracked,
 } from '@angular/core';
 import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { catchError, debounceTime, firstValueFrom, map, of, Subject } from 'rxjs';
+import { catchError, debounceTime, map, of, Subject } from 'rxjs';
 import { ClinicPage, ClinicsApi } from '../../../../api/clinics-api';
-import { UserDetail, UsersApi } from '../../../../api/users-api';
-import { parseApiError } from '../../../core/auth/api-error';
-import { ErrorMessageService } from '../../../core/auth/error-message.service';
 import { LanguageService } from '../../../core/i18n/language.service';
-import { PermissionChecklist } from './permission-checklist';
-import { PermissionsSaved } from './global-permissions-editor';
+import { PermissionChecklist, PermissionToggle } from './permission-checklist';
+import { clinicTarget, itemKey, PermissionSaveQueue, PermissionTarget } from './permission-save-queue';
 
 /** The clinics list is paged (at most 100 a page, D55): the picker shows the first 20 and asks to refine. */
 export const PICKER_PAGE_SIZE = 20;
 export const PICKER_DEBOUNCE_MS = 300;
 const MAX_SEARCH_LENGTH = 100;
-
-interface CardView {
-  id: string;
-  /** False for a clinic the user has just picked and has not saved yet. */
-  stored: boolean;
-  nameAr: string;
-  nameEn: string;
-  primary: NameView;
-  secondary: NameView;
-}
 
 interface NameView {
   text: string;
@@ -40,19 +28,33 @@ interface NameView {
   dir: 'rtl' | 'ltr';
 }
 
-interface PickedClinic {
+/** A clinic shown on this page: from the server, or picked here and not saved yet. */
+interface ClinicEntry {
   id: string;
   nameAr: string;
   nameEn: string;
+  /** Picked through the picker and never saved: it can still be cancelled. */
+  picked: boolean;
+}
+
+interface CardView extends ClinicEntry {
+  target: PermissionTarget;
+  primary: NameView;
+  secondary: NameView;
+  selected: ReadonlySet<string>;
+  pending: ReadonlySet<string>;
+  saved: ReadonlySet<string>;
+  errors: Record<string, string>;
 }
 
 type PickerResult = { page: ClinicPage } | { failed: true };
 
 /**
- * The per-clinic permissions of one user (D57, D59). Each clinic is its own card with its own Save: a
- * save is a full replace for that clinic and an empty set removes the grants. After a save the detail is
- * reloaded and the server's state is shown. A clinic is added through a search box over the Clinics list
- * (the first 20 matches, with a hint to refine), so no page size limit can hide a clinic.
+ * The per-clinic permissions of one user (D57, D59), saved on each change (D64): no Save and no
+ * "Remove all". A clinic added through the picker is saved by its first checked permission. A card stays
+ * on the page until the user leaves it, even when its last permission was removed (the server then has no
+ * row for that clinic), so nothing moves under the pointer. The picker searches the Clinics list (the
+ * first 20 matches, with a hint to refine), so no page size limit can hide a clinic.
  */
 @Component({
   selector: 'cb-clinic-permissions-editor',
@@ -61,25 +63,44 @@ type PickerResult = { page: ClinicPage } | { failed: true };
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ClinicPermissionsEditor {
-  private readonly users = inject(UsersApi);
   private readonly clinics = inject(ClinicsApi);
-  private readonly messages = inject(ErrorMessageService);
   private readonly languages = inject(LanguageService);
+  private readonly queue = inject(PermissionSaveQueue);
 
-  readonly user = input.required<UserDetail>();
   /** The assignable clinic-scoped names, from the API. */
   readonly names = input.required<readonly string[]>();
-  readonly saved = output<PermissionsSaved>();
 
   protected readonly maxSearchLength = MAX_SEARCH_LENGTH;
 
-  /** Unsaved edits, by clinic id: the selection shown is the edit when there is one, else the server's. */
-  private readonly edits = signal<Record<string, ReadonlySet<string>>>({});
-  /** Clinics picked but not saved yet. */
-  private readonly added = signal<PickedClinic[]>([]);
+  /** Every clinic shown since the page opened, in the order it appeared; never shrinks. */
+  private readonly shown = signal<ClinicEntry[]>([]);
 
-  protected readonly busyId = signal<string | null>(null);
-  protected readonly errors = signal<Record<string, string>>({});
+  protected readonly cards = computed<CardView[]>(() => {
+    const arabicFirst = this.languages.language() === 'ar';
+    const pending = this.queue.pending();
+    const saved = this.queue.saved();
+    const errors = this.queue.errors();
+    this.queue.server(); // the selections follow the server's answers
+
+    return this.shown().map((entry) => {
+      const target = clinicTarget(entry.id);
+      const ar: NameView = { text: entry.nameAr, lang: 'ar', dir: 'rtl' };
+      const en: NameView = { text: entry.nameEn, lang: 'en', dir: 'ltr' };
+      const of = (keys: ReadonlySet<string>) => new Set(this.names().filter((name) => keys.has(itemKey(target, name))));
+      return {
+        ...entry,
+        target,
+        primary: arabicFirst ? ar : en,
+        secondary: arabicFirst ? en : ar,
+        selected: this.queue.selection(target),
+        pending: of(pending),
+        saved: of(saved),
+        errors: Object.fromEntries(
+          this.names().flatMap((name) => (errors[itemKey(target, name)] ? [[name, errors[itemKey(target, name)]]] : [])),
+        ),
+      };
+    });
+  });
 
   // ---- the picker
   protected readonly picking = signal(false);
@@ -110,14 +131,25 @@ export class ClinicPermissionsEditor {
     return result !== undefined && 'failed' in result;
   });
 
-  /** Clinics from the search that the user does not already have a card for. */
+  /** Clinics from the search that are not already on the page. */
   protected readonly candidates = computed(() => {
     const result = this.pickerResource.value();
     if (result === undefined || !('page' in result)) return [];
-    const taken = new Set(this.cards().map((card) => card.id));
+    const taken = new Set(this.shown().map((entry) => entry.id));
+    const arabicFirst = this.languages.language() === 'ar';
     return result.page.items
       .filter((clinic) => !taken.has(String(clinic.id)))
-      .map((clinic) => this.card(String(clinic.id), clinic.nameAr, clinic.nameEn, false));
+      .map((clinic) => {
+        const ar: NameView = { text: clinic.nameAr, lang: 'ar', dir: 'rtl' };
+        const en: NameView = { text: clinic.nameEn, lang: 'en', dir: 'ltr' };
+        return {
+          id: String(clinic.id),
+          nameAr: clinic.nameAr,
+          nameEn: clinic.nameEn,
+          primary: arabicFirst ? ar : en,
+          secondary: arabicFirst ? en : ar,
+        };
+      });
   });
 
   /** The search returned more clinics than it shows. */
@@ -128,80 +160,39 @@ export class ClinicPermissionsEditor {
     return total > result.page.items.length ? { shown: result.page.items.length, total } : null;
   });
 
-  protected readonly cards = computed<CardView[]>(() => {
-    const stored = this.user().clinicPermissions.map((entry) =>
-      this.card(String(entry.clinicId), entry.clinicNameAr, entry.clinicNameEn, true),
-    );
-    const known = new Set(stored.map((card) => card.id));
-    const unsaved = this.added()
-      .filter((clinic) => !known.has(clinic.id))
-      .map((clinic) => this.card(clinic.id, clinic.nameAr, clinic.nameEn, false));
-    return [...stored, ...unsaved];
-  });
-
   constructor() {
     this.typed
       .pipe(debounceTime(PICKER_DEBOUNCE_MS), takeUntilDestroyed(inject(DestroyRef)))
       .subscribe((text) => this.committedSearch.set(text.trim().slice(0, MAX_SEARCH_LENGTH)));
+
+    // Every clinic the server reports joins the page; a picked clinic that saved is no longer "picked".
+    effect(() => {
+      const entries = this.queue.server()?.clinicPermissions ?? [];
+      untracked(() =>
+        this.shown.update((list) => {
+          const stored = new Set(entries.map((entry) => String(entry.clinicId)));
+          const known = new Set(list.map((entry) => entry.id));
+          const updated = list.map((entry) => (entry.picked && stored.has(entry.id) ? { ...entry, picked: false } : entry));
+          const added = entries
+            .filter((entry) => !known.has(String(entry.clinicId)))
+            .map((entry) => ({ id: String(entry.clinicId), nameAr: entry.clinicNameAr, nameEn: entry.clinicNameEn, picked: false }));
+          return [...updated, ...added];
+        }),
+      );
+    });
   }
 
-  // ---- selections
-  protected selectionOf(id: string): ReadonlySet<string> {
-    const edited = this.edits()[id];
-    if (edited !== undefined) return edited;
-    const entry = this.user().clinicPermissions.find((candidate) => String(candidate.clinicId) === id);
-    return new Set(entry?.permissions ?? []);
+  protected onToggled(card: CardView, change: PermissionToggle): void {
+    this.queue.change(card.target, change.name, change.checked, this.names());
   }
 
-  protected toggle(id: string, name: string): void {
-    const next = new Set(this.selectionOf(id));
-    if (!next.delete(name)) {
-      next.add(name);
-    }
-    this.edits.update((edits) => ({ ...edits, [id]: next }));
-  }
-
-  /** Whether Save has something to send: a stored clinic that differs, or a new clinic with a selection. */
-  protected canSave(card: CardView): boolean {
-    const selected = this.selectionOf(card.id);
-    if (!card.stored) return selected.size > 0;
-    const entry = this.user().clinicPermissions.find((candidate) => String(candidate.clinicId) === card.id);
-    const saved = entry?.permissions ?? [];
-    return selected.size !== saved.length || saved.some((name) => !selected.has(name));
-  }
-
-  protected async save(card: CardView): Promise<void> {
-    await this.send(card, this.names().filter((name) => this.selectionOf(card.id).has(name)));
-  }
-
-  /** An empty set: the server removes every grant in this clinic. */
-  protected async removeAll(card: CardView): Promise<void> {
-    await this.send(card, []);
+  /** A picked clinic with nothing saved yet can be taken off the page. */
+  protected canCancel(card: CardView): boolean {
+    return card.picked && card.pending.size === 0 && card.selected.size === 0;
   }
 
   protected cancelAdded(card: CardView): void {
-    this.added.update((list) => list.filter((clinic) => clinic.id !== card.id));
-    this.edits.update((edits) => without(edits, card.id));
-  }
-
-  private async send(card: CardView, permissions: string[]): Promise<void> {
-    this.busyId.set(card.id);
-    this.errors.update((errors) => without(errors, card.id));
-    const id = this.user().id;
-
-    try {
-      const replaced = await firstValueFrom(this.users.replaceClinicPermissions(id, card.id, permissions));
-      // Show the server's state: reload it, and fall back to the answer of the PUT if the reload fails.
-      const detail = await firstValueFrom(this.users.get(id)).catch(() => replaced);
-      this.added.update((list) => list.filter((clinic) => clinic.id !== card.id));
-      this.edits.update((edits) => without(edits, card.id));
-      this.saved.emit({ detail, flash: 'users.flash.clinic_saved' });
-    } catch (error: unknown) {
-      const key = this.messages.forError(parseApiError(error));
-      this.errors.update((errors) => ({ ...errors, [card.id]: key }));
-    } finally {
-      this.busyId.set(null);
-    }
+    this.shown.update((list) => list.filter((entry) => entry.id !== card.id));
   }
 
   // ---- the picker
@@ -216,10 +207,10 @@ export class ClinicPermissionsEditor {
   }
 
   protected onSearchInput(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.searchText.set(input.value);
+    const element = event.target as HTMLInputElement;
+    this.searchText.set(element.value);
     if (!(event as InputEvent).isComposing) {
-      this.typed.next(input.value);
+      this.typed.next(element.value);
     }
   }
 
@@ -236,21 +227,8 @@ export class ClinicPermissionsEditor {
     this.pickerResource.reload();
   }
 
-  protected pick(card: CardView): void {
-    this.added.update((list) => [...list, { id: card.id, nameAr: card.nameAr, nameEn: card.nameEn }]);
+  protected pick(candidate: { id: string; nameAr: string; nameEn: string }): void {
+    this.shown.update((list) => [...list, { id: candidate.id, nameAr: candidate.nameAr, nameEn: candidate.nameEn, picked: true }]);
     this.picking.set(false);
   }
-
-  private card(id: string, nameAr: string, nameEn: string, stored: boolean): CardView {
-    const arabicFirst = this.languages.language() === 'ar';
-    const ar: NameView = { text: nameAr, lang: 'ar', dir: 'rtl' };
-    const en: NameView = { text: nameEn, lang: 'en', dir: 'ltr' };
-    return { id, stored, nameAr, nameEn, primary: arabicFirst ? ar : en, secondary: arabicFirst ? en : ar };
-  }
-}
-
-function without<T>(record: Record<string, T>, key: string): Record<string, T> {
-  const copy = { ...record };
-  delete copy[key];
-  return copy;
 }

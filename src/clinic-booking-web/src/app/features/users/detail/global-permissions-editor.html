@@ -2,7 +2,7 @@
   <h3 id="global-permissions-title" class="text-lg font-semibold">{{ 'users.global.title' | transloco }}</h3>
   <p class="text-sm text-slate-600">{{ 'users.global.intro' | transloco }}</p>
 
-  @if (user().globalPermissions.length === 0) {
+  @if (empty()) {
     <p class="text-sm text-slate-600">{{ 'users.global.none' | transloco }}</p>
   }
 
@@ -12,34 +12,18 @@
       idPrefix="global"
       [names]="names()"
       [selected]="selected()"
-      [disabled]="saving()"
-      (toggled)="toggle($event)"
+      [pending]="pending()"
+      [locked]="locked()"
+      [saved]="saved()"
+      [errors]="errors()"
+      (toggled)="onToggled($event)"
     />
   </fieldset>
-
-  <div #errorBox tabindex="-1" role="alert" aria-live="assertive" class="outline-none">
-    @if (errorKey(); as key) {
-      <div class="rounded-lg bg-red-50 p-3 text-sm text-red-800">
-        <!-- i18n-keys: error.user.last_administrator, error.user.not_found, error.user.permission_unknown, error.concurrency.conflict, error.unexpected -->
-        <p>{{ key | transloco }}</p>
-        @if (correlationId(); as id) {
-          <p class="mt-1 text-xs" dir="ltr">{{ 'users.correlation' | transloco: { id: id } }}</p>
-        }
-      </div>
-    }
-  </div>
-
-  <button
-    type="button"
-    class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-    [disabled]="saving() || !changed()"
-    [attr.aria-busy]="saving()"
-    (click)="save()"
-  >
-    @if (saving()) {
-      {{ 'users.global.saving' | transloco }}
-    } @else {
-      {{ 'users.global.save' | transloco }}
-    }
-  </button>
 </section>
+
+<cb-confirm-dialog [open]="confirmingRemoval()" (confirmed)="confirmRemoval()" (cancelled)="cancelRemoval()">
+  <span cbDialogTitle>{{ 'users.global.remove_own.title' | transloco }}</span>
+  <p>{{ 'users.global.remove_own.message' | transloco }}</p>
+  <span cbDialogCancel>{{ 'users.global.remove_own.cancel' | transloco }}</span>
+  <span cbDialogConfirm>{{ 'users.global.remove_own.confirm' | transloco }}</span>
+</cb-confirm-dialog>

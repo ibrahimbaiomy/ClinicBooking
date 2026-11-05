@@ -23,7 +23,8 @@ import { IntlPipe } from '../../../core/format/intl.pipe';
 import { ConfirmDialog } from '../../../shared/ui/confirm-dialog';
 import { UsersSession } from '../users-session';
 import { ClinicPermissionsEditor } from './clinic-permissions-editor';
-import { GlobalPermissionsEditor, PermissionsSaved } from './global-permissions-editor';
+import { GlobalPermissionsEditor } from './global-permissions-editor';
+import { PermissionSaveQueue } from './permission-save-queue';
 
 /** Mirrors PasswordErrors.MaxLength: the policy itself is the server's (D48, D57). */
 export const PASSWORD_MAX_LENGTH = 128;
@@ -31,15 +32,18 @@ export const PASSWORD_MAX_LENGTH = 128;
 type LoadState = 'loading' | 'ready' | 'notFound' | 'error';
 
 /**
- * One user (D57, D58, D59): the summary, enable and disable, reset password, and the two permission
- * editors. Every change is followed by the server's state. The administrator's own row has no disable
- * or reset (the API refuses them too), and saving their own permissions refreshes the session.
+ * One user (D57, D58, D59, D64): the summary, enable and disable, reset password, and the two permission
+ * editors, which save on each change through one queue for the page. Every change is followed by the
+ * server's state. The administrator's own row has no disable or reset (the API refuses them too), and
+ * saving their own permissions refreshes the session. The protected administrator has no disable or reset
+ * and keeps users.manage (the API decides; the page says so).
  */
 @Component({
   selector: 'cb-user-detail',
   imports: [RouterLink, TranslocoPipe, IntlPipe, ConfirmDialog, GlobalPermissionsEditor, ClinicPermissionsEditor],
   templateUrl: './user-detail.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [PermissionSaveQueue],
 })
 export class UserDetailPage {
   private readonly api = inject(UsersApi);
@@ -57,7 +61,9 @@ export class UserDetailPage {
 
   protected readonly loadState = signal<LoadState>('loading');
   protected readonly loadErrorKey = signal<string | null>(null);
-  protected readonly detail = signal<UserDetail | null>(null);
+  private readonly queue = inject(PermissionSaveQueue);
+  /** The user as the server last answered: shared with the permission editors. */
+  protected readonly detail = this.queue.server;
   protected readonly assignable = signal<AssignablePermissions | null>(null);
   protected readonly assignableFailed = signal(false);
 
@@ -86,6 +92,7 @@ export class UserDetailPage {
   private readonly heading = viewChild<ElementRef<HTMLElement>>('heading');
 
   constructor() {
+    this.queue.afterSave = (detail) => this.afterPermissionSave(detail);
     afterNextRender(() => this.heading()?.nativeElement.focus());
 
     if (this.id !== null && /^\d+$/.test(this.id)) {
@@ -227,18 +234,13 @@ export class UserDetailPage {
   }
 
   // ---- permissions
-  /** A permission editor saved: show the server's state, and keep the session honest if it was your own. */
-  protected async onSaved(saved: PermissionsSaved): Promise<void> {
-    this.detail.set(saved.detail);
-    // i18n-keys: users.flash.global_saved, users.flash.clinic_saved
-    this.toasts.showToast(saved.flash);
-
-    if (this.isOwn()) {
-      await this.session.refreshUser();
-      if (!this.session.can(Permissions.UsersManage)) {
-        // This page, and the whole area, is now forbidden: leave it instead of showing errors.
-        await this.router.navigateByUrl('/');
-      }
+  /** After a save on your own account the session follows the server; losing users.manage leaves the area (D59). */
+  private async afterPermissionSave(detail: UserDetail): Promise<void> {
+    if (!this.session.isCurrentUser(detail.id)) return;
+    await this.session.refreshUser();
+    if (!this.session.can(Permissions.UsersManage)) {
+      // This page, and the whole area, is now forbidden: leave it instead of showing errors.
+      await this.router.navigateByUrl('/');
     }
   }
 }
