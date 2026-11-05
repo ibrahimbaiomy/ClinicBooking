@@ -97,6 +97,7 @@ D60 | ACCEPTED | Documentation layout for several assistants | AGENTS.md, CLAUDE
 D61 | ACCEPTED | Doctors back end | doctor, DoctorClinic, assignment, IsActive, DoctorSpecialty, working hours, WeeklyPeriod, slot duration, pending change, Cairo date, doctors.manage, all_clinics_required, in_use, IDoctorScheduleGuard, Phase 2 seam, shared code, NamedListQuery, split queries, periodIndex, conflictingClinicId
 D62 | ACCEPTED | Doctors screens (front end) | doctor screens, list filters, IsActive filter, clinicPermissionInAnyGuard, canIn, canInAny, refreshUser, clinic picker, checkbox group, slot change, Cairo tomorrow, working hours editor, DayOfWeek, Saturday first, HH:mm, periodIndex, FeatureSession, scopeResolver, list-params, reference lists, incomplete note
 D63 | ACCEPTED | Patients | patient, name, phone, E.164, PhoneNumber key, patients.read, patients.create, patients.edit, patients.delete, phone search, prefix, contains, name search, scan, full-text, duplicate phone, phone_exists, matches, matchCount, confirmDuplicatePhone, privacy, log scan, IListQuery, IPatientScheduleGuard, patient screens, duplicate panel
+D64 | ACCEPTED | UI refinements and the protected administrator | toasts, ToastService, app-settings, message duration, filter panel, Filter button, header sorting, aria-sort, sort fields, pager, page size 10, show password checkbox, save on change, PermissionSaveQueue, Saved indicator, protected administrator, IsProtected, admin reset, recovery, doctor row actions, no detail page, doctor edit, doctor specialties, doctor clinics
 O1 | OPEN | Azure region: West Europe vs UAE North | Azure, region, Container Apps, ACR, Key Vault, Azure SQL, price
 O2 | OPEN | Custom domain and TLS, or the default Container Apps hostname | domain, TLS, hostname, Azure
 ```
@@ -863,7 +864,7 @@ Specialties is the reference implementation; Clinics, Doctors and Patients copy 
 **Rejected:** proactive (timer) refresh (throttled timers, clock drift, multi-tab collisions); a stored "was signed in" hint (can drift); the token in browser storage.
 
 ### D53 — Front-end feature pattern (Specialties screens)
-`ACCEPTED` (implements D50 on the client; the reference for every entity screen)
+`ACCEPTED` (implements D50 on the client; the reference for every entity screen; refined by D64)
 
 - **Layout:** `src/api/<entity>-api.ts`; `src/app/shared/ui/` (`confirm-dialog`,
   `pager`, no strings of their own); `src/app/features/<entity>/` with
@@ -904,6 +905,9 @@ Specialties is the reference implementation; Clinics, Doctors and Patients copy 
 - Known minor point: a lazy chunk is fetched before its guard runs for a
   signed-out deep link (nothing sensitive; `canMatch` would avoid it).
 
+- **Refined by D64:** the one-time `role="status"` messages after save and delete are toasts; the
+  default page size is 10 (sizes unchanged); the table sorts from its headers (the cards keep the one sort
+  control); the page-size select moves into the pager.
 **Rejected:** a modal for create and edit (deep links, back button, focus, phones and RTL are simpler with pages).
 
 ### D54 — Azure deployment is postponed until the build is complete
@@ -995,7 +999,7 @@ migrations) are found late.
 **Rejected:** extracting shared code at two entities (a guess about what varies).
 
 ### D57 — User management and clinic-scoped permissions (back end)
-`ACCEPTED` (refines D6, D34, D48, D55)
+`ACCEPTED` (refines D6, D34, D48, D55; refined by D64)
 
 - An administrator with global `users.manage` creates users, disables and
   re-enables them, and grants global and per-clinic permissions. Users are
@@ -1059,10 +1063,13 @@ migrations) are found late.
   and password change, with ids and permission names only: never a password, a
   user name or patient data (tested against real console output).
 
+- **Refined by D64:** the protected administrator (`IsProtected`) cannot be disabled nor lose
+  `users.manage` (422 `error.user.protected_cannot_disable`, `protected_keeps_users_manage`); the user
+  summary and detail return `isProtected`; new list sort fields `isActive` and `mustChangePassword`.
 **Rejected (for now):** roles; renaming users; email/SMS/invitation links; two-factor; `doctors.read`.
 
 ### D58 — Account state, change-password and admin reset (back end)
-`ACCEPTED` (refines D48 and D57)
+`ACCEPTED` (refines D48 and D57; refined by D64)
 
 - **Account gate.** `AccountStateMiddleware` (after authentication, before
   authorization) reads `IsActive` and `MustChangePassword` from the database on
@@ -1093,10 +1100,12 @@ migrations) are found late.
 - **Passwords** (temporary, new, current) are accepted only in a request body and
   never returned, logged, put in an exception or echoed in an error (tested).
 
+- **Refined by D64:** nobody resets the protected administrator's password through the admin reset (422
+  `error.user.protected_reset_refused`); recovery is a database procedure (`build-and-run.md`).
 **Rejected:** caching the gate (loses the immediate cut-off); a session-id claim in the JWT; self-service "forgot password", password history, breached-password check (not built).
 
 ### D59 — User-management and change-password screens (front end)
-`ACCEPTED` (implements D57 and D58; refines D52; follows D53 and D56)
+`ACCEPTED` (implements D57 and D58; refines D52; follows D53 and D56; refined by D64)
 
 - **Areas.** `/change-password` (scope `account`, any signed-in user) and
   `/users`, `/users/new`, `/users/:id` (scope `users`, `authGuard` +
@@ -1153,6 +1162,10 @@ migrations) are found late.
   edits of one card survive another's save. Adding a clinic: search over
   `GET /api/clinics` (`PageSize` 20, debounced, a "refine" hint, clinics already
   listed not offered).
+- **Refined by D64:** "show password" is a checkbox with a visible label (not `aria-pressed`); the
+  permission editors save on each change (no Save, no "Remove all"); success messages are toasts; the
+  users list has separate Status and Password columns and the status filter sits behind a Filter button;
+  the protected administrator's page has no disable or reset and locks `users.manage`.
 
 ### D60 — Documentation layout for several assistants
 `ACCEPTED` (supersedes D42)
@@ -1293,7 +1306,7 @@ several pending slot changes (one is enough until a need appears); `AsSplitQuery
 per query (needs the relational EF package in Application, rule 8).
 
 ### D62 — Doctors screens (front end)
-`ACCEPTED` (follows D53, D56, D59; implements D61 on the client; refines D61)
+`ACCEPTED` (follows D53, D56, D59; implements D61 on the client; refines D61; refined by D64)
 
 - **Shared code at the third entity (D56).** Extracted only what Specialties,
   Clinics and Users had identically: `FeatureSession` (each feature keeps its own
@@ -1359,6 +1372,9 @@ per query (needs the relational EF package in Application, rule 8).
   `supportReference(error)` in every form (Specialties, Clinics, Users, the global
   permissions editor, Doctors); lists, login and change-password already followed it.
 
+- **Refined by D64:** no detail page; rows offer Edit, Specialties, Clinics and Delete directly (separate
+  pages for names plus slot, specialties, and clinics); the list's filters sit behind a Filter button;
+  create returns to the list.
 **Why:** every control follows the clinic it concerns, so the screen never offers
 what the API refuses; the API keeps its own weekday numbering and the screen owns
 the local week order.
@@ -1444,6 +1460,88 @@ shared phone is a warning, never a block.
 full-text search now (not in the test image; a scan is enough for Phase 1); a
 client-only duplicate check (the server must decide for every caller); showing the
 matches to a user without `patients.read`; reading patients without a permission.
+
+### D64 — UI refinements and the protected administrator
+`ACCEPTED` (refines D53, D57, D58, D59, D62; decided by the owner on 2026-11-05)
+
+- **Toasts.** Every one-time success message (create, edit, delete and "already deleted", activate,
+  deactivate, add a clinic, slot change, working hours, specialties, reset password, enable, disable, the
+  voluntary change-password) is a toast from `ToastService`, shown by the shell's `cb-toasts`; the D53
+  status line and `FeatureSession`'s flash are gone. Duration: `APP_SETTINGS.messageDurationMs` in
+  `src/app/app-settings.ts` (5000; token `MESSAGE_DURATION_MS`), no settings screen. A Close button;
+  paused while hovered or focused, resumed with the time left; stacked at the bottom on the inline-end
+  side (logical utilities only); a `role="status"` polite region that is always in the DOM; a toast
+  never takes focus and pages still focus their heading. **Errors are never toasts.** `check:i18n`
+  verifies the literal keys passed to `showToast('…')`.
+- **Filter panel (Doctors, Users).** `cb-filter-panel`: a "Filter" button next to the search shows the
+  number of active filters, carries `aria-expanded`/`aria-controls`, and opens a dropdown with the filter
+  form, Apply and Clear. The list keeps a draft: nothing applies until Apply; Clear resets the filters
+  (not the search) and applies. Esc and a click outside close it and return focus to the button; opening
+  focuses its first field. Doctors: specialty, clinic, status (enabled only with a clinic chosen in the
+  draft, reset when it is cleared) and the incomplete-list notes; Users: status. Opens at `start-0`
+  below sm and `sm:end-0`, at most `100vw - 2rem` wide. The URL stays the state; the search stays
+  outside, live.
+- **Header sorting** (`cb-sort-button` inside the `th`; a vertical arrow icon, `aria-hidden`, a faint
+  pair when not the sort; `aria-sort` on the sorted `th` only). A new column starts ascending, the same
+  column toggles, any change returns to page 1. A column showing both names sorts by the UI-language
+  name and toggles while either name is the sort. Sortable columns: **Specialties** Specialty, Created;
+  **Clinics** Clinic, Phone, Address, Created; **Doctors** Doctor, Appointment length; **Patients** Name,
+  Phone, Created; **Users** User name, Status, Password (Status and the password-change flag are now
+  separate columns), Created. Not sortable: a doctor's Specialties and Clinics (several values) and every
+  Actions column. The cards view (below md) keeps its sort select and direction button (hidden from md
+  up), now listing every sort field.
+- **API sort fields.** Clinics `phone`, `address` (a missing value sorts last in both directions);
+  Doctors `slotMinutes` (the duration in effect today in Cairo); Patients `phone` (the stored E.164);
+  Users `isActive`, `mustChangePassword` (false first when ascending; user name then `Id` break ties).
+  `NamedListing.ToPageAsync` takes per-entity orderings; `AddNamedListRules(extraFields)`.
+- **Pager.** One row: navigation on the inline-start side, page size on the inline-end side (it wraps
+  only when the width cannot hold both); one root key `pager.page_size`. **Default 10 per page** in every
+  list (sizes 10, 20, 50); the API's own default stays 20.
+- **Show password** is a real checkbox with a visible label (replaces D59's `aria-pressed` toggle); the
+  field is still emptied and the checkbox unchecked after each request.
+- **Permissions save on change.** One `PermissionSaveQueue` per user page for the global and per-clinic
+  editors: each change sends the target's full set (the API is a full replace), one request at a time in
+  the order of the changes, the set read when the request leaves (so a failed change never undoes a later
+  one). The checkbox is disabled while its change is queued or in flight. Success: the PUT's answer is the
+  state and "Saved" shows next to the item for the toast duration. Failure: that item returns to the
+  server's state and its translated error shows next to it (e.g. `error.user.last_administrator`). No
+  Save buttons, no "Remove all". Removing `users.manage` from your own account asks first; afterwards D59
+  applies (refresh the session; losing `users.manage` leaves for `/`). A clinic added through the picker is
+  saved by its first checked permission; a card whose last permission was removed stays until the page is
+  left (the server then has no row for it).
+- **The protected administrator.** `ApplicationUser.IsProtected`, set by the seeder on the first user it
+  creates and by the `AddProtectedUser` migration on the existing user with the lowest id, **whatever its
+  state** (a disabled or permission-less first user is flagged too; it can still be enabled and granted
+  `users.manage`). Never settable through the API, not identified by configuration (`Seed__*` is removed
+  after the first deploy, D48). It cannot be disabled (422 `error.user.protected_cannot_disable`), cannot
+  lose `users.manage` once held (422 `error.user.protected_keeps_users_manage`), and nobody resets its
+  password through the admin reset (422 `error.user.protected_reset_refused`); only its owner changes it
+  through change-password. Other users keep the admin reset (D58), the only recovery path until a
+  self-service "forgot password" exists (Later). A lost protected password is recovered in the database
+  (`docs/guides/build-and-run.md`). The user summary and detail return `isProtected` (read-only). Screen:
+  a note, no disable, no reset, `users.manage` locked; the API still decides.
+- **Doctors: direct row actions, no detail page.** Each row (table and card) offers, as text buttons that
+  wrap: **Edit** and **Specialties** with `canIn(doctors.manage)` in any of the doctor's clinics,
+  **Clinics** always (read-only without it), **Delete** with it in all of them (the existing dialog; 404
+  "already deleted"; `error.doctor.all_clinics_required` stays in the dialog). `/doctors/:id/edit`: the
+  names through the doctor PUT with `rowVersion` and the current specialties unchanged (D53 conflict
+  flow), and a separate slot-duration section (current, pending, a change form from tomorrow in Cairo
+  replacing the pending one); two independent requests, each with its own errors.
+  `/doctors/:id/specialties`: the checkbox list (at least one) through the same PUT with the names
+  unchanged, the D53 conflict flow. `/doctors/:id/clinics`: the old detail page's clinics section
+  (assignments in words, activate, deactivate with confirmation, the reactivation 422 in its row, add a
+  clinic, the working-hours link per clinic with `canIn`). After a save on Edit (names or slot) or
+  Specialties, and after a create, the remembered list with a toast; actions on the Clinics page stay on
+  it with a toast. An old `/doctors/:id` link opens `/doctors/:id/clinics`; the working-hours page links
+  back to it.
+**Why:** fewer clicks and less screen noise for daily work, the same accessibility guarantees, and one
+account that can never lock everyone out.
+**Rejected:** toasts for errors (an error belongs next to what failed); a settings screen for the
+duration (one config file is enough); sorting a doctor's specialties or clinics (several values per row);
+identifying the protected user by configuration (the seed variables disappear after the first deploy);
+letting another administrator reset the protected password (it would be the way around the protection);
+a detail page next to the row actions (two ways to do the same thing); one Save per permission editor
+(owner chose save-on-change).
 
 ---
 

@@ -2,7 +2,7 @@
 
 Read at the start of every session; update at the end. Keep it short: what is
 done in one line per step (the detail is in the decisions), what is next, and
-what the owner must check by hand. Last updated: 2026-10-08 (Patients; Phase 1 complete).
+what the owner must check by hand. Last updated: 2026-11-05 (UI refinements and the protected administrator, D64).
 
 ---
 
@@ -51,6 +51,15 @@ the owner says so (D54). Nothing else is planned meanwhile; ideas go under Later
 - Patients back end: name and phone, four global permissions, phone or name search,
   duplicate-phone warning, no personal data in logs (D63).
 - Patients screens: list, create, edit with the duplicate-phone panel, delete (D63).
+
+**Refinements before Phase 2** (D64)
+- API sort fields for header sorting (clinic phone and address, doctor slot, patient phone, user
+  status and password flag); the protected administrator (`IsProtected`, seeder, migration, 422s).
+- Toasts for success messages (duration in `src/app/app-settings.ts`); one-row pager, 10 per page.
+- Header sorting in every table; Doctors and Users filters behind a Filter button.
+- "Show password" checkboxes; permissions save on each change with a "Saved" indicator; the
+  protected administrator's screen.
+- Doctors: direct row actions (Edit, Specialties, Clinics, Delete); the detail page is gone.
 
 ---
 
@@ -105,6 +114,28 @@ password). Covered by unit tests; still to check by hand:
       `error.doctor.*` texts.
 - [ ] `docker compose build` still succeeds (the Docker `web` stage runs
       `check:i18n` without the C# sources and only warns).
+- [ ] D64 against the real container (`docker compose up --build`): the `AddProtectedUser`
+      migration applies; in SQL, `SELECT Id, UserName, IsProtected FROM AspNetUsers` shows exactly
+      the lowest id flagged. On that user's page (as another administrator): the protected note, no
+      Disable, no Reset password, `users.manage` locked.
+- [ ] Toasts: appear at the bottom on the left in Arabic and on the right in English, disappear
+      after 5 s, stay while hovered or while Close has the focus; a screen reader announces them
+      once and the focus never moves. Errors still show in place.
+- [ ] Doctors and Users at 360 px, Arabic and English: the Filter panel stays on screen and closes
+      with Esc and an outside click; the pager stays usable (it may wrap); Doctors row actions
+      wrap; the header sort buttons and their arrows read correctly in RTL.
+- [ ] User permissions: tick several boxes quickly (one request at a time, each box disabled
+      until saved, "Saved" next to it); remove your own `users.manage` (confirmation, then home).
+- [ ] Doctors: Edit (names save and slot save separately), Specialties (conflict in two tabs),
+      Clinics (read-only for a clinic you do not manage), Delete from the row; an old
+      `/doctors/7` bookmark opens `/doctors/7/clinics`.
+- [ ] Review the Arabic wording of the new keys: `toast.close`, `filter.*`, `pager.page_size`,
+      `users.saved`, `users.detail.protected_note`, `users.global.remove_own.*`,
+      `users.global.locked`, `users.table.password`, `users.sort.*`, `doctors.actions.*`,
+      `doctors.edit.*`, `doctors.specialties_page.title`, `doctors.flash.specialties_updated`,
+      the new sort labels and the three `error.user.protected_*` texts.
+- [ ] Try the protected-password recovery procedure once on a local copy
+      (`docs/guides/build-and-run.md`).
 
 ---
 
@@ -150,3 +181,4 @@ under control: ideas that arrive mid-build go under "Later", not into code.
   if either list grows past 100 (D62; today a note says the list is incomplete).
 - Patient name search with full-text (or a prefix index) once patients pass about
   100,000 or a search takes more than 200 ms; today it is a scan (D63).
+- Forgot password (self-service recovery); when built, revisit the admin reset (D58, D64).

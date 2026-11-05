@@ -57,3 +57,67 @@ UPDATE_OPENAPI=1 dotnet test --filter OpenApiDocumentTests
 # run must change nothing.
 cd src/clinic-booking-web && npm run gen:api
 ```
+
+## Recovering the protected administrator's password (D64)
+
+The protected administrator (the first user: `IsProtected = 1` in `AspNetUsers`) cannot be
+reset through the screens or the API (`error.user.protected_reset_refused`); only its owner
+changes it, on the change-password page. If that password is lost, recovery is a database
+procedure, run by the owner against the database (locally the compose SQL Server; in Azure,
+Azure SQL), with a backup taken first. Never put the new password in a file, a commit or a
+ticket.
+
+**If another active user holds `users.manage`** (simplest; no hashing):
+
+```sql
+-- 1. Find the protected user and take the flag off for the duration of the reset.
+SELECT Id, UserName, IsActive FROM AspNetUsers WHERE IsProtected = 1;
+UPDATE AspNetUsers SET IsProtected = 0 WHERE Id = <id>;
+```
+
+2. Signed in as the other administrator, open Users → that user → Reset password, and give
+   the owner the temporary password in person. The reset forces a change at the next sign-in
+   and ends every session.
+3. Put the flag back at once:
+
+```sql
+UPDATE AspNetUsers SET IsProtected = 1 WHERE Id = <id>;
+```
+
+**If no other administrator exists:** set a temporary password hash directly.
+
+1. Generate a hash with the same Identity version as the API (10.0.x, default hasher
+   settings). `dotnet fsi` downloads the package into the local NuGet cache only; nothing is
+   added to the solution:
+
+   ```bash
+   cat > hash.fsx <<'EOF'
+   #r "nuget: Microsoft.Extensions.Identity.Core, 10.0.12"
+   open Microsoft.AspNetCore.Identity
+   let password = System.Environment.GetEnvironmentVariable "NEW_PASSWORD"
+   printfn "%s" (PasswordHasher<obj>().HashPassword(null, password))
+   EOF
+   NEW_PASSWORD='<a temporary password meeting the policy>' dotnet fsi hash.fsx
+   rm hash.fsx
+   ```
+
+2. Store it, force a change at the next sign-in, clear the lockout, renew the security stamp
+   and end every session (this is what the admin reset does, D58):
+
+```sql
+BEGIN TRANSACTION;
+UPDATE AspNetUsers
+   SET PasswordHash = N'<hash from step 1>',
+       SecurityStamp = CONVERT(nvarchar(36), NEWID()),
+       MustChangePassword = 1,
+       AccessFailedCount = 0,
+       LockoutEnd = NULL,
+       IsActive = 1
+ WHERE Id = <id> AND IsProtected = 1;
+DELETE FROM RefreshTokens WHERE UserId = <id>;
+COMMIT;
+```
+
+3. The owner signs in with the temporary password and must choose a new one at once.
+
+Keep this procedure until a self-service "forgot password" exists (`STATUS.md`, Later).

@@ -43,24 +43,27 @@ page that needs a clinic-scoped permission anywhere uses `clinicPermissionInAnyG
 2. **Feature folder** `features/<entity>/`: `<entity>.routes.ts` (lazy, scope on
    the parent route, `permissionGuard` on create and edit), `<entity>.scope.ts`
    (scope + resolver that preloads the scope file), `list/` with `list-query.ts`,
-   `form/`, and `<entity>-session.ts` (last list query + one-time status message).
+   `form/`, and `<entity>-session.ts` (the last list query).
 3. **List:** the URL is the state (`q`, `page`, `size`, `sort`, `dir`; defaults in
    one constant and omitted from the URL; invalid values clamped). `rxResource`
    so a newer query cancels the older. Search: 300 ms debounce with `replaceUrl`,
    Enter at once, IME composition ignored, `maxlength` 100, any change returns to
    page 1. Loading, empty, no-results and error states; Retry calls `reload()`; a
-   page past the end steps back. Table from md up (caption, `th scope`,
-   `aria-sort`), cards below. Both names, each in a `<bdi>` with its own
-   `lang`/`dir`, the UI language first; interpolate, never `innerHTML`.
+   page past the end steps back. Table from md up (caption, `th scope`); every
+   single-valued column sorts from a `cb-sort-button` in its `th` (`aria-sort` on the
+   sorted one; `shared/list/header-sort.ts`); cards below keep a sort select
+   (`md:hidden`). Filters, if any, go behind `cb-filter-panel` (a draft applied by
+   Apply); `cb-pager` holds the page size (default 10). Both names, each in a `<bdi>`
+   with its own `lang`/`dir`, the UI language first; interpolate, never `innerHTML`.
 4. **Form:** a separate page (not a modal). Signal Forms with the API's rules and
    keys; values sent trimmed. A 400's field errors and name-taken 409s go onto
    fields from `submit()`; anything else is a form-level message; 404 shows "not
    found". 409 `error.concurrency.conflict`: keep the input, disable Save until
    Reload, then show the user's earlier entries. After save, navigate to the
-   remembered list query with a one-time `role="status"` message and focus the
+   remembered list query with a toast (`ToastService.showToast`, D64) and focus the
    heading.
 5. **Delete:** `confirm-dialog`, focus on Cancel, Esc ignored while pending; 404
-   means already deleted; other errors stay in the dialog. Afterwards reload the
+   means already deleted; other errors stay in the dialog. Afterwards a toast, reload the
    list and focus the heading.
 6. **Header:** a navigation entry. The header must still wrap with no horizontal
    overflow at 360 px in RTL and LTR (a by-hand check: jsdom has no layout).
