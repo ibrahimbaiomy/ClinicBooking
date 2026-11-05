@@ -31,7 +31,7 @@ public sealed class ListPatientsQuery : IListQuery
 
     public int PageSize { get; set; } = IListQuery.DefaultPageSize;
 
-    /// <summary><c>name</c> (default) or <c>createdAt</c>.</summary>
+    /// <summary><c>name</c> (default), <c>phone</c> (D64) or <c>createdAt</c>.</summary>
     public string SortBy { get; set; } = PatientSortFields.Name;
 
     /// <summary><c>asc</c> (default) or <c>desc</c>.</summary>
@@ -41,7 +41,8 @@ public sealed class ListPatientsQuery : IListQuery
 public static class PatientSortFields
 {
     public const string Name = "name";
+    public const string Phone = "phone";
     public const string CreatedAt = "createdAt";
 
-    public static readonly string[] All = [Name, CreatedAt];
+    public static readonly string[] All = [Name, Phone, CreatedAt];
 }

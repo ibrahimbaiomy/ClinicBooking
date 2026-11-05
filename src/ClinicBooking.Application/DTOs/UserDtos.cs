@@ -1,10 +1,12 @@
 namespace ClinicBooking.Application.DTOs;
 
+/// <param name="IsProtected">The protected administrator (D64): read-only, never set through the API.</param>
 public sealed record UserSummaryResponse(
     long Id,
     string UserName,
     bool IsActive,
     bool MustChangePassword,
+    bool IsProtected,
     DateTimeOffset CreatedAt);
 
 /// <summary>The clinic-scoped permissions a user holds in one clinic. Soft-deleted clinics are never listed.</summary>
@@ -14,11 +16,13 @@ public sealed record UserClinicPermissionsResponse(
     string ClinicNameEn,
     IReadOnlyList<string> Permissions);
 
+/// <param name="IsProtected">The protected administrator (D64): cannot be disabled, keeps users.manage, no admin reset.</param>
 public sealed record UserDetailResponse(
     long Id,
     string UserName,
     bool IsActive,
     bool MustChangePassword,
+    bool IsProtected,
     DateTimeOffset CreatedAt,
     IReadOnlyList<string> GlobalPermissions,
     IReadOnlyList<UserClinicPermissionsResponse> ClinicPermissions);
@@ -54,7 +58,7 @@ public sealed class ListUsersQuery
 
     public int PageSize { get; set; } = DefaultPageSize;
 
-    /// <summary><c>userName</c> (default) or <c>createdAt</c>.</summary>
+    /// <summary><c>userName</c> (default), <c>isActive</c>, <c>mustChangePassword</c> (D64) or <c>createdAt</c>.</summary>
     public string SortBy { get; set; } = UserSortFields.UserName;
 
     /// <summary><c>asc</c> (default) or <c>desc</c>.</summary>
@@ -64,7 +68,9 @@ public sealed class ListUsersQuery
 public static class UserSortFields
 {
     public const string UserName = "userName";
+    public const string IsActive = "isActive";
+    public const string MustChangePassword = "mustChangePassword";
     public const string CreatedAt = "createdAt";
 
-    public static readonly string[] All = [UserName, CreatedAt];
+    public static readonly string[] All = [UserName, IsActive, MustChangePassword, CreatedAt];
 }

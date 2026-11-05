@@ -4217,6 +4217,7 @@
           "userName",
           "isActive",
           "mustChangePassword",
+          "isProtected",
           "createdAt",
           "globalPermissions",
           "clinicPermissions"
@@ -4238,6 +4239,9 @@
             "type": "boolean"
           },
           "mustChangePassword": {
+            "type": "boolean"
+          },
+          "isProtected": {
             "type": "boolean"
           },
           "createdAt": {
@@ -4264,6 +4268,7 @@
           "userName",
           "isActive",
           "mustChangePassword",
+          "isProtected",
           "createdAt"
         ],
         "type": "object",
@@ -4283,6 +4288,9 @@
             "type": "boolean"
           },
           "mustChangePassword": {
+            "type": "boolean"
+          },
+          "isProtected": {
             "type": "boolean"
           },
           "createdAt": {

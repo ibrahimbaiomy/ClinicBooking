@@ -64,7 +64,7 @@ public sealed class ListDoctorsQueryValidator : AbstractValidator<ListDoctorsQue
 {
     public ListDoctorsQueryValidator()
     {
-        this.AddNamedListRules();
+        this.AddNamedListRules(DoctorSortFields.SlotMinutes);
 
         // The filter means "active in that clinic"; on its own it has no meaning and is never ignored (D61).
         RuleFor(q => q.IsActive)

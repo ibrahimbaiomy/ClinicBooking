@@ -22,6 +22,13 @@ public class ApplicationUser : IdentityUser<long>, IAuditable
     /// </summary>
     public bool MustChangePassword { get; set; }
 
+    /// <summary>
+    /// The protected administrator (D64): set by the seeder on the first user and by the AddProtectedUser
+    /// migration on the existing user with the lowest id. Never settable through the API. Such a user cannot be
+    /// disabled, cannot lose users.manage, and has no admin password reset (only change-password).
+    /// </summary>
+    public bool IsProtected { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public long? CreatedBy { get; set; }

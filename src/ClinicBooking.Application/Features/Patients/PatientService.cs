@@ -166,6 +166,14 @@ public sealed class PatientService : IPatientService
                 : patients.OrderBy(p => p.CreatedAt).ThenBy(p => p.Id);
         }
 
+        // The stored E.164 value (D64); the phone is required, so there is nothing missing to place.
+        if (string.Equals(query.SortBy, PatientSortFields.Phone, StringComparison.OrdinalIgnoreCase))
+        {
+            return descending
+                ? patients.OrderByDescending(p => p.Phone).ThenBy(p => p.Id)
+                : patients.OrderBy(p => p.Phone).ThenBy(p => p.Id);
+        }
+
         return descending
             ? patients.OrderByDescending(p => p.NameNormalized).ThenBy(p => p.Id)
             : patients.OrderBy(p => p.NameNormalized).ThenBy(p => p.Id);

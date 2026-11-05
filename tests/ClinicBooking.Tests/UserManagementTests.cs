@@ -222,10 +222,28 @@ public class UserManagementTests : IClassFixture<AuthApiFixture>
             names.ToArray(),
             UserNames(await ListAsync($"search={tag}&sortBy=createdAt&sortDirection=asc")));
 
+        // Sorting by a flag (D64): false first ascending, the user name keeps equal flags in order.
+        Assert.Equal(
+            [names[1], names[0], names[2]],
+            UserNames(await ListAsync($"search={tag}&sortBy=isActive")));
+        Assert.Equal(
+            [names[0], names[2], names[1]],
+            UserNames(await ListAsync($"search={tag}&sortBy=isActive&sortDirection=desc")));
+
+        var charlieId = (await ProblemAsync(await UserApi.SendAsync(_client, HttpMethod.Get, $"/api/users?search={tag}-charlie", admin)))
+            .GetProperty("items")[0].GetProperty("id").GetInt64();
+        await UserApi.SetMustChangePasswordAsync(_fixture.Factory.Services, charlieId, false);
+        Assert.Equal(
+            [names[2], names[0], names[1]],
+            UserNames(await ListAsync($"search={tag}&sortBy=mustChangePassword")));
+        Assert.Equal(
+            [names[0], names[1], names[2]],
+            UserNames(await ListAsync($"search={tag}&sortBy=MUSTCHANGEPASSWORD&sortDirection=desc")));
+
         // Nothing sensitive is listed.
         var item = found.GetProperty("items")[0];
         Assert.Equal(
-            ["id", "userName", "isActive", "mustChangePassword", "createdAt"],
+            ["id", "userName", "isActive", "mustChangePassword", "isProtected", "createdAt"],
             item.EnumerateObject().Select(p => p.Name).ToArray());
     }
 

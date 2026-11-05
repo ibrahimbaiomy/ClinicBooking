@@ -1,3 +1,4 @@
+using System.Text.Json;
 using ClinicBooking.Tests.Support;
 using static ClinicBooking.Tests.Support.PatientHelpers;
 using static ClinicBooking.Tests.Support.SpecialtyHelpers;
@@ -125,5 +126,23 @@ public class PatientsSearchTests : IClassFixture<AuthApiFixture>
         Assert.Equal([created[1], created[2]], PatientIds(first));
         Assert.Equal([created[0]], PatientIds(second));
         Assert.Equal(Enumerable.Reverse(created).ToArray(), PatientIds(newest));
+    }
+
+    [Fact]
+    public async Task Sorting_by_phone_follows_the_stored_number_in_both_directions()
+    {
+        var token = await PatientManagerAsync(_fixture, _client);
+        var unique = UniqueEnglish();
+        var lower = UniqueMobile();
+        var higher = UniqueMobile();
+        var second = await CreatePatientOkAsync(_client, token, $"A {unique}", higher);
+        var first = await CreatePatientOkAsync(_client, token, $"B {unique}", lower);
+
+        var ascending = await ListPatientsAsync(_client, token, $"search={unique}&sortBy=phone");
+        var descending = await ListPatientsAsync(_client, token, $"search={unique}&sortBy=phone&sortDirection=desc");
+
+        long Id(JsonElement patient) => patient.GetProperty("id").GetInt64();
+        Assert.Equal([Id(first), Id(second)], PatientIds(ascending));
+        Assert.Equal([Id(second), Id(first)], PatientIds(descending));
     }
 }

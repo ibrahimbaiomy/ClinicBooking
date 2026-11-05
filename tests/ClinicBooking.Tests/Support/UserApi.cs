@@ -119,6 +119,36 @@ internal static class UserApi
         await db.SaveChangesAsync();
     }
 
+    /// <summary>Marks a user as the protected administrator, directly in the database (the API never sets it, D64).</summary>
+    public static async Task SetProtectedAsync(IServiceProvider services, long userId)
+    {
+        using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var user = await db.Users.SingleAsync(u => u.Id == userId);
+        user.IsProtected = true;
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>Removes a global permission claim directly in the database, bypassing the API's rules.</summary>
+    public static async Task RemoveGlobalPermissionDirectlyAsync(IServiceProvider services, long userId, string permission)
+    {
+        using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.UserClaims.RemoveRange(await db.UserClaims
+            .Where(c => c.UserId == userId && c.ClaimType == PermissionChecker.ClaimType && c.ClaimValue == permission)
+            .ToListAsync());
+        await db.SaveChangesAsync();
+    }
+
+    public static async Task SetMustChangePasswordAsync(IServiceProvider services, long userId, bool value)
+    {
+        using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var user = await db.Users.SingleAsync(u => u.Id == userId);
+        user.MustChangePassword = value;
+        await db.SaveChangesAsync();
+    }
+
     public static async Task SetActiveAsync(IServiceProvider services, long userId, bool isActive)
     {
         using var scope = services.CreateScope();

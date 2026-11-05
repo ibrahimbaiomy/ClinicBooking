@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using ClinicBooking.Application.DTOs;
 using ClinicBooking.Application.Features.Clinics;
 using ClinicBooking.Application.Features.Common;
@@ -60,8 +61,23 @@ public sealed class DoctorService : IDoctorService
             doctors = doctors.Where(d => d.Specialties.Any(s => s.SpecialtyId == specialtyId));
         }
 
-        var page = await doctors.ToPageAsync(query, DoctorMapping.ToRowExpression, cancellationToken);
         var today = CairoTime.Today(_clock);
+
+        // The slot length in effect today in Cairo: the value the list shows (D43, D64).
+        var orderings = new Dictionary<string, ListOrdering<Doctor>>
+        {
+            [DoctorSortFields.SlotMinutes] = (source, descending) =>
+            {
+                Expression<Func<Doctor, int>> slot = d => d.SlotDurations
+                    .Where(s => s.EffectiveFrom <= today)
+                    .OrderByDescending(s => s.EffectiveFrom)
+                    .Select(s => s.SlotMinutes)
+                    .FirstOrDefault();
+                return descending ? source.OrderByDescending(slot) : source.OrderBy(slot);
+            },
+        };
+
+        var page = await doctors.ToPageAsync(query, DoctorMapping.ToRowExpression, cancellationToken, orderings);
 
         return new PagedResponse<DoctorResponse>(
             page.Items.Select(row => row.ToResponse(today)).ToList(), page.Page, page.PageSize, page.TotalCount);

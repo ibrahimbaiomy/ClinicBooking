@@ -5,6 +5,9 @@ using ClinicBooking.Domain.ValueObjects;
 
 namespace ClinicBooking.Application.Features.Common;
 
+/// <summary>An ordering an entity adds to the name and creation sorts (D64); the tie-break on Id follows it.</summary>
+public delegate IOrderedQueryable<T> ListOrdering<T>(IQueryable<T> source, bool descending);
+
 /// <summary>Search, ordering and paging of entities with two names (D49, D50), shared at the third copy (D61).</summary>
 public static class NamedListing
 {
@@ -25,12 +28,13 @@ public static class NamedListing
         this IQueryable<T> source,
         NamedListQuery query,
         Expression<Func<T, TResponse>> projection,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, ListOrdering<T>>? extraOrderings = null)
         where T : AuditableEntity, IBilingualName
     {
         var totalCount = await source.CountAsync(cancellationToken);
 
-        var items = await Order(source, query)
+        var items = await Order(source, query, extraOrderings)
             .Skip((query.Page - 1) * query.PageSize)
             .Take(query.PageSize)
             .Select(projection)
@@ -41,13 +45,24 @@ public static class NamedListing
 
     // Sorting by the normalised text gives Arabic alphabetical order, ignoring hamza forms and
     // diacritics. Id breaks ties so pages are stable.
-    private static IOrderedQueryable<T> Order<T>(IQueryable<T> source, NamedListQuery query)
+    private static IOrderedQueryable<T> Order<T>(
+        IQueryable<T> source,
+        NamedListQuery query,
+        IReadOnlyDictionary<string, ListOrdering<T>>? extraOrderings)
         where T : AuditableEntity, IBilingualName
     {
         var descending = string.Equals(query.SortDirection, "desc", StringComparison.OrdinalIgnoreCase);
 
+        var extra = extraOrderings?
+            .FirstOrDefault(pair => string.Equals(pair.Key, query.SortBy, StringComparison.OrdinalIgnoreCase))
+            .Value;
+
         IOrderedQueryable<T> ordered;
-        if (string.Equals(query.SortBy, NameSortFields.NameAr, StringComparison.OrdinalIgnoreCase))
+        if (extra is not null)
+        {
+            ordered = extra(source, descending);
+        }
+        else if (string.Equals(query.SortBy, NameSortFields.NameAr, StringComparison.OrdinalIgnoreCase))
         {
             ordered = descending
                 ? source.OrderByDescending(e => e.NameArNormalized)

@@ -49,6 +49,6 @@ public sealed class ListClinicsQueryValidator : AbstractValidator<ListClinicsQue
 {
     public ListClinicsQueryValidator()
     {
-        this.AddNamedListRules();
+        this.AddNamedListRules(ClinicSortFields.Phone, ClinicSortFields.Address);
     }
 }

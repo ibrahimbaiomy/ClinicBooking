@@ -55,6 +55,7 @@ public sealed class UserService : IUserService
             summary.UserName,
             summary.IsActive,
             summary.MustChangePassword,
+            summary.IsProtected,
             summary.CreatedAt,
             global,
             UserMapping.GroupByClinic(clinics));
@@ -91,6 +92,11 @@ public sealed class UserService : IUserService
         {
             var account = await _accounts.FindAsync(id, cancellationToken)
                 ?? throw new NotFoundException(UserErrors.NotFound);
+            if (account.IsProtected)
+            {
+                throw new BusinessRuleException(UserErrors.ProtectedCannotDisable);
+            }
+
             if (!account.IsActive)
             {
                 return;
@@ -134,14 +140,21 @@ public sealed class UserService : IUserService
 
         await InTransactionAsync(async () =>
         {
-            _ = await _accounts.FindAsync(id, cancellationToken) ?? throw new NotFoundException(UserErrors.NotFound);
+            var account = await _accounts.FindAsync(id, cancellationToken)
+                ?? throw new NotFoundException(UserErrors.NotFound);
+            var before = await _permissions.GetGlobalPermissionsAsync(id, cancellationToken);
 
             if (!wanted.Contains(Permissions.Users.Manage))
             {
+                // The protected administrator keeps users.manage once held (D64); granting it is always allowed.
+                if (account.IsProtected && before.Contains(Permissions.Users.Manage, StringComparer.Ordinal))
+                {
+                    throw new BusinessRuleException(UserErrors.ProtectedKeepsUsersManage);
+                }
+
                 await EnsureAnotherAdministratorAsync(id, cancellationToken);
             }
 
-            var before = await _permissions.GetGlobalPermissionsAsync(id, cancellationToken);
             await _accounts.ReplaceGlobalPermissionsAsync(id, wanted, cancellationToken);
 
             _logger.LogInformation(
@@ -218,7 +231,15 @@ public sealed class UserService : IUserService
             throw new BusinessRuleException(UserErrors.CannotResetOwnPassword);
         }
 
-        _ = await _accounts.FindAsync(id, cancellationToken) ?? throw new NotFoundException(UserErrors.NotFound);
+        var account = await _accounts.FindAsync(id, cancellationToken)
+            ?? throw new NotFoundException(UserErrors.NotFound);
+
+        // Only the protected administrator changes their own password (change-password); recovery is a
+        // database procedure (docs/guides/build-and-run.md, D64).
+        if (account.IsProtected)
+        {
+            throw new BusinessRuleException(UserErrors.ProtectedResetRefused);
+        }
 
         var errors = await _accounts.ResetPasswordAsync(id, request.TemporaryPassword!, cancellationToken);
         if (errors.Count > 0)

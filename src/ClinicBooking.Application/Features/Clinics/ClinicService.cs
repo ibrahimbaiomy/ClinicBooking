@@ -16,11 +16,22 @@ public sealed class ClinicService : IClinicService
         _db = db;
     }
 
-    // Address and phone are not searched (D55).
+    // A clinic without a phone or an address sorts last in both directions (D64).
+    private static readonly Dictionary<string, ListOrdering<Clinic>> Orderings = new()
+    {
+        [ClinicSortFields.Phone] = (source, descending) => descending
+            ? source.OrderBy(c => c.Phone == null).ThenByDescending(c => c.Phone)
+            : source.OrderBy(c => c.Phone == null).ThenBy(c => c.Phone),
+        [ClinicSortFields.Address] = (source, descending) => descending
+            ? source.OrderBy(c => c.Address == null).ThenByDescending(c => c.Address)
+            : source.OrderBy(c => c.Address == null).ThenBy(c => c.Address),
+    };
+
+    // Address and phone are not searched (D55), but they sort (D64).
     public Task<PagedResponse<ClinicResponse>> ListAsync(ListClinicsQuery query, CancellationToken cancellationToken) =>
         _db.Clinics
             .MatchingEveryWord(query.Search)
-            .ToPageAsync(query, ClinicMapping.ToResponseExpression, cancellationToken);
+            .ToPageAsync(query, ClinicMapping.ToResponseExpression, cancellationToken, Orderings);
 
     public async Task<ClinicResponse> GetAsync(long id, CancellationToken cancellationToken)
     {

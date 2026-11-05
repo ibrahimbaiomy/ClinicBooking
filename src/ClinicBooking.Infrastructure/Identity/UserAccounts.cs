@@ -52,7 +52,7 @@ public sealed class UserAccounts : IUserAccounts
         var items = await Order(users, query)
             .Skip((query.Page - 1) * query.PageSize)
             .Take(query.PageSize)
-            .Select(u => new UserSummaryResponse(u.Id, u.UserName!, u.IsActive, u.MustChangePassword, u.CreatedAt))
+            .Select(u => new UserSummaryResponse(u.Id, u.UserName!, u.IsActive, u.MustChangePassword, u.IsProtected, u.CreatedAt))
             .ToListAsync(cancellationToken);
 
         return new PagedResponse<UserSummaryResponse>(items, query.Page, query.PageSize, totalCount);
@@ -61,7 +61,7 @@ public sealed class UserAccounts : IUserAccounts
     public Task<UserSummaryResponse?> FindAsync(long userId, CancellationToken cancellationToken) =>
         _db.Users.AsNoTracking()
             .Where(u => u.Id == userId)
-            .Select(u => new UserSummaryResponse(u.Id, u.UserName!, u.IsActive, u.MustChangePassword, u.CreatedAt))
+            .Select(u => new UserSummaryResponse(u.Id, u.UserName!, u.IsActive, u.MustChangePassword, u.IsProtected, u.CreatedAt))
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<CreateUserOutcome> CreateAsync(
@@ -216,6 +216,19 @@ public sealed class UserAccounts : IUserAccounts
             return descending
                 ? users.OrderByDescending(u => u.CreatedAt).ThenByDescending(u => u.Id)
                 : users.OrderBy(u => u.CreatedAt).ThenBy(u => u.Id);
+        }
+
+        // A flag sorts false before true ascending; the user name keeps rows with the same flag in order (D64).
+        if (string.Equals(query.SortBy, UserSortFields.IsActive, StringComparison.OrdinalIgnoreCase))
+        {
+            return (descending ? users.OrderByDescending(u => u.IsActive) : users.OrderBy(u => u.IsActive))
+                .ThenBy(u => u.NormalizedUserName).ThenBy(u => u.Id);
+        }
+
+        if (string.Equals(query.SortBy, UserSortFields.MustChangePassword, StringComparison.OrdinalIgnoreCase))
+        {
+            return (descending ? users.OrderByDescending(u => u.MustChangePassword) : users.OrderBy(u => u.MustChangePassword))
+                .ThenBy(u => u.NormalizedUserName).ThenBy(u => u.Id);
         }
 
         return descending

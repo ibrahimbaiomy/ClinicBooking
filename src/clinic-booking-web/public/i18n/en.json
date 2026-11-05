@@ -164,7 +164,10 @@
       "permission_unknown": "The selected permission is not recognised.",
       "cannot_disable_self": "You cannot disable your own account.",
       "last_administrator": "This cannot be done because it would leave the system without an active user administrator.",
-      "cannot_reset_own_password": "You cannot reset your own password here. Use change password instead."
+      "cannot_reset_own_password": "You cannot reset your own password here. Use change password instead.",
+      "protected_cannot_disable": "This account is protected and cannot be disabled.",
+      "protected_keeps_users_manage": "This account is protected and always keeps the user-management permission.",
+      "protected_reset_refused": "This account is protected: only its owner changes its password, on the change-password page."
     },
     "validation": {
       "failed": "Some of the information entered is not valid. Please check it.",

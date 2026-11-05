@@ -155,4 +155,30 @@ public class DoctorsSlotDurationTests : IClassFixture<AuthApiFixture>
             HttpStatusCode.UnprocessableEntity,
             "error.doctor.period_shorter_than_slot");
     }
+
+    [Fact]
+    public async Task The_list_sorts_by_the_slot_in_effect_today_not_by_a_pending_change()
+    {
+        var clinic = await NewClinicAsync(_fixture, _client);
+        var specialty = await NewSpecialtyAsync(_fixture, _client);
+        var (manager, _) = await DoctorManagerAsync(_fixture, _client, clinic);
+        var unique = UniqueEnglish();
+        var longest = await CreateDoctorOkAsync(_client, manager, [specialty], [clinic], nameEn: $"A {unique}", slotMinutes: 30);
+        var shortest = await CreateDoctorOkAsync(_client, manager, [specialty], [clinic], nameEn: $"B {unique}", slotMinutes: 10);
+        var middle = await CreateDoctorOkAsync(_client, manager, [specialty], [clinic], nameEn: $"C {unique}", slotMinutes: 20);
+        await AssertStatusAsync(await ChangeAsync(manager, middle.GetProperty("id").GetInt64(), 5, "2026-07-10"), HttpStatusCode.OK);
+
+        var ascending = await ListDoctorsAsync(_client, manager, $"search={unique}&sortBy=slotMinutes");
+        var descending = await ListDoctorsAsync(_client, manager, $"search={unique}&sortBy=slotMinutes&sortDirection=desc");
+
+        long Id(JsonElement doctor) => doctor.GetProperty("id").GetInt64();
+        Assert.Equal([Id(shortest), Id(middle), Id(longest)], Ids(ascending));
+        Assert.Equal([Id(longest), Id(middle), Id(shortest)], Ids(descending));
+
+        // On the change's date the pending duration is the one in effect.
+        _fixture.Clock.Now = new DateTimeOffset(2026, 7, 10, 9, 0, 0, TimeSpan.Zero);
+        var (reader, _) = await DoctorManagerAsync(_fixture, _client, clinic);
+        var later = await ListDoctorsAsync(_client, reader, $"search={unique}&sortBy=slotMinutes");
+        Assert.Equal([Id(middle), Id(shortest), Id(longest)], Ids(later));
+    }
 }

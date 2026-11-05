@@ -14,6 +14,11 @@ public static class UserErrors
     public const string LastAdministrator = "error.user.last_administrator";
     public const string CannotResetOwnPassword = "error.user.cannot_reset_own_password";
 
+    // The protected administrator (D64).
+    public const string ProtectedCannotDisable = "error.user.protected_cannot_disable";
+    public const string ProtectedKeepsUsersManage = "error.user.protected_keeps_users_manage";
+    public const string ProtectedResetRefused = "error.user.protected_reset_refused";
+
     /// <summary>Used by every request that carries a new password; failures come back as field errors on that field.</summary>
     public const string ValidationFailed = "error.validation.failed";
 }

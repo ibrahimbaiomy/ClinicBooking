@@ -8,6 +8,7 @@ export const user = (id: number, userName: string, extras: Partial<UserSummary> 
   userName,
   isActive: true,
   mustChangePassword: false,
+  isProtected: false,
   createdAt: '2026-01-15T10:00:00Z',
   ...extras,
 });
@@ -35,6 +36,7 @@ export const detail = (
   userName,
   isActive: true,
   mustChangePassword: false,
+  isProtected: false,
   createdAt: '2026-01-15T10:00:00Z',
   globalPermissions: [],
   clinicPermissions: [],

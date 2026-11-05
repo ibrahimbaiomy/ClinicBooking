@@ -17,7 +17,10 @@ public abstract class NamedListQuery : IListQuery
 
     public int PageSize { get; set; } = DefaultPageSize;
 
-    /// <summary><c>nameEn</c> (default), <c>nameAr</c> or <c>createdAt</c>.</summary>
+    /// <summary>
+    /// <c>nameEn</c> (default), <c>nameAr</c> or <c>createdAt</c>; Clinics add <c>phone</c> and <c>address</c>,
+    /// Doctors <c>slotMinutes</c> (D64).
+    /// </summary>
     public string SortBy { get; set; } = NameSortFields.NameEn;
 
     /// <summary><c>asc</c> (default) or <c>desc</c>.</summary>
@@ -31,4 +34,17 @@ public static class NameSortFields
     public const string CreatedAt = "createdAt";
 
     public static readonly string[] All = [NameEn, NameAr, CreatedAt];
+}
+
+/// <summary>The clinics list's sort fields besides the names (D64). A missing value sorts last in both directions.</summary>
+public static class ClinicSortFields
+{
+    public const string Phone = "phone";
+    public const string Address = "address";
+}
+
+/// <summary>The doctors list's sort field besides the names (D64): the slot length in effect today in Cairo.</summary>
+public static class DoctorSortFields
+{
+    public const string SlotMinutes = "slotMinutes";
 }

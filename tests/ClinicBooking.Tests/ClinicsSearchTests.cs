@@ -259,6 +259,49 @@ public class ClinicsSearchTests : IClassFixture<AuthApiFixture>
     }
 
     [Fact]
+    public async Task Sorting_by_phone_puts_clinics_without_one_last_in_both_directions()
+    {
+        var token = await ClinicManagerTokenAsync(_fixture, _client);
+        var tag = UniqueArabic();
+        await CreateClinicOkAsync(_client, token, $"{tag} b", UniqueEnglish(), phone: "0223456789");
+        await CreateClinicOkAsync(_client, token, $"{tag} none", UniqueEnglish());
+        await CreateClinicOkAsync(_client, token, $"{tag} a", UniqueEnglish(), phone: "01012345678");
+
+        var ascending = await SearchAsync(token, tag, "&sortBy=phone");
+        var descending = await SearchAsync(token, tag, "&sortBy=phone&sortDirection=desc");
+
+        // +201012345678 < +20223456789 as text.
+        Assert.Equal([$"{tag} a", $"{tag} b", $"{tag} none"], NamesAr(ascending));
+        Assert.Equal([$"{tag} b", $"{tag} a", $"{tag} none"], NamesAr(descending));
+    }
+
+    [Fact]
+    public async Task Sorting_by_address_puts_clinics_without_one_last_in_both_directions()
+    {
+        var token = await ClinicManagerTokenAsync(_fixture, _client);
+        var tag = UniqueArabic();
+        await CreateClinicOkAsync(_client, token, $"{tag} none", UniqueEnglish());
+        await CreateClinicOkAsync(_client, token, $"{tag} b", UniqueEnglish(), address: "B street");
+        await CreateClinicOkAsync(_client, token, $"{tag} a", UniqueEnglish(), address: "A street");
+
+        var ascending = await SearchAsync(token, tag, "&sortBy=address");
+        var descending = await SearchAsync(token, tag, "&sortBy=ADDRESS&sortDirection=desc");
+
+        Assert.Equal([$"{tag} a", $"{tag} b", $"{tag} none"], NamesAr(ascending));
+        Assert.Equal([$"{tag} b", $"{tag} a", $"{tag} none"], NamesAr(descending));
+    }
+
+    [Fact]
+    public async Task Sorting_by_a_field_of_another_list_is_refused()
+    {
+        var token = await ClinicManagerTokenAsync(_fixture, _client);
+
+        var response = await _client.SendAsync(Json(HttpMethod.Get, "/api/clinics?sortBy=slotMinutes", token));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Sort_parameters_are_case_insensitive()
     {
         var (token, tag, _) = await SeedAsync(2);

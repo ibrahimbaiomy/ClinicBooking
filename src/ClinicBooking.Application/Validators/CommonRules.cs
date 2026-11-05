@@ -27,10 +27,13 @@ internal static class CommonRules
             .Must(value => !string.IsNullOrWhiteSpace(value)).WithMessage(ConcurrencyErrors.RowVersionRequired)
             .Must(value => RowVersionCodec.TryDecode(value, out _)).WithMessage(ConcurrencyErrors.RowVersionInvalid);
 
-    /// <summary>Paging, sorting and search of a <see cref="NamedListQuery"/> (D50).</summary>
-    public static void AddNamedListRules<T>(this AbstractValidator<T> validator)
+    /// <summary>
+    /// Paging, sorting and search of a <see cref="NamedListQuery"/> (D50); an entity may allow
+    /// <paramref name="extraSortFields"/> besides the names and the creation date (D64).
+    /// </summary>
+    public static void AddNamedListRules<T>(this AbstractValidator<T> validator, params string[] extraSortFields)
         where T : NamedListQuery =>
-        validator.AddListRules(NameSortFields.All);
+        validator.AddListRules([.. NameSortFields.All, .. extraSortFields]);
 
     /// <summary>Paging, sorting by one of <paramref name="sortFields"/>, and search length (D50, D63).</summary>
     public static void AddListRules<T>(this AbstractValidator<T> validator, IReadOnlyCollection<string> sortFields)

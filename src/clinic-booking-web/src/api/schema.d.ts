@@ -2755,6 +2755,7 @@ export interface components {
             userName: string;
             isActive: boolean;
             mustChangePassword: boolean;
+            isProtected: boolean;
             /** Format: date-time */
             createdAt: string;
             globalPermissions: string[];
@@ -2766,6 +2767,7 @@ export interface components {
             userName: string;
             isActive: boolean;
             mustChangePassword: boolean;
+            isProtected: boolean;
             /** Format: date-time */
             createdAt: string;
         };

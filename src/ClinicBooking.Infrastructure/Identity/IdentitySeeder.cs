@@ -9,7 +9,7 @@ public static class IdentitySeeder
 {
     /// <summary>
     /// Creates the first user from <c>Seed:AdminUserName</c> / <c>Seed:AdminPassword</c>, with every
-    /// global permission, when no user exists yet. When users already exist it only tops up the
+    /// global permission, marked protected (D64), when no user exists yet. When users already exist it only tops up the
     /// seeded user: each permission of <see cref="Permissions.Global"/> is granted at most once, tracked
     /// by a <c>seeded_permission</c> marker claim, so a permission added to the code later still reaches
     /// the seeded admin while one an administrator removed on purpose stays removed (D48, D55, D57).
@@ -41,7 +41,8 @@ public static class IdentitySeeder
         }
 
         // The password is the deployer's own secret, not a temporary one: no forced change.
-        var user = new ApplicationUser { UserName = userName };
+        // The first user is the protected administrator (D64).
+        var user = new ApplicationUser { UserName = userName, IsProtected = true };
         var created = await users.CreateAsync(user, password);
         if (!created.Succeeded)
         {
