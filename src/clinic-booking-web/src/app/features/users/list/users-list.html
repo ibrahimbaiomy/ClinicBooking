@@ -31,21 +31,29 @@
       />
     </div>
 
-    <div>
-      <label for="users-status" class="mb-1 block text-sm font-medium">
-        {{ 'users.filter.label' | transloco }}
-      </label>
-      <select
-        id="users-status"
-        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        [value]="state().status"
-        (change)="onStatus($event)"
-      >
-        <option value="all">{{ 'users.filter.all' | transloco }}</option>
-        <option value="active">{{ 'users.filter.active' | transloco }}</option>
-        <option value="disabled">{{ 'users.filter.disabled' | transloco }}</option>
-      </select>
-    </div>
+    <!-- Filters apply only with Apply; the search outside stays live (D64). -->
+    <cb-filter-panel
+      panelId="users-filters"
+      [activeCount]="activeFilters()"
+      (opened)="openFilters()"
+      (applied)="applyFilters()"
+      (cleared)="clearPanelFilters()"
+    >
+      <div>
+        <label for="users-status" class="mb-1 block text-sm font-medium">
+          {{ 'users.filter.label' | transloco }}
+        </label>
+        <select
+          id="users-status"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          (change)="onDraftStatus($event)"
+        >
+          <option value="all" [selected]="draftStatus() === 'all'">{{ 'users.filter.all' | transloco }}</option>
+          <option value="active" [selected]="draftStatus() === 'active'">{{ 'users.filter.active' | transloco }}</option>
+          <option value="disabled" [selected]="draftStatus() === 'disabled'">{{ 'users.filter.disabled' | transloco }}</option>
+        </select>
+      </div>
+    </cb-filter-panel>
 
     <!-- The cards view (below md) sorts here; the table sorts from its headers (D64). -->
     <div class="flex flex-wrap items-end gap-3 md:hidden">

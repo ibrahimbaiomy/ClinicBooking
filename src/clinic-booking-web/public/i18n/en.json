@@ -21,6 +21,12 @@
       "change_password": "Change password"
     }
   },
+  "filter": {
+    "button": "Filter",
+    "button_count": "Filter ({{ count }})",
+    "apply": "Apply",
+    "clear": "Clear"
+  },
   "toast": {
     "close": "Close"
   },

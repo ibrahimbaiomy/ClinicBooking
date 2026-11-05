@@ -1,4 +1,5 @@
 import { HttpTestingController } from '@angular/common/http/testing';
+import rootAr from '../../../../../public/i18n/ar.json';
 import { TestBed } from '@angular/core/testing';
 import { Router, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -65,6 +66,18 @@ describe('DoctorsList (D62)', () => {
     await settle();
   }
 
+  const filterButton = () => one<HTMLButtonElement>('cb-filter-panel > button')!;
+
+  async function openFilters(): Promise<void> {
+    filterButton().click();
+    await settle();
+  }
+
+  async function applyFilters(): Promise<void> {
+    one<HTMLButtonElement>('.filter-apply')!.click();
+    await settle();
+  }
+
   async function choose(selector: string, value: string): Promise<void> {
     const select = one<HTMLSelectElement>(selector)!;
     select.value = value;
@@ -86,6 +99,7 @@ describe('DoctorsList (D62)', () => {
 
     http.expectOne(isDoctors).flush(pageOfDoctors([]));
     await settle();
+    await openFilters();
     const specialtyLabels = all<HTMLOptionElement>('#doctors-specialty option').map((o) => o.textContent?.trim());
     // Sorted by the Arabic name in the Arabic UI; "all" first.
     expect(specialtyLabels).toEqual([dar.filter.every_specialty, 'أطفال', 'جلدية', 'قلب']);
@@ -107,45 +121,148 @@ describe('DoctorsList (D62)', () => {
     await open('/doctors?active=active');
 
     expect(http.expectOne(isDoctors).request.params.has('IsActive')).toBe(false);
+    await openFilters();
     expect(one<HTMLSelectElement>('#doctors-status')!.disabled).toBe(true);
     expect(text('#doctors-status-hint')).toBe(dar.filter.status_hint);
   });
 
-  it('choosing a clinic enables the status filter; going back to all clinics resets it', async () => {
+  it('choosing a clinic in the panel enables the status filter; going back to all clinics resets it; nothing applies before Apply', async () => {
     await open('/doctors');
     http.expectOne(isDoctors).flush(pageOfDoctors([]));
-
-    await choose('#doctors-clinic', '2');
-    http.expectOne(isDoctors).flush(pageOfDoctors([]));
     await settle();
-    expect(router.url).toBe('/doctors?clinic=2');
-    expect(one<HTMLSelectElement>('#doctors-status')!.disabled).toBe(false);
 
+    await openFilters();
+    await choose('#doctors-clinic', '2');
+    expect(one<HTMLSelectElement>('#doctors-status')!.disabled).toBe(false);
     await choose('#doctors-status', 'active');
+    http.expectNone(isDoctors);
+    expect(router.url).toBe('/doctors');
+
+    await applyFilters();
     const active = http.expectOne(isDoctors);
+    expect(active.request.params.get('ClinicId')).toBe('2');
     expect(active.request.params.get('IsActive')).toBe('true');
     active.flush(pageOfDoctors([]));
     await settle();
     expect(router.url).toBe('/doctors?clinic=2&active=active');
+    expect(filterButton().textContent?.trim()).toBe(rootAr.filter.button_count.replace('{{ count }}', '2'));
 
+    await openFilters();
+    expect(one<HTMLSelectElement>('#doctors-clinic')!.value).toBe('2');
+    expect(one<HTMLSelectElement>('#doctors-status')!.value).toBe('active');
     await choose('#doctors-clinic', '');
+    expect(one<HTMLSelectElement>('#doctors-status')!.disabled).toBe(true);
+    expect(one<HTMLSelectElement>('#doctors-status')!.value).toBe('all');
+    await applyFilters();
     const cleared = http.expectOne(isDoctors);
     expect(cleared.request.params.has('IsActive')).toBe(false);
     expect(cleared.request.params.has('ClinicId')).toBe(false);
     cleared.flush(pageOfDoctors([]));
     await settle();
     expect(router.url).toBe('/doctors');
-    expect(one<HTMLSelectElement>('#doctors-status')!.disabled).toBe(true);
+    expect(filterButton().textContent?.trim()).toBe(rootAr.filter.button);
   });
 
-  it('a filter change returns to page 1', async () => {
+  it('applying filters returns to page 1', async () => {
     await open('/doctors?page=3');
     http.expectOne(isDoctors).flush(pageOfDoctors([], 100, 3));
+    await settle();
 
+    await openFilters();
     await choose('#doctors-specialty', '10');
+    await applyFilters();
 
     expect(http.expectOne(isDoctors).request.params.get('Page')).toBe('1');
     expect(router.url).toBe('/doctors?specialty=10');
+  });
+
+  describe('the filter panel (D64)', () => {
+    it('the button shows the active count and aria-expanded; the search stays outside the panel', async () => {
+      await open('/doctors?q=x&specialty=11&clinic=2&active=inactive');
+      http.expectOne(isDoctors).flush(pageOfDoctors([]));
+      await settle();
+      document.body.appendChild(root());
+
+      expect(filterButton().textContent?.trim()).toBe(rootAr.filter.button_count.replace('{{ count }}', '3'));
+      expect(filterButton().getAttribute('aria-expanded')).toBe('false');
+      expect(one('#doctors-filters')).toBeNull();
+      expect(one('cb-filter-panel #doctors-search')).toBeNull();
+      expect(one('#doctors-search')).not.toBeNull();
+
+      await openFilters();
+      expect(filterButton().getAttribute('aria-expanded')).toBe('true');
+      expect(filterButton().getAttribute('aria-controls')).toBe('doctors-filters');
+      expect(one('#doctors-filters')).not.toBeNull();
+      expect(document.activeElement).toBe(one('#doctors-specialty'));
+      root().remove();
+    });
+
+    it('Clear resets every filter and applies at once, keeping the search', async () => {
+      await open('/doctors?q=x&specialty=11&clinic=2&active=inactive');
+      http.expectOne(isDoctors).flush(pageOfDoctors([]));
+      await settle();
+
+      await openFilters();
+      one<HTMLButtonElement>('.filter-clear')!.click();
+      await settle();
+
+      const params = http.expectOne(isDoctors).request.params;
+      expect(params.has('SpecialtyId')).toBe(false);
+      expect(params.has('ClinicId')).toBe(false);
+      expect(params.get('Search')).toBe('x');
+      expect(router.url).toBe('/doctors?q=x');
+      expect(one('#doctors-filters')).toBeNull();
+    });
+
+    it('Esc closes the panel without applying and gives the focus back to the button', async () => {
+      await open('/doctors');
+      http.expectOne(isDoctors).flush(pageOfDoctors([]));
+      await settle();
+      document.body.appendChild(root());
+
+      await openFilters();
+      await choose('#doctors-specialty', '10');
+      one('#doctors-specialty')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await settle();
+
+      expect(one('#doctors-filters')).toBeNull();
+      expect(document.activeElement).toBe(filterButton());
+      expect(filterButton().getAttribute('aria-expanded')).toBe('false');
+      http.expectNone(isDoctors);
+      expect(router.url).toBe('/doctors');
+      root().remove();
+    });
+
+    it('a click outside closes the panel and gives the focus back to the button; a click inside does not', async () => {
+      await open('/doctors');
+      http.expectOne(isDoctors).flush(pageOfDoctors([]));
+      await settle();
+      document.body.appendChild(root());
+
+      await openFilters();
+      one<HTMLElement>('#doctors-filters')!.click();
+      await settle();
+      expect(one('#doctors-filters')).not.toBeNull();
+
+      one<HTMLElement>('h2')!.click();
+      await settle();
+      expect(one('#doctors-filters')).toBeNull();
+      expect(document.activeElement).toBe(filterButton());
+      http.expectNone(isDoctors);
+      root().remove();
+    });
+
+    it('opens on the inline-start side on phones and the inline-end side from sm up (logical, mirrors in RTL)', async () => {
+      await open('/doctors');
+      http.expectOne(isDoctors).flush(pageOfDoctors([]));
+      await settle();
+
+      await openFilters();
+      const classes = one<HTMLElement>('#doctors-filters')!.className;
+      expect(classes).toContain('start-0');
+      expect(classes).toContain('sm:end-0');
+      expect(classes).toContain('max-w-[calc(100vw-2rem)]');
+    });
   });
 
   it('sorts from the name and slot headers; the specialties, clinics and actions columns are not sortable (D64)', async () => {
@@ -218,6 +335,7 @@ describe('DoctorsList (D62)', () => {
     });
     http.expectOne(isDoctors).flush(pageOfDoctors([]));
     await settle();
+    await openFilters();
 
     expect(root().textContent).toContain(dar.filter.incomplete);
   });

@@ -9,6 +9,7 @@ import {
   inject,
   Injector,
   linkedSignal,
+  signal,
   viewChild,
 } from '@angular/core';
 import { rxResource, takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -20,6 +21,7 @@ import { ApiError, NETWORK_ERROR_KEY, parseApiError, UNEXPECTED_ERROR_KEY } from
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
 import { IntlPipe } from '../../../core/format/intl.pipe';
 import { Pager } from '../../../shared/ui/pager';
+import { FilterPanel } from '../../../shared/ui/filter-panel';
 import { SortButton } from '../../../shared/ui/sort-button';
 import { ariaSort, columnDirection, nextSort, singleColumn, SortColumn } from '../../../shared/list/header-sort';
 import { UsersSession } from '../users-session';
@@ -54,7 +56,7 @@ interface RowView {
 /** Users (D57, D59): search by user name, filter by status, sort, page. The URL is the state (D53). */
 @Component({
   selector: 'cb-users-list',
-  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, Pager],
+  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, Pager, FilterPanel],
   templateUrl: './users-list.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -189,8 +191,24 @@ export class UsersList {
     this.apply({ search: '', status: 'all', page: 1 });
   }
 
-  protected onStatus(event: Event): void {
-    this.apply({ status: (event.target as HTMLSelectElement).value as StatusFilter, page: 1 });
+  // ---- the filter panel (D64): a draft, applied only by Apply
+  protected readonly draftStatus = signal<StatusFilter>('all');
+  protected readonly activeFilters = computed(() => (this.state().status === 'all' ? 0 : 1));
+
+  protected openFilters(): void {
+    this.draftStatus.set(this.state().status);
+  }
+
+  protected onDraftStatus(event: Event): void {
+    this.draftStatus.set((event.target as HTMLSelectElement).value as StatusFilter);
+  }
+
+  protected applyFilters(): void {
+    this.apply({ status: this.draftStatus(), page: 1 });
+  }
+
+  protected clearPanelFilters(): void {
+    this.apply({ status: 'all', page: 1 });
   }
 
   protected onSort(event: Event): void {

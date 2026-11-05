@@ -8,6 +8,7 @@ import {
   ElementRef,
   inject,
   linkedSignal,
+  signal,
   viewChild,
 } from '@angular/core';
 import { rxResource, takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -22,6 +23,7 @@ import { SessionService } from '../../../core/auth/session.service';
 import { IntlPipe } from '../../../core/format/intl.pipe';
 import { LanguageService } from '../../../core/i18n/language.service';
 import { Pager } from '../../../shared/ui/pager';
+import { FilterPanel } from '../../../shared/ui/filter-panel';
 import { SortButton } from '../../../shared/ui/sort-button';
 import { ariaSort, columnDirection, namesColumn, nextSort, singleColumn, SortColumn } from '../../../shared/list/header-sort';
 import { DoctorsSession } from '../doctors-session';
@@ -57,6 +59,12 @@ interface AssignmentView {
   isActive: boolean;
 }
 
+interface FilterDraft {
+  specialty: string;
+  clinic: string;
+  status: StatusFilter;
+}
+
 interface RowView {
   id: string;
   primary: NameView;
@@ -73,7 +81,7 @@ interface RowView {
  */
 @Component({
   selector: 'cb-doctors-list',
-  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, Pager],
+  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, Pager, FilterPanel],
   templateUrl: './doctors-list.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -133,8 +141,16 @@ export class DoctorsList {
     () => this.hasFailed(this.specialtyResource.value()) || this.hasFailed(this.clinicResource.value()),
   );
 
-  /** The status filter is offered only with a clinic (the API refuses IsActive alone). */
-  protected readonly statusEnabled = computed(() => this.state().clinic !== '');
+  // ---- the filter panel (D64): a draft, applied only by Apply
+  protected readonly draft = signal<FilterDraft>({ specialty: '', clinic: '', status: 'all' });
+
+  /** The status filter is offered only with a clinic chosen in the draft (the API refuses IsActive alone). */
+  protected readonly statusEnabled = computed(() => this.draft().clinic !== '');
+
+  protected readonly activeFilters = computed(() => {
+    const state = this.state();
+    return [state.specialty !== '', state.clinic !== '', state.status !== 'all'].filter(Boolean).length;
+  });
 
   protected readonly searchText = linkedSignal(() => this.state().search);
   private readonly typed = new Subject<string>();
@@ -236,18 +252,31 @@ export class DoctorsList {
     this.apply({ search: '', specialty: '', clinic: '', status: 'all', page: 1 });
   }
 
-  protected onSpecialty(event: Event): void {
-    this.apply({ specialty: (event.target as HTMLSelectElement).value, page: 1 });
+  protected openFilters(): void {
+    const { specialty, clinic, status } = this.state();
+    this.draft.set({ specialty, clinic, status });
+  }
+
+  protected onDraftSpecialty(event: Event): void {
+    this.draft.update((draft) => ({ ...draft, specialty: (event.target as HTMLSelectElement).value }));
   }
 
   /** Choosing "every clinic" also resets the status, which has no meaning without one. */
-  protected onClinic(event: Event): void {
+  protected onDraftClinic(event: Event): void {
     const clinic = (event.target as HTMLSelectElement).value;
-    this.apply({ clinic, ...(clinic === '' ? { status: 'all' as StatusFilter } : {}), page: 1 });
+    this.draft.update((draft) => ({ ...draft, clinic, status: clinic === '' ? 'all' : draft.status }));
   }
 
-  protected onStatus(event: Event): void {
-    this.apply({ status: (event.target as HTMLSelectElement).value as StatusFilter, page: 1 });
+  protected onDraftStatus(event: Event): void {
+    this.draft.update((draft) => ({ ...draft, status: (event.target as HTMLSelectElement).value as StatusFilter }));
+  }
+
+  protected applyFilters(): void {
+    this.apply({ ...this.draft(), page: 1 });
+  }
+
+  protected clearPanelFilters(): void {
+    this.apply({ specialty: '', clinic: '', status: 'all', page: 1 });
   }
 
   protected onSort(event: Event): void {

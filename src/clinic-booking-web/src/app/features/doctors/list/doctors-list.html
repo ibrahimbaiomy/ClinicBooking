@@ -29,52 +29,68 @@
       />
     </div>
 
-    <div>
-      <label for="doctors-specialty" class="mb-1 block text-sm font-medium">{{ 'doctors.filter.specialty' | transloco }}</label>
-      <select
-        id="doctors-specialty"
-        class="max-w-56 rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        (change)="onSpecialty($event)"
-      >
-        <option value="" [selected]="state().specialty === ''">{{ 'doctors.filter.every_specialty' | transloco }}</option>
-        @for (option of specialtyOptions(); track option.id) {
-          <option [value]="option.id" [selected]="option.id === state().specialty">{{ option.label }}</option>
-        }
-      </select>
-    </div>
+    <!-- Filters apply only with Apply; the search outside stays live (D64). -->
+    <cb-filter-panel
+      panelId="doctors-filters"
+      [activeCount]="activeFilters()"
+      (opened)="openFilters()"
+      (applied)="applyFilters()"
+      (cleared)="clearPanelFilters()"
+    >
+      <div>
+        <label for="doctors-specialty" class="mb-1 block text-sm font-medium">{{ 'doctors.filter.specialty' | transloco }}</label>
+        <select
+          id="doctors-specialty"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          (change)="onDraftSpecialty($event)"
+        >
+          <option value="" [selected]="draft().specialty === ''">{{ 'doctors.filter.every_specialty' | transloco }}</option>
+          @for (option of specialtyOptions(); track option.id) {
+            <option [value]="option.id" [selected]="option.id === draft().specialty">{{ option.label }}</option>
+          }
+        </select>
+      </div>
 
-    <div>
-      <label for="doctors-clinic" class="mb-1 block text-sm font-medium">{{ 'doctors.filter.clinic' | transloco }}</label>
-      <select
-        id="doctors-clinic"
-        class="max-w-56 rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        (change)="onClinic($event)"
-      >
-        <option value="" [selected]="state().clinic === ''">{{ 'doctors.filter.every_clinic' | transloco }}</option>
-        @for (option of clinicOptions(); track option.id) {
-          <option [value]="option.id" [selected]="option.id === state().clinic">{{ option.label }}</option>
-        }
-      </select>
-    </div>
+      <div>
+        <label for="doctors-clinic" class="mb-1 block text-sm font-medium">{{ 'doctors.filter.clinic' | transloco }}</label>
+        <select
+          id="doctors-clinic"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          (change)="onDraftClinic($event)"
+        >
+          <option value="" [selected]="draft().clinic === ''">{{ 'doctors.filter.every_clinic' | transloco }}</option>
+          @for (option of clinicOptions(); track option.id) {
+            <option [value]="option.id" [selected]="option.id === draft().clinic">{{ option.label }}</option>
+          }
+        </select>
+      </div>
 
-    <div>
-      <label for="doctors-status" class="mb-1 block text-sm font-medium">{{ 'doctors.filter.status' | transloco }}</label>
-      <select
-        id="doctors-status"
-        [attr.aria-describedby]="statusEnabled() ? null : 'doctors-status-hint'"
-        class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:bg-slate-100 disabled:text-slate-500"
-        [disabled]="!statusEnabled()"
-        (change)="onStatus($event)"
-      >
-        @for (filter of statusFilters; track filter) {
-          <!-- i18n-keys: doctors.filter.status_all, doctors.filter.status_active, doctors.filter.status_inactive -->
-          <option [value]="filter" [selected]="filter === state().status">{{ 'doctors.filter.status_' + filter | transloco }}</option>
+      <div>
+        <label for="doctors-status" class="mb-1 block text-sm font-medium">{{ 'doctors.filter.status' | transloco }}</label>
+        <select
+          id="doctors-status"
+          [attr.aria-describedby]="statusEnabled() ? null : 'doctors-status-hint'"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:bg-slate-100 disabled:text-slate-500"
+          [disabled]="!statusEnabled()"
+          (change)="onDraftStatus($event)"
+        >
+          @for (filter of statusFilters; track filter) {
+            <!-- i18n-keys: doctors.filter.status_all, doctors.filter.status_active, doctors.filter.status_inactive -->
+            <option [value]="filter" [selected]="filter === draft().status">{{ 'doctors.filter.status_' + filter | transloco }}</option>
+          }
+        </select>
+        @if (!statusEnabled()) {
+          <p id="doctors-status-hint" class="mt-1 text-xs text-slate-600">{{ 'doctors.filter.status_hint' | transloco }}</p>
         }
-      </select>
-      @if (!statusEnabled()) {
-        <p id="doctors-status-hint" class="mt-1 text-xs text-slate-600">{{ 'doctors.filter.status_hint' | transloco }}</p>
+      </div>
+
+      @if (optionsIncomplete()) {
+        <p class="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">{{ 'doctors.filter.incomplete' | transloco }}</p>
       }
-    </div>
+      @if (optionsFailed()) {
+        <p class="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">{{ 'doctors.filter.options_failed' | transloco }}</p>
+      }
+    </cb-filter-panel>
 
     <!-- The cards view (below md) sorts here; the table sorts from its headers (D64). -->
     <div class="flex flex-wrap items-end gap-3 md:hidden">
@@ -106,13 +122,6 @@
       </button>
     </div>
   </form>
-
-  @if (optionsIncomplete()) {
-    <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{{ 'doctors.filter.incomplete' | transloco }}</p>
-  }
-  @if (optionsFailed()) {
-    <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{{ 'doctors.filter.options_failed' | transloco }}</p>
-  }
 
   <div [attr.aria-busy]="loading()">
     @switch (view()) {

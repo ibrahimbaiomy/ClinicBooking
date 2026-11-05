@@ -1,4 +1,5 @@
 import { HttpTestingController, TestRequest } from '@angular/common/http/testing';
+import rootAr from '../../../../../public/i18n/ar.json';
 import { TestBed } from '@angular/core/testing';
 import { Router, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -104,6 +105,9 @@ describe('UsersList (D57, D59)', () => {
       expect(params.get('SortBy')).toBe('createdAt');
       expect(params.get('SortDirection')).toBe('desc');
       expect(one<HTMLInputElement>('#users-search')!.value).toBe('ann');
+      expect(one<HTMLButtonElement>('cb-filter-panel > button')!.textContent?.trim()).toBe(rootAr.filter.button_count.replace('{{ count }}', '1'));
+      one<HTMLButtonElement>('cb-filter-panel > button')!.click();
+      await settle();
       expect(one<HTMLSelectElement>('#users-status')!.value).toBe('disabled');
     });
 
@@ -309,9 +313,14 @@ describe('UsersList (D57, D59)', () => {
       flush(nextList(), pageOfUsers([ANN], 40, 2));
       await settle();
 
+      one<HTMLButtonElement>('cb-filter-panel > button')!.click();
+      await settle();
       const select = one<HTMLSelectElement>('#users-status')!;
       select.value = 'active';
       select.dispatchEvent(new Event('change'));
+      await settle();
+      http.expectNone(isList);
+      one<HTMLButtonElement>('.filter-apply')!.click();
       await settle();
 
       expect(nextList().request.params.get('IsActive')).toBe('true');
@@ -332,7 +341,8 @@ describe('UsersList (D57, D59)', () => {
       flush(sorted, pageOfUsers([ANN]));
       await settle();
 
-      one<HTMLButtonElement>('form[role=search] button[type=button]')!.click();
+      // The direction toggle of the cards view's sort control (D64).
+      one<HTMLButtonElement>('form[role=search] .md\\:hidden button[type=button]')!.click();
       await settle();
       expect(nextList().request.params.get('SortDirection')).toBe('desc');
     });

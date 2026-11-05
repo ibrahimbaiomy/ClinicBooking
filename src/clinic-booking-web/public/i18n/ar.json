@@ -21,6 +21,12 @@
       "change_password": "تغيير كلمة المرور"
     }
   },
+  "filter": {
+    "button": "تصفية",
+    "button_count": "تصفية ({{ count }})",
+    "apply": "تطبيق",
+    "clear": "مسح"
+  },
   "toast": {
     "close": "إغلاق"
   },
