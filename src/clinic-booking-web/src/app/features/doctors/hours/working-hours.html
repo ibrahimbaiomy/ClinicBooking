@@ -63,13 +63,6 @@
         <p id="hours-read-only" class="rounded-lg bg-slate-100 p-3 text-sm text-slate-700">{{ 'doctors.hours.read_only' | transloco }}</p>
       }
 
-      <div role="status" aria-live="polite">
-        @if (flash(); as key) {
-          <!-- i18n-keys: doctors.flash.hours_saved -->
-          <p class="rounded-lg bg-green-50 p-3 text-sm text-green-900">{{ key | transloco }}</p>
-        }
-      </div>
-
       <div #banner tabindex="-1" role="alert" aria-live="assertive" class="outline-none">
         @if (conflict()) {
           <div id="hours-conflict" class="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-900">

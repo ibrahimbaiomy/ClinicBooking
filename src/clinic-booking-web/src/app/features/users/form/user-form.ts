@@ -15,6 +15,7 @@ import { firstValueFrom } from 'rxjs';
 import { UsersApi } from '../../../../api/users-api';
 import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
+import { ToastService } from '../../../core/ui/toast.service';
 import { UsersSession } from '../users-session';
 
 /** Mirrors UserRules on the API: 3 to 64 characters, ASCII letters, digits, `.`, `_`, `-`. */
@@ -44,6 +45,7 @@ export class UserForm {
   private readonly router = inject(Router);
   private readonly messages = inject(ErrorMessageService);
   private readonly memory = inject(UsersSession);
+  private readonly toasts = inject(ToastService);
   private readonly injector = inject(Injector);
 
   protected readonly listQuery = this.memory.lastQuery;
@@ -122,7 +124,7 @@ export class UserForm {
           return undefined;
         }
 
-        this.memory.setFlash('users.flash.created');
+        this.toasts.showToast('users.flash.created');
         await this.router.navigate(['/users', String(createdId)]);
         return undefined;
       },

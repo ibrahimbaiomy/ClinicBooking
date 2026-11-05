@@ -7,13 +7,6 @@
     }
   </h2>
 
-  <div role="status" aria-live="polite">
-    @if (flash(); as key) {
-      <!-- i18n-keys: patients.flash.saved_created, patients.flash.saved_updated -->
-      <p class="rounded-lg bg-green-50 p-3 text-sm text-green-900">{{ key | transloco }}</p>
-    }
-  </div>
-
   @switch (loadState()) {
     @case ('loading') {
       <p class="text-slate-600" aria-busy="true">{{ 'patients.loading' | transloco }}</p>

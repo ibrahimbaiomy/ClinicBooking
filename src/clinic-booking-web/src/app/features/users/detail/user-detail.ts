@@ -6,7 +6,6 @@ import {
   DestroyRef,
   ElementRef,
   inject,
-  Injector,
   signal,
   viewChild,
 } from '@angular/core';
@@ -17,6 +16,7 @@ import { firstValueFrom } from 'rxjs';
 import { AssignablePermissions, UserDetail, UsersApi } from '../../../../api/users-api';
 import { parseApiError } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
+import { ToastService } from '../../../core/ui/toast.service';
 import { Permissions } from '../../../core/auth/permissions';
 import { SessionService } from '../../../core/auth/session.service';
 import { IntlPipe } from '../../../core/format/intl.pipe';
@@ -47,8 +47,8 @@ export class UserDetailPage {
   private readonly route = inject(ActivatedRoute);
   private readonly messages = inject(ErrorMessageService);
   private readonly memory = inject(UsersSession);
+  private readonly toasts = inject(ToastService);
   private readonly session = inject(SessionService);
-  private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly id = this.route.snapshot.paramMap.get('id');
@@ -61,7 +61,6 @@ export class UserDetailPage {
   protected readonly assignable = signal<AssignablePermissions | null>(null);
   protected readonly assignableFailed = signal(false);
 
-  protected readonly flash = signal<string | null>(null);
   protected readonly actionErrorKey = signal<string | null>(null);
   protected readonly enabling = signal(false);
 
@@ -85,10 +84,8 @@ export class UserDetailPage {
   protected readonly resetErrorKey = signal<string | null>(null);
 
   private readonly heading = viewChild<ElementRef<HTMLElement>>('heading');
-  private readonly statusBox = viewChild<ElementRef<HTMLElement>>('statusBox');
 
   constructor() {
-    this.flash.set(this.memory.takeFlash());
     afterNextRender(() => this.heading()?.nativeElement.focus());
 
     if (this.id !== null && /^\d+$/.test(this.id)) {
@@ -145,7 +142,7 @@ export class UserDetailPage {
     try {
       this.detail.set(await firstValueFrom(this.api.disable(this.id as string)));
       this.pendingDisable.set(false);
-      this.showStatus('users.flash.disabled');
+      this.toasts.showToast('users.flash.disabled');
     } catch (error: unknown) {
       // Stays in the dialog, translated: self-disable and last-administrator (422) are shown clearly.
       this.disableErrorKey.set(this.messages.forError(parseApiError(error)));
@@ -159,7 +156,7 @@ export class UserDetailPage {
     this.enabling.set(true);
     try {
       this.detail.set(await firstValueFrom(this.api.enable(this.id as string)));
-      this.showStatus('users.flash.enabled');
+      this.toasts.showToast('users.flash.enabled');
     } catch (error: unknown) {
       this.actionErrorKey.set(this.messages.forError(parseApiError(error)));
     } finally {
@@ -204,7 +201,7 @@ export class UserDetailPage {
     try {
       await firstValueFrom(this.api.resetPassword(this.id as string, { temporaryPassword: password }));
       this.closeReset(true);
-      this.showStatus('users.flash.password_reset');
+      this.toasts.showToast('users.flash.password_reset');
     } catch (error: unknown) {
       const failure = parseApiError(error);
       const keys = failure.fieldErrors['temporaryPassword'];
@@ -233,7 +230,8 @@ export class UserDetailPage {
   /** A permission editor saved: show the server's state, and keep the session honest if it was your own. */
   protected async onSaved(saved: PermissionsSaved): Promise<void> {
     this.detail.set(saved.detail);
-    this.showStatus(saved.flash);
+    // i18n-keys: users.flash.global_saved, users.flash.clinic_saved
+    this.toasts.showToast(saved.flash);
 
     if (this.isOwn()) {
       await this.session.refreshUser();
@@ -242,10 +240,5 @@ export class UserDetailPage {
         await this.router.navigateByUrl('/');
       }
     }
-  }
-
-  private showStatus(key: string): void {
-    this.flash.set(key);
-    afterNextRender(() => this.statusBox()?.nativeElement.focus(), { injector: this.injector });
   }
 }

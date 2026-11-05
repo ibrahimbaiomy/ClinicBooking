@@ -21,6 +21,9 @@
       "change_password": "تغيير كلمة المرور"
     }
   },
+  "toast": {
+    "close": "إغلاق"
+  },
   "pager": {
     "label": "التنقل بين الصفحات",
     "previous": "السابق",

@@ -1,0 +1,26 @@
+<div
+  role="status"
+  aria-live="polite"
+  class="pointer-events-none fixed start-4 end-4 bottom-4 z-50 flex flex-col gap-2 sm:start-auto sm:w-96"
+>
+  @for (toast of service.toasts(); track toast.id) {
+    <div
+      class="cb-toast pointer-events-auto flex items-start gap-3 rounded-lg bg-slate-900 p-3 text-sm text-white shadow-lg"
+      [attr.data-toast]="toast.key"
+      (mouseenter)="hold(toast.id, 'hover')"
+      (mouseleave)="release(toast.id, 'hover')"
+      (focusin)="hold(toast.id, 'focus')"
+      (focusout)="release(toast.id, 'focus', $event)"
+    >
+      <!-- The keys come from showToast('…') calls, which check:i18n verifies. i18n-keys: toast.close -->
+      <p class="min-w-0 grow break-words">{{ toast.key | transloco: toast.params }}</p>
+      <button
+        type="button"
+        class="shrink-0 rounded px-2 py-0.5 text-sm font-medium text-slate-100 underline hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        (click)="close(toast.id)"
+      >
+        {{ 'toast.close' | transloco }}
+      </button>
+    </div>
+  }
+</div>

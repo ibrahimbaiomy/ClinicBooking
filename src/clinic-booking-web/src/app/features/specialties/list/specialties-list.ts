@@ -20,6 +20,7 @@ import { SpecialtiesApi, SpecialtyPage } from '../../../../api/specialties-api';
 import { ApiError, NETWORK_ERROR_KEY, parseApiError, UNEXPECTED_ERROR_KEY } from '../../../core/auth/api-error';
 import { CanDirective } from '../../../core/auth/can.directive';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
+import { ToastService } from '../../../core/ui/toast.service';
 import { Permissions } from '../../../core/auth/permissions';
 import { IntlPipe } from '../../../core/format/intl.pipe';
 import { LanguageService } from '../../../core/i18n/language.service';
@@ -114,7 +115,7 @@ export class SpecialtiesList {
   private readonly typed = new Subject<string>();
   private readonly submitted = new Subject<string>();
 
-  protected readonly status = signal<string | null>(null);
+  private readonly toasts = inject(ToastService);
   protected readonly pendingDelete = signal<RowView | null>(null);
   protected readonly deleting = signal(false);
   protected readonly deleteErrorKey = signal<string | null>(null);
@@ -167,7 +168,6 @@ export class SpecialtiesList {
   });
 
   constructor() {
-    this.status.set(this.memory.takeFlash());
     afterNextRender(() => this.focusHeading());
 
     // Debounced typing replaces the URL entry (no history spam); Enter searches at once.
@@ -252,12 +252,14 @@ export class SpecialtiesList {
     this.deleting.set(true);
     try {
       await firstValueFrom(this.api.delete(row.id));
-      this.finishDelete('specialties.flash.deleted');
+      this.toasts.showToast('specialties.flash.deleted');
+      this.finishDelete();
     } catch (error: unknown) {
       const failure = parseApiError(error);
       if (failure.status === 404) {
         // Already deleted elsewhere: the outcome is what the user wanted.
-        this.finishDelete('specialties.flash.already_deleted');
+        this.toasts.showToast('specialties.flash.already_deleted');
+        this.finishDelete();
       } else {
         // Stays in the dialog; a later error.specialty.in_use needs only its translation (D50).
         this.deleteErrorKey.set(this.messages.forError(failure));
@@ -267,9 +269,8 @@ export class SpecialtiesList {
     }
   }
 
-  private finishDelete(statusKey: string): void {
+  private finishDelete(): void {
     this.pendingDelete.set(null);
-    this.status.set(statusKey);
     this.resource.reload();
     this.focusHeading();
   }

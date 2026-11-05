@@ -27,6 +27,7 @@ import { firstValueFrom } from 'rxjs';
 import { Doctor, DoctorsApi } from '../../../../api/doctors-api';
 import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
+import { ToastService } from '../../../core/ui/toast.service';
 import { ClinicPermissions } from '../../../core/auth/permissions';
 import { SessionService } from '../../../core/auth/session.service';
 import { IntlPipe } from '../../../core/format/intl.pipe';
@@ -91,6 +92,7 @@ export class DoctorForm {
   private readonly route = inject(ActivatedRoute);
   private readonly messages = inject(ErrorMessageService);
   private readonly memory = inject(DoctorsSession);
+  private readonly toasts = inject(ToastService);
   private readonly session = inject(SessionService);
   private readonly languages = inject(LanguageService);
   private readonly injector = inject(Injector);
@@ -309,7 +311,15 @@ export class DoctorForm {
       return this.failed(parseApiError(error));
     }
 
-    this.memory.setFlash(this.isNew ? 'doctors.flash.created' : 'doctors.flash.updated');
+    if (this.isNew) {
+
+      this.toasts.showToast('doctors.flash.created');
+
+    } else {
+
+      this.toasts.showToast('doctors.flash.updated');
+
+    }
     await this.router.navigate(['/doctors', String(saved.id)]);
     return undefined;
   }

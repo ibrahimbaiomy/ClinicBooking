@@ -1,4 +1,5 @@
 import { HttpTestingController } from '@angular/common/http/testing';
+import { toastKeys } from '../../../../testing/toast-testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -114,7 +115,7 @@ describe('PatientForm (D63)', () => {
       await settle();
 
       expect(router.url).toBe('/patients?q=x');
-      expect(TestBed.inject(PatientsSession).takeFlash()).toBe('patients.flash.saved_created');
+      expect(toastKeys()).toContain('patients.flash.saved_created');
     });
 
     it('without patients.read, stays on an empty form with the message', async () => {
@@ -126,7 +127,7 @@ describe('PatientForm (D63)', () => {
       await settle();
 
       expect(router.url).toBe('/patients/new');
-      expect(text('[role="status"]')).toBe(par.flash.saved_created);
+      expect(toastKeys()).toContain('patients.flash.saved_created');
       expect(one<HTMLInputElement>('#patient-name')!.value).toBe('');
       expect(one('a[href^="/patients"]')).toBeNull(); // no list to cancel to
     });

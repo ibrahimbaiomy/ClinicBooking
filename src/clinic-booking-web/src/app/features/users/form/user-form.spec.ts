@@ -1,4 +1,5 @@
 import { HttpTestingController } from '@angular/common/http/testing';
+import { toastKeys } from '../../../../testing/toast-testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -7,7 +8,6 @@ import { flushProblem, provideAuthTesting, signIn, Stub } from '../../../../test
 import { arabicTranslations as ar, usersArabic as uar } from '../../../../testing/transloco-testing';
 import { detail, USERS_URL } from '../../../../testing/users-testing';
 import { LanguageService } from '../../../core/i18n/language.service';
-import { UsersSession } from '../users-session';
 import { PASSWORD_MAX_LENGTH, USER_NAME_MAX_LENGTH, UserForm } from './user-form';
 
 const ROUTES: Routes = [
@@ -192,7 +192,7 @@ describe('UserForm (create a user, D57, D59)', () => {
       await settle();
 
       expect(router.url).toBe('/users/42');
-      expect(TestBed.inject(UsersSession).takeFlash()).toBe('users.flash.created');
+      expect(toastKeys()).toContain('users.flash.created');
       expectNoPasswordAnywhere();
     });
 

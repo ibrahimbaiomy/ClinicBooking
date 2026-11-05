@@ -1,4 +1,5 @@
 import { HttpTestingController } from '@angular/common/http/testing';
+import { toastKeys } from '../../../../testing/toast-testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -18,7 +19,6 @@ import {
 import { arabicTranslations as ar, doctorsArabic as dar } from '../../../../testing/transloco-testing';
 import { LANGUAGE_STORAGE_KEY } from '../../../core/i18n/language';
 import { LanguageService } from '../../../core/i18n/language.service';
-import { DoctorsSession } from '../doctors-session';
 import { DoctorForm } from './doctor-form';
 
 const ROUTES: Routes = [
@@ -162,7 +162,7 @@ describe('DoctorForm (D62)', () => {
       await settle();
 
       expect(router.url).toBe('/doctors/42');
-      expect(TestBed.inject(DoctorsSession).takeFlash()).toBe('doctors.flash.created');
+      expect(toastKeys()).toContain('doctors.flash.created');
     });
 
     it('error.doctor.specialty_unavailable goes on the specialties; a 403 is form-level', async () => {
@@ -235,7 +235,7 @@ describe('DoctorForm (D62)', () => {
       await settle();
 
       expect(router.url).toBe('/doctors/7');
-      expect(TestBed.inject(DoctorsSession).takeFlash()).toBe('doctors.flash.updated');
+      expect(toastKeys()).toContain('doctors.flash.updated');
     });
 
     it('a 409 conflict keeps the input, disables Save until Reload, then shows the earlier entries', async () => {

@@ -86,6 +86,13 @@ test('keys used through the structural directive and in code are verified', () =
   assert.ok(!errors.some((e) => e.includes('"app.title"')));
 });
 
+test('keys passed to showToast are verified (D64)', () => {
+  const ts = "export class A { a() { this.toasts.showToast('bad.toast'); this.toasts.showToast('app.title', { n: 1 }); } }";
+  const { errors } = run({ 'src/app/a.ts': ts });
+  assert.ok(errors.some((e) => e.includes('"bad.toast"')));
+  assert.ok(!errors.some((e) => e.includes('"app.title"')));
+});
+
 test('literal text in a template fails (Latin and Arabic)', () => {
   const { errors } = run({ 'src/app/a.html': '<p>Hello world</p>\n<p>مرحبا بكم</p>' });
   assert.ok(errors.some((e) => e.startsWith('src/app/a.html:1:') && e.includes('literal text')));

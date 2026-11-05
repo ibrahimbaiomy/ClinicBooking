@@ -7,10 +7,11 @@ import { CanDirective } from './core/auth/can.directive';
 import { Permissions } from './core/auth/permissions';
 import { SessionService } from './core/auth/session.service';
 import { LanguageSwitcher } from './shell/language-switcher';
+import { Toasts } from './shell/toasts';
 
 @Component({
   selector: 'cb-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslocoPipe, CanDirective, LanguageSwitcher],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslocoPipe, CanDirective, LanguageSwitcher, Toasts],
   templateUrl: './app.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

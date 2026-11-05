@@ -27,6 +27,7 @@ import { firstValueFrom } from 'rxjs';
 import { Clinic, ClinicsApi } from '../../../../api/clinics-api';
 import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
+import { ToastService } from '../../../core/ui/toast.service';
 import { IntlPipe } from '../../../core/format/intl.pipe';
 import { formatPhone } from '../../../core/format/phone';
 import { ClinicsSession } from '../clinics-session';
@@ -86,6 +87,7 @@ export class ClinicForm {
   private readonly route = inject(ActivatedRoute);
   private readonly messages = inject(ErrorMessageService);
   private readonly memory = inject(ClinicsSession);
+  private readonly toasts = inject(ToastService);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -255,7 +257,15 @@ export class ClinicForm {
       return this.failed(parseApiError(error));
     }
 
-    this.memory.setFlash(this.isNew ? 'clinics.flash.saved_created' : 'clinics.flash.saved_updated');
+    if (this.isNew) {
+
+      this.toasts.showToast('clinics.flash.saved_created');
+
+    } else {
+
+      this.toasts.showToast('clinics.flash.saved_updated');
+
+    }
     await this.router.navigate(['/clinics'], { queryParams: this.memory.lastQuery() });
     return undefined;
   }

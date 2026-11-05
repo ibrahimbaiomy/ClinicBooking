@@ -17,6 +17,7 @@ import { firstValueFrom } from 'rxjs';
 import { Doctor, DoctorsApi } from '../../../../api/doctors-api';
 import { ApiError, parseApiError } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
+import { ToastService } from '../../../core/ui/toast.service';
 import { ClinicPermissions } from '../../../core/auth/permissions';
 import { SessionService } from '../../../core/auth/session.service';
 import { IntlPipe } from '../../../core/format/intl.pipe';
@@ -87,7 +88,7 @@ export class DoctorDetail {
   protected readonly loadState = signal<LoadState>('loading');
   protected readonly loadErrorKey = signal<string | null>(null);
   protected readonly doctor = signal<Doctor | null>(null);
-  protected readonly flash = signal<string | null>(null);
+  private readonly toasts = inject(ToastService);
 
   private readonly heading = viewChild<ElementRef<HTMLElement>>('heading');
 
@@ -178,7 +179,6 @@ export class DoctorDetail {
   protected readonly deleteErrorKey = signal<string | null>(null);
 
   constructor() {
-    this.flash.set(this.memory.takeFlash());
     afterNextRender(() => this.heading()?.nativeElement.focus());
 
     if (/^\d+$/.test(this.id)) {
@@ -398,7 +398,8 @@ export class DoctorDetail {
 
   private updated(doctor: Doctor, flashKey: string): void {
     this.doctor.set(doctor);
-    this.flash.set(flashKey);
+    // i18n-keys: doctors.flash.clinic_added, doctors.flash.clinic_activated, doctors.flash.clinic_deactivated, doctors.flash.slot_changed
+    this.toasts.showToast(flashKey);
   }
 
   /** The doctor was deleted elsewhere while this page was open. */
@@ -436,7 +437,8 @@ export class DoctorDetail {
 
   private async leave(flashKey: string): Promise<void> {
     this.pendingDelete.set(false);
-    this.memory.setFlash(flashKey);
+    // i18n-keys: doctors.flash.deleted, doctors.flash.already_deleted
+    this.toasts.showToast(flashKey);
     await this.router.navigate(['/doctors'], { queryParams: this.memory.lastQuery() });
   }
 }

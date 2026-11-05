@@ -21,6 +21,9 @@
       "change_password": "Change password"
     }
   },
+  "toast": {
+    "close": "Close"
+  },
   "pager": {
     "label": "Pagination",
     "previous": "Previous",

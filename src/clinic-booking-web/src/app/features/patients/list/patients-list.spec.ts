@@ -1,4 +1,5 @@
 import { HttpTestingController } from '@angular/common/http/testing';
+import { toastKeys } from '../../../../testing/toast-testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -154,6 +155,6 @@ describe('PatientsList (D63)', () => {
     http.expectOne(isList).flush(pageOfPatients([]));
     await settle();
     expect(dialog().open).toBe(false);
-    expect(root().textContent).toContain(par.flash.deleted);
+    expect(toastKeys()).toContain('patients.flash.deleted');
   });
 });

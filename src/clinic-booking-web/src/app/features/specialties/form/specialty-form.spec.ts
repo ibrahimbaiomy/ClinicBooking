@@ -1,4 +1,5 @@
 import { HttpTestingController } from '@angular/common/http/testing';
+import { toastKeys } from '../../../../testing/toast-testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -142,7 +143,7 @@ describe('SpecialtyForm', () => {
       await settle();
 
       expect(router.url).toBe('/specialties?q=x&page=2');
-      expect(TestBed.inject(SpecialtiesSession).takeFlash()).toBe('specialties.flash.saved_created');
+      expect(toastKeys()).toContain('specialties.flash.saved_created');
     });
 
     it('disables Save and marks it busy while saving', async () => {
@@ -291,7 +292,7 @@ describe('SpecialtyForm', () => {
       await settle();
 
       expect(router.url).toBe('/specialties');
-      expect(TestBed.inject(SpecialtiesSession).takeFlash()).toBe('specialties.flash.saved_updated');
+      expect(toastKeys()).toContain('specialties.flash.saved_updated');
     });
 
     it('shows "not found" for an id that is not a number, without calling the API', async () => {

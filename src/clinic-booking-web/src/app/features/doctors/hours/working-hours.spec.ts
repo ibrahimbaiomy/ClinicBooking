@@ -1,4 +1,5 @@
 import { HttpTestingController, TestRequest } from '@angular/common/http/testing';
+import { toastKeys } from '../../../../testing/toast-testing';
 import { TestBed } from '@angular/core/testing';
 import { Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -182,7 +183,7 @@ describe('WorkingHoursPage (D62)', () => {
       });
       request.flush(hours([{ dayOfWeek: 1, start: '07:00:00', end: '08:00:00' }], { rowVersion: 'AAAAAAAAAAM=' }));
       await settle();
-      expect(text('[role="status"]')).toBe(dar.flash.hours_saved);
+      expect(toastKeys()).toContain('doctors.flash.hours_saved');
       expect(periodsOf(1)).toHaveLength(1);
     });
 

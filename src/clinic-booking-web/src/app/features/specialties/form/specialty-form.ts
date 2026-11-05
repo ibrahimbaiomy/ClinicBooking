@@ -26,6 +26,7 @@ import { firstValueFrom } from 'rxjs';
 import { SpecialtiesApi, Specialty } from '../../../../api/specialties-api';
 import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
+import { ToastService } from '../../../core/ui/toast.service';
 import { IntlPipe } from '../../../core/format/intl.pipe';
 import { SpecialtiesSession } from '../specialties-session';
 
@@ -68,6 +69,7 @@ export class SpecialtyForm {
   private readonly route = inject(ActivatedRoute);
   private readonly messages = inject(ErrorMessageService);
   private readonly memory = inject(SpecialtiesSession);
+  private readonly toasts = inject(ToastService);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -197,7 +199,15 @@ export class SpecialtyForm {
       return this.failed(parseApiError(error));
     }
 
-    this.memory.setFlash(this.isNew ? 'specialties.flash.saved_created' : 'specialties.flash.saved_updated');
+    if (this.isNew) {
+
+      this.toasts.showToast('specialties.flash.saved_created');
+
+    } else {
+
+      this.toasts.showToast('specialties.flash.saved_updated');
+
+    }
     await this.router.navigate(['/specialties'], { queryParams: this.memory.lastQuery() });
     return undefined;
   }

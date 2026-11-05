@@ -4,7 +4,8 @@
 // Verifies
 //   1. every folder under public/i18n has ar.json and en.json with the same keys, the same
 //      {{placeholders}} per key, and non-empty string values;
-//   2. every translation key used in templates and code exists (root files or a scope folder);
+//   2. every translation key used in templates and code exists (root files or a scope folder), including
+//      the keys passed to showToast() (D64);
 //   3. component templates contain no literal user-facing text (heuristic, see limits);
 //   4. components use templateUrl, so no template can hide from (3);
 //   5. every `error.*` key in the back-end C# source has a translation in both languages.
@@ -167,8 +168,8 @@ function collectUsedKeys(file, content, used, errors) {
         }
       }
     } else {
-      totalCalls += (text.match(/\.(?:translate|selectTranslate|translateObject|selectTranslateObject)\(/g) ?? []).length;
-      for (const m of text.matchAll(/\.(?:translate|selectTranslate|translateObject|selectTranslateObject)\(\s*(['"`])((?:(?!\1)[^\\])*)\1/g)) {
+      totalCalls += (text.match(/\.(?:translate|selectTranslate|translateObject|selectTranslateObject|showToast)\(/g) ?? []).length;
+      for (const m of text.matchAll(/\.(?:translate|selectTranslate|translateObject|selectTranslateObject|showToast)\(\s*(['"`])((?:(?!\1)[^\\])*)\1/g)) {
         if (!m[2].includes('${')) {
           literals.push(m[2]);
         }

@@ -8,7 +8,6 @@ import {
   ElementRef,
   inject,
   linkedSignal,
-  signal,
   viewChild,
 } from '@angular/core';
 import { rxResource, takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -141,7 +140,6 @@ export class DoctorsList {
   private readonly typed = new Subject<string>();
   private readonly submitted = new Subject<string>();
 
-  protected readonly status = signal<string | null>(null);
 
   private readonly pageResult = computed(() => {
     const result = this.displayed();
@@ -198,7 +196,6 @@ export class DoctorsList {
   });
 
   constructor() {
-    this.status.set(this.memory.takeFlash());
     afterNextRender(() => this.heading()?.nativeElement.focus());
 
     this.typed.pipe(debounceTime(SEARCH_DEBOUNCE_MS), takeUntilDestroyed()).subscribe((text) => this.search(text, true));

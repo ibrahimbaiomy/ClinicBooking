@@ -20,6 +20,7 @@ import { PatientPage, PatientsApi } from '../../../../api/patients-api';
 import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
 import { CanDirective } from '../../../core/auth/can.directive';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
+import { ToastService } from '../../../core/ui/toast.service';
 import { Permissions } from '../../../core/auth/permissions';
 import { IntlPipe } from '../../../core/format/intl.pipe';
 import { PhonePipe } from '../../../core/format/phone.pipe';
@@ -107,7 +108,7 @@ export class PatientsList {
   private readonly typed = new Subject<string>();
   private readonly submitted = new Subject<string>();
 
-  protected readonly status = signal<string | null>(null);
+  private readonly toasts = inject(ToastService);
   protected readonly pendingDelete = signal<RowView | null>(null);
   protected readonly deleting = signal(false);
   protected readonly deleteErrorKey = signal<string | null>(null);
@@ -155,7 +156,6 @@ export class PatientsList {
   });
 
   constructor() {
-    this.status.set(this.memory.takeFlash());
     afterNextRender(() => this.focusHeading());
 
     // Debounced typing replaces the URL entry (no history spam); Enter searches at once.
@@ -240,12 +240,14 @@ export class PatientsList {
     this.deleting.set(true);
     try {
       await firstValueFrom(this.api.delete(row.id));
-      this.finishDelete('patients.flash.deleted');
+      this.toasts.showToast('patients.flash.deleted');
+      this.finishDelete();
     } catch (error: unknown) {
       const failure = parseApiError(error);
       if (failure.status === 404) {
         // Already deleted elsewhere: the outcome is what the user wanted.
-        this.finishDelete('patients.flash.already_deleted');
+        this.toasts.showToast('patients.flash.already_deleted');
+        this.finishDelete();
       } else {
         // Stays in the dialog, translated (a Phase 2 refusal for future appointments included, D63).
         this.deleteErrorKey.set(this.messages.forError(failure));
@@ -255,9 +257,8 @@ export class PatientsList {
     }
   }
 
-  private finishDelete(statusKey: string): void {
+  private finishDelete(): void {
     this.pendingDelete.set(null);
-    this.status.set(statusKey);
     this.resource.reload();
     this.focusHeading();
   }

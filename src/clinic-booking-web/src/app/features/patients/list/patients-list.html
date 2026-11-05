@@ -12,13 +12,6 @@
     </a>
   </div>
 
-  <div role="status" aria-live="polite">
-    @if (status(); as key) {
-      <!-- i18n-keys: patients.flash.saved_created, patients.flash.saved_updated, patients.flash.deleted, patients.flash.already_deleted -->
-      <p class="rounded-lg bg-green-50 p-3 text-sm text-green-900">{{ key | transloco }}</p>
-    }
-  </div>
-
   <form role="search" class="flex flex-wrap items-end gap-3" (submit)="onSearchSubmit($event)">
     <div class="grow basis-64">
       <label for="patients-search" class="mb-1 block text-sm font-medium">

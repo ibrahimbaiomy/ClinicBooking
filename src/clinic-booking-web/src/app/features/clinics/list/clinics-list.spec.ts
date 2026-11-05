@@ -1,4 +1,5 @@
 import { HttpTestingController, TestRequest } from '@angular/common/http/testing';
+import { toastKeys } from '../../../../testing/toast-testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -546,7 +547,7 @@ describe('ClinicsList', () => {
       flush(nextList(), pageOfClinics([NOOR]));
       await settle();
       expect(tableRows()).toHaveLength(1);
-      expect(text('[role=status]')).toContain(car.flash.deleted);
+      expect(toastKeys()).toContain('clinics.flash.deleted');
       expect(document.activeElement).toBe(one('h2'));
     });
 
@@ -577,7 +578,7 @@ describe('ClinicsList', () => {
       await settle();
 
       expect(dialog().open).toBe(false);
-      expect(text('[role=status]')).toContain(car.flash.already_deleted);
+      expect(toastKeys()).toContain('clinics.flash.already_deleted');
       flush(nextList(), pageOfClinics([], 0));
       await settle();
       expect(text('section')).toContain(car.empty.none);
@@ -665,15 +666,12 @@ describe('ClinicsList', () => {
   });
 
   describe('after a save elsewhere', () => {
-    it('shows the one-time message and moves focus to the heading', async () => {
-      TestBed.inject(ClinicsSession).setFlash('clinics.flash.saved_created');
+    it('moves focus to the heading on arrival', async () => {
       await open();
       flush(nextList(), pageOfClinics([NILE]));
       await settle();
 
-      expect(text('[role=status]')).toContain(car.flash.saved_created);
       expect(document.activeElement).toBe(one('h2'));
-      expect(TestBed.inject(ClinicsSession).takeFlash()).toBeNull();
     });
 
     it('remembers the list query so the form can return to it', async () => {

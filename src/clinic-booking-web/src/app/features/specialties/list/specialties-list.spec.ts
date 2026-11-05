@@ -1,4 +1,5 @@
 import { HttpTestingController, TestRequest } from '@angular/common/http/testing';
+import { toastKeys } from '../../../../testing/toast-testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -545,7 +546,7 @@ describe('SpecialtiesList', () => {
       flush(nextList(), pageOf([DERMATOLOGY]));
       await settle();
       expect(tableRows()).toHaveLength(1);
-      expect(text('[role=status]')).toContain(sar.flash.deleted);
+      expect(toastKeys()).toContain('specialties.flash.deleted');
       expect(document.activeElement).toBe(one('h2'));
     });
 
@@ -576,7 +577,7 @@ describe('SpecialtiesList', () => {
       await settle();
 
       expect(dialog().open).toBe(false);
-      expect(text('[role=status]')).toContain(sar.flash.already_deleted);
+      expect(toastKeys()).toContain('specialties.flash.already_deleted');
       flush(nextList(), pageOf([], 0));
       await settle();
       expect(text('section')).toContain(sar.empty.none);
@@ -596,6 +597,8 @@ describe('SpecialtiesList', () => {
       expect(dialog().open).toBe(true);
       expect(dialog().textContent).toContain(ar.error.unexpected);
       expect(dialog().textContent).not.toContain('error.brand.new_conflict');
+      // Errors are never toasts (D64).
+      expect(toastKeys()).toEqual([]);
       noList();
     });
 
@@ -664,15 +667,12 @@ describe('SpecialtiesList', () => {
   });
 
   describe('after a save elsewhere', () => {
-    it('shows the one-time message and moves focus to the heading', async () => {
-      TestBed.inject(SpecialtiesSession).setFlash('specialties.flash.saved_created');
+    it('moves focus to the heading on arrival', async () => {
       await open();
       flush(nextList(), pageOf([CARDIOLOGY]));
       await settle();
 
-      expect(text('[role=status]')).toContain(sar.flash.saved_created);
       expect(document.activeElement).toBe(one('h2'));
-      expect(TestBed.inject(SpecialtiesSession).takeFlash()).toBeNull();
     });
 
     it('remembers the list query so the form can return to it', async () => {

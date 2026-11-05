@@ -1,4 +1,5 @@
 import { HttpTestingController } from '@angular/common/http/testing';
+import { toastKeys } from '../../../../testing/toast-testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -353,7 +354,7 @@ describe('ChangePassword page (D58, D59)', () => {
       expect(router.url).toBe('/clinics');
     });
 
-    it('voluntary: stays on the page and says it worked, in a status region that takes the focus', async () => {
+    it('voluntary: stays on the page, a toast says it worked and the heading keeps the focus (D64)', async () => {
       await open();
       document.body.appendChild(root());
       await fill();
@@ -364,29 +365,12 @@ describe('ChangePassword page (D58, D59)', () => {
       await settle();
 
       expect(router.url).toBe('/change-password');
-      expect(text('[role=status]')).toBe(aar.success);
-      expect(document.activeElement).toBe(one('[role=status]'));
+      expect(toastKeys()).toEqual(['account.success']);
+      expect(document.activeElement).toBe(one('h2'));
       expectNoPasswordAnywhere();
       root().remove();
     });
 
-    it('voluntary: the success message goes away when the next change starts', async () => {
-      await open();
-      await fill();
-      await submit();
-      await answer((request) => request.flush(null, { status: 204, statusText: 'No Content' }));
-      http.expectOne(ME).flush(meBody());
-      await settle();
-      expect(text('[role=status]')).toBe(aar.success);
-
-      await fill({ current: NEXT, next: OTHER });
-      await submit();
-
-      expect(text('[role=status]')).toBe('');
-      http.expectOne(URL).flush(null, { status: 204, statusText: 'No Content' });
-      await settle();
-      http.expectOne(ME).flush(meBody());
-    });
   });
 
   describe('server errors', () => {

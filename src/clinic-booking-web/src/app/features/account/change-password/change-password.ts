@@ -18,6 +18,7 @@ import { ApiError, NETWORK_ERROR_KEY, parseApiError, UNEXPECTED_ERROR_KEY } from
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
 import { safeReturnUrl } from '../../../core/auth/return-url';
 import { SessionService } from '../../../core/auth/session.service';
+import { ToastService } from '../../../core/ui/toast.service';
 
 /** Mirror of PasswordErrors.MaxLength on the API. */
 export const PASSWORD_MAX_LENGTH = 128;
@@ -39,7 +40,7 @@ const EMPTY = { current: '', next: '', confirm: '' };
 /**
  * Change the caller's own password (D58, D59). Forced variant: the account has a temporary password,
  * nothing else works until this is done, and the user then continues to the returnUrl. Voluntary variant
- * (from the header): the page stays and says it worked.
+ * (from the header): the page stays and a toast says it worked (D64).
  *
  * Passwords: the three fields are cleared after every request, success or failure, and nothing about
  * them goes anywhere else: not the URL, not the router state, not storage, not a signal that outlives the
@@ -57,13 +58,13 @@ export class ChangePassword {
   private readonly route = inject(ActivatedRoute);
   private readonly messages = inject(ErrorMessageService);
   private readonly injector = inject(Injector);
+  private readonly toasts = inject(ToastService);
   protected readonly session = inject(SessionService);
 
   protected readonly forced = this.session.mustChangePassword;
 
   private readonly heading = viewChild<ElementRef<HTMLElement>>('heading');
   private readonly errorBox = viewChild<ElementRef<HTMLElement>>('errorBox');
-  private readonly statusBox = viewChild<ElementRef<HTMLElement>>('statusBox');
 
   protected readonly model = signal({ ...EMPTY });
 
@@ -89,7 +90,6 @@ export class ChangePassword {
   protected readonly showNext = signal(false);
 
   private readonly failure = signal<ApiError | null>(null);
-  protected readonly success = signal(false);
 
   protected readonly formErrorKey = computed(() => {
     const failure = this.failure();
@@ -135,7 +135,6 @@ export class ChangePassword {
 
   protected async onSubmit(event: Event): Promise<void> {
     event.preventDefault();
-    this.success.set(false);
 
     await submit(this.passwordForm, {
       action: async () => {
@@ -188,8 +187,9 @@ export class ChangePassword {
       return;
     }
 
-    this.success.set(true);
-    afterNextRender(() => this.statusBox()?.nativeElement.focus(), { injector: this.injector });
+    // A toast says it worked (D64); the page stays and its heading keeps the focus.
+    this.toasts.showToast('account.success');
+    afterNextRender(() => this.heading()?.nativeElement.focus(), { injector: this.injector });
   }
 
   /** Puts each server message on its field; anything else is a form-level message. */

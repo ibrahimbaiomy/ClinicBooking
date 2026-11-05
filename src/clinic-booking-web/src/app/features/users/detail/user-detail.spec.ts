@@ -1,4 +1,5 @@
 import { HttpTestingController, TestRequest } from '@angular/common/http/testing';
+import { toastKeys } from '../../../../testing/toast-testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -15,7 +16,6 @@ import { ASSIGNABLE, clinicGrant, detail, PERMISSIONS_URL } from '../../../../te
 import { SessionService } from '../../../core/auth/session.service';
 import { LANGUAGE_STORAGE_KEY } from '../../../core/i18n/language';
 import { LanguageService } from '../../../core/i18n/language.service';
-import { UsersSession } from '../users-session';
 import { PASSWORD_MAX_LENGTH, UserDetailPage } from './user-detail';
 
 const ROUTES: Routes = [
@@ -115,14 +115,6 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       expect(text('dl')).toContain(uar.status.disabled);
       expect(button(uar.detail.enable.action)).toBeDefined();
       expect(button(uar.detail.disable.action)).toBeUndefined();
-    });
-
-    it('shows the one-time message left by the page that opened it, in a status region', async () => {
-      TestBed.inject(UsersSession).setFlash('users.flash.created');
-
-      await open();
-
-      expect(text('[role=status]')).toBe(uar.flash.created);
     });
 
     it('takes the focus on the heading on entry', async () => {
@@ -286,7 +278,7 @@ describe('UserDetailPage (D57, D58, D59)', () => {
 
       expect(disableDialog().hasAttribute('open')).toBe(false);
       expect(text('dl')).toContain(uar.status.disabled);
-      expect(text('[role=status]')).toBe(uar.flash.disabled);
+      expect(toastKeys()).toContain('users.flash.disabled');
       expect(button(uar.detail.enable.action)).toBeDefined();
     });
 
@@ -329,7 +321,7 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       await settle();
 
       expect(text('dl')).toContain(uar.status.active);
-      expect(text('[role=status]')).toBe(uar.flash.enabled);
+      expect(toastKeys()).toContain('users.flash.enabled');
       expect(button(uar.detail.disable.action)).toBeDefined();
     });
 
@@ -410,7 +402,7 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       await settle();
 
       expect(resetDialog().hasAttribute('open')).toBe(false);
-      expect(text('[role=status]')).toBe(uar.flash.password_reset);
+      expect(toastKeys()).toContain('users.flash.password_reset');
       expectNoSecretAnywhere();
     });
 
@@ -597,7 +589,7 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       await settle();
 
       expect(boxes().map((box) => box.checked)).toEqual([false, true, false]);
-      expect(text('[role=status]')).toBe(uar.flash.global_saved);
+      expect(toastKeys()).toContain('users.flash.global_saved');
     });
 
     it('an empty set is a valid save', async () => {
@@ -728,7 +720,7 @@ describe('UserDetailPage (D57, D58, D59)', () => {
       await settle();
 
       expect(cards()).toHaveLength(0); // the server no longer lists the clinic
-      expect(text('[role=status]')).toBe(uar.flash.clinic_saved);
+      expect(toastKeys()).toContain('users.flash.clinic_saved');
     });
 
     it('"Remove all" sends an empty set', async () => {

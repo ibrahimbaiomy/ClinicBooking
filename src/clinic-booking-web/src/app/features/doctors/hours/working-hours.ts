@@ -17,6 +17,7 @@ import { firstValueFrom, forkJoin } from 'rxjs';
 import { Doctor, DoctorsApi, WorkingHours } from '../../../../api/doctors-api';
 import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
+import { ToastService } from '../../../core/ui/toast.service';
 import { ClinicPermissions } from '../../../core/auth/permissions';
 import { SessionService } from '../../../core/auth/session.service';
 import { LanguageService } from '../../../core/i18n/language.service';
@@ -77,7 +78,7 @@ export class WorkingHoursPage {
   protected readonly formErrorClinic = signal<string | null>(null);
   protected readonly correlationId = signal<string | null>(null);
   protected readonly saving = signal(false);
-  protected readonly flash = signal<string | null>(null);
+  private readonly toasts = inject(ToastService);
 
   protected readonly conflict = signal(false);
   protected readonly reloading = signal(false);
@@ -167,7 +168,6 @@ export class WorkingHoursPage {
     this.formErrorKey.set(null);
     this.formErrorClinic.set(null);
     this.correlationId.set(null);
-    this.flash.set(null);
 
     // The only client rule: every time is entered. The rest is the server's (D62).
     const missing: Record<number, PeriodErrors> = {};
@@ -197,7 +197,7 @@ export class WorkingHoursPage {
         }),
       );
       this.show(saved);
-      this.flash.set('doctors.flash.hours_saved');
+      this.toasts.showToast('doctors.flash.hours_saved');
     } catch (error: unknown) {
       this.failed(parseApiError(error), request.refs);
     } finally {

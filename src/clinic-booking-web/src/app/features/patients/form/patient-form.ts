@@ -27,6 +27,7 @@ import { firstValueFrom } from 'rxjs';
 import { Patient, PatientsApi } from '../../../../api/patients-api';
 import { ApiError, parseApiError, PhoneMatch, supportReference } from '../../../core/auth/api-error';
 import { ErrorMessageService } from '../../../core/auth/error-message.service';
+import { ToastService } from '../../../core/ui/toast.service';
 import { Permissions } from '../../../core/auth/permissions';
 import { SessionService } from '../../../core/auth/session.service';
 import { IntlPipe } from '../../../core/format/intl.pipe';
@@ -79,6 +80,7 @@ export class PatientForm {
   private readonly route = inject(ActivatedRoute);
   private readonly messages = inject(ErrorMessageService);
   private readonly memory = inject(PatientsSession);
+  private readonly toasts = inject(ToastService);
   private readonly session = inject(SessionService);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
@@ -112,7 +114,6 @@ export class PatientForm {
 
   protected readonly formErrorKey = signal<string | null>(null);
   protected readonly correlationId = signal<string | null>(null);
-  protected readonly flash = signal<string | null>(null);
 
   protected readonly conflict = signal(false);
   protected readonly reloading = signal(false);
@@ -140,7 +141,6 @@ export class PatientForm {
   private readonly duplicatePanel = viewChild<ElementRef<HTMLElement>>('duplicatePanel');
 
   constructor() {
-    this.flash.set(this.memory.takeFlash());
     afterNextRender(() => this.heading()?.nativeElement.focus());
 
     if (this.isNew) {
@@ -226,7 +226,6 @@ export class PatientForm {
   private async send(confirmDuplicatePhone: boolean): Promise<void> {
     this.formErrorKey.set(null);
     this.correlationId.set(null);
-    this.flash.set(null);
     if (!confirmDuplicatePhone) {
       this.warning.set(null);
     }
@@ -270,12 +269,15 @@ export class PatientForm {
     }
 
     this.warning.set(null);
-    this.memory.setFlash(this.isNew ? 'patients.flash.saved_created' : 'patients.flash.saved_updated');
+    if (this.isNew) {
+      this.toasts.showToast('patients.flash.saved_created');
+    } else {
+      this.toasts.showToast('patients.flash.saved_updated');
+    }
     if (this.canRead()) {
       await this.router.navigate(['/patients'], { queryParams: this.memory.lastQuery() });
     } else {
-      // Without patients.read there is no list to return to: a fresh form with the message (D63).
-      this.flash.set(this.memory.takeFlash());
+      // Without patients.read there is no list to return to: a fresh form, the toast says it saved (D63, D64).
       this.model.set({ name: '', phone: '' });
       this.patientForm().reset();
       afterNextRender(() => this.heading()?.nativeElement.focus(), { injector: this.injector });

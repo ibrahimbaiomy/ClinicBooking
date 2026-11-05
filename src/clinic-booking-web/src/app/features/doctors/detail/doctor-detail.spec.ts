@@ -1,4 +1,5 @@
 import { HttpTestingController } from '@angular/common/http/testing';
+import { toastKeys } from '../../../../testing/toast-testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -158,7 +159,7 @@ describe('DoctorDetail (D62)', () => {
       await settle();
 
       expect(row(2).textContent).toContain(dar.assignment.active);
-      expect(text('[role="status"]')).toBe(dar.flash.clinic_activated);
+      expect(toastKeys()).toContain('doctors.flash.clinic_activated');
     });
 
     it('a refused reactivation (422) is shown in that row and names the other clinic', async () => {
@@ -212,7 +213,7 @@ describe('DoctorDetail (D62)', () => {
 
       expect(dialogs()[0].open).toBe(false);
       expect(row(1).textContent).toContain(dar.assignment.inactive);
-      expect(text('[role="status"]')).toBe(dar.flash.clinic_deactivated);
+      expect(toastKeys()).toContain('doctors.flash.clinic_deactivated');
     });
   });
 
@@ -248,7 +249,7 @@ describe('DoctorDetail (D62)', () => {
       await settle();
 
       expect(row(2)).not.toBeNull();
-      expect(text('[role="status"]')).toBe(dar.flash.clinic_added);
+      expect(toastKeys()).toContain('doctors.flash.clinic_added');
     });
 
     it('says so when there is no other clinic to add', async () => {
@@ -330,7 +331,7 @@ describe('DoctorDetail (D62)', () => {
 
       expect(one('#doctor-slot-form')).toBeNull();
       expect(text('#doctor-slot-pending')).toContain('30');
-      expect(text('[role="status"]')).toBe(dar.flash.slot_changed);
+      expect(toastKeys()).toContain('doctors.flash.slot_changed');
     });
   });
 
@@ -359,7 +360,7 @@ describe('DoctorDetail (D62)', () => {
       await settle();
 
       expect(router.url).toBe('/doctors?q=x');
-      expect(TestBed.inject(DoctorsSession).takeFlash()).toBe('doctors.flash.deleted');
+      expect(toastKeys()).toContain('doctors.flash.deleted');
     });
 
     it('a doctor already deleted elsewhere (404) leaves with "already deleted"', async () => {
@@ -371,7 +372,7 @@ describe('DoctorDetail (D62)', () => {
       await settle();
 
       expect(router.url).toBe('/doctors');
-      expect(TestBed.inject(DoctorsSession).takeFlash()).toBe('doctors.flash.already_deleted');
+      expect(toastKeys()).toContain('doctors.flash.already_deleted');
     });
   });
 });
