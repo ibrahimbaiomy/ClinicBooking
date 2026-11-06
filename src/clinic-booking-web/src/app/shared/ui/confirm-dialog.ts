@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { Action } from './action';
+import { IconName } from './icons';
 
 /**
  * A confirmation dialog on the native `<dialog>` (D53): `showModal()` gives the focus trap, the
@@ -34,9 +35,11 @@ export class ConfirmDialog {
   readonly errorKey = input<string | null>(null);
   /**
    * The confirm button (D65): 'delete' is the red outline with the trash icon (a delete dialog); 'danger' is the
-   * red outline without an icon (deactivate, disable, reset password, removing your own users.manage).
+   * red outline for the other confirmations, with `confirmIcon` naming what it does (deactivate pause-circle,
+   * disable person-slash, reset password key, removing your own users.manage shield-slash).
    */
   readonly confirmKind = input<'delete' | 'danger'>('danger');
+  readonly confirmIcon = input<IconName | null>(null);
 
   readonly confirmed = output<void>();
   readonly cancelled = output<void>();

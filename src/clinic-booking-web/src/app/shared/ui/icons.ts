@@ -1,15 +1,19 @@
 import { InjectionToken } from '@angular/core';
 import checkCircleFill from 'bootstrap-icons/icons/check-circle-fill.svg';
 import checkLg from 'bootstrap-icons/icons/check-lg.svg';
+import key from 'bootstrap-icons/icons/key.svg';
+import pauseCircle from 'bootstrap-icons/icons/pause-circle.svg';
 import pencil from 'bootstrap-icons/icons/pencil.svg';
+import personSlash from 'bootstrap-icons/icons/person-slash.svg';
 import plusLg from 'bootstrap-icons/icons/plus-lg.svg';
+import shieldSlash from 'bootstrap-icons/icons/shield-slash.svg';
 import trash from 'bootstrap-icons/icons/trash.svg';
 import xLg from 'bootstrap-icons/icons/x-lg.svg';
 
 /**
  * The Bootstrap Icons the app uses (D65), self-hosted: each `.svg` is imported as text at build time, so only
  * these ship (no CDN, no font). Add an icon here with one import. `directional` icons point a way (an arrow,
- * a chevron) and are mirrored in RTL (D25); plus, pencil, trash, check and x are not.
+ * a chevron) and are mirrored in RTL (D25); none of the icons used today is.
  */
 export interface IconDefinition {
   svg: string;
@@ -19,8 +23,12 @@ export interface IconDefinition {
 export const ICONS = {
   'check-circle-fill': { svg: checkCircleFill, directional: false },
   check: { svg: checkLg, directional: false },
+  key: { svg: key, directional: false },
+  'pause-circle': { svg: pauseCircle, directional: false },
   pencil: { svg: pencil, directional: false },
+  'person-slash': { svg: personSlash, directional: false },
   plus: { svg: plusLg, directional: false },
+  'shield-slash': { svg: shieldSlash, directional: false },
   trash: { svg: trash, directional: false },
   x: { svg: xLg, directional: false },
 } as const satisfies Record<string, IconDefinition>;

@@ -512,12 +512,17 @@ describe('SpecialtiesList', () => {
       expect(kindOf('table tbody a[href$="/edit"]')).toBe('edit');
       expect(kindOf('table tbody button')).toBe('delete');
       expect(one('table tbody button cb-icon')!.getAttribute('data-icon')).toBe('trash');
+      // A real icon renders in each button: an <svg> with a <path>, not an empty svg (the D65 icon bug).
+      for (const selector of ['a[href="/specialties/new"]', 'table tbody a[href$="/edit"]', 'table tbody button']) {
+        expect(all(`${selector} cb-icon > svg path`).length, selector).toBeGreaterThan(0);
+      }
 
       await askDelete();
       const confirm = dialogButton(sar.delete.confirm)!;
       expect(confirm.getAttribute('data-action')).toBe('delete');
       expect(confirm.className).toContain('bg-transparent');
       expect(confirm.querySelector('cb-icon')!.getAttribute('data-icon')).toBe('trash');
+      expect(confirm.querySelectorAll('cb-icon > svg path').length).toBeGreaterThan(0);
       expect(dialogButton(sar.delete.cancel)!.getAttribute('data-action')).toBe('cancel');
     });
 

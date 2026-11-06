@@ -15,6 +15,16 @@ class Host {
   readonly disabled = signal(false);
 }
 
+@Component({
+  selector: 'cb-danger-host',
+  imports: [Action],
+  template: `
+    <button type="button" cbAction="danger" cbActionIcon="key">Reset</button>
+    <button type="button" cbAction="danger">Plain</button>
+  `,
+})
+class DangerHost {}
+
 describe('Action buttons (D65)', () => {
   function render(kind: ActionKind) {
     const fixture = TestBed.createComponent(Host);
@@ -57,6 +67,29 @@ describe('Action buttons (D65)', () => {
       if (icon !== null) expect(button.querySelector('cb-icon')!.getAttribute('aria-hidden')).toBe('true');
     });
   }
+
+  it('renders a real icon inside the button: an <svg> with at least one <path> (never an empty svg)', () => {
+    for (const kind of ['add', 'edit', 'save-new', 'save-existing', 'delete', 'cancel'] as const) {
+      const { button } = render(kind);
+      const svg = button.querySelector('cb-icon > svg');
+
+      expect(svg, kind).not.toBeNull();
+      expect(svg!.querySelectorAll('path').length, kind).toBeGreaterThan(0);
+      expect(svg!.querySelector('path')!.getAttribute('d')?.length ?? 0, kind).toBeGreaterThan(10);
+      TestBed.resetTestingModule();
+    }
+  });
+
+  it('danger takes its own icon through cbActionIcon, and has none without it', () => {
+    const fixture = TestBed.createComponent(DangerHost);
+    fixture.detectChanges();
+    const [withIcon, without] = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')];
+
+    expect(withIcon.className).toContain('text-red-700');
+    expect(withIcon.querySelector('cb-icon')!.getAttribute('data-icon')).toBe('key');
+    expect(withIcon.querySelectorAll('cb-icon > svg path').length).toBeGreaterThan(0);
+    expect(without.querySelector('cb-icon')).toBeNull();
+  });
 
   it('Save is green on a create form and blue on an edit form', () => {
     expect(ACTION_STYLES['save-new'].classes).toContain('text-green-700');

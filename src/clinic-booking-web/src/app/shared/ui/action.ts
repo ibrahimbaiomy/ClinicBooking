@@ -18,8 +18,8 @@ const GREY = 'border-slate-600 text-slate-600 hover:bg-slate-600 focus-visible:o
 
 /**
  * The one place the action colours and icons live (D65): Bootstrap-style outline buttons. Save is green on a
- * create form and blue on an edit form; "danger" is the red outline without an icon (dialog confirmations
- * other than delete).
+ * create form and blue on an edit form; "danger" is the red outline for the dialog confirmations other than
+ * delete, each with its own icon passed as `cbActionIcon`.
  */
 export const ACTION_STYLES: Readonly<Record<ActionKind, { classes: string; icon: IconName | null }>> = {
   add: { classes: GREEN, icon: 'plus' },
@@ -50,7 +50,12 @@ export const ACTION_STYLES: Readonly<Record<ActionKind, { classes: string; icon:
 })
 export class Action {
   readonly kind = input.required<ActionKind>({ alias: 'cbAction' });
+  /**
+   * The icon of a `danger` action, which names what it does (pause-circle, person-slash, key, shield-slash);
+   * the other kinds keep their own icon.
+   */
+  readonly cbActionIcon = input<IconName | null>(null);
 
-  protected readonly icon = computed(() => ACTION_STYLES[this.kind()].icon);
+  protected readonly icon = computed(() => this.cbActionIcon() ?? ACTION_STYLES[this.kind()].icon);
   protected readonly classes = computed(() => `${BASE} ${ACTION_STYLES[this.kind()].classes}`);
 }

@@ -33,6 +33,7 @@
     <button
       type="button"
       [cbAction]="confirmKind()"
+      [cbActionIcon]="confirmIcon()"
       [disabled]="busy()"
       [attr.aria-busy]="busy()"
       (click)="confirmed.emit()"

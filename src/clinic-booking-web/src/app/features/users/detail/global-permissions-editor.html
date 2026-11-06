@@ -21,7 +21,7 @@
   </fieldset>
 </section>
 
-<cb-confirm-dialog [open]="confirmingRemoval()" (confirmed)="confirmRemoval()" (cancelled)="cancelRemoval()">
+<cb-confirm-dialog confirmIcon="shield-slash" [open]="confirmingRemoval()" (confirmed)="confirmRemoval()" (cancelled)="cancelRemoval()">
   <span cbDialogTitle>{{ 'users.global.remove_own.title' | transloco }}</span>
   <p>{{ 'users.global.remove_own.message' | transloco }}</p>
   <span cbDialogCancel>{{ 'users.global.remove_own.cancel' | transloco }}</span>

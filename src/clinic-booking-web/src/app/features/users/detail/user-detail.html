@@ -139,6 +139,7 @@
         </a>
 
         <cb-confirm-dialog
+          confirmIcon="person-slash"
           [open]="pendingDisable()"
           [busy]="disabling()"
           [errorKey]="disableErrorKey()"
@@ -158,6 +159,7 @@
         </cb-confirm-dialog>
 
         <cb-confirm-dialog
+          confirmIcon="key"
           [open]="pendingReset()"
           [busy]="resetting()"
           [errorKey]="resetErrorKey()"
