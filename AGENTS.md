@@ -173,6 +173,8 @@ SQL, Key Vault and OIDC are the target, deferred (D54).
 ### Git
 - Conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`), in English.
 - Commit after each verified step. A commit that does not build is never pushed.
+- One commit per verified slice; a slice carries its own error keys, translations and
+  permission labels, so it passes every check on its own.
 
 ---
 
