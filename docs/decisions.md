@@ -99,6 +99,7 @@ D62 | ACCEPTED | Doctors screens (front end) | doctor screens, list filters, IsA
 D63 | ACCEPTED | Patients | patient, name, phone, E.164, PhoneNumber key, patients.read, patients.create, patients.edit, patients.delete, phone search, prefix, contains, name search, scan, full-text, duplicate phone, phone_exists, matches, matchCount, confirmDuplicatePhone, privacy, log scan, IListQuery, IPatientScheduleGuard, patient screens, duplicate panel
 D64 | ACCEPTED | UI refinements and the protected administrator | toasts, ToastService, app-settings, message duration, filter panel, Filter button, header sorting, aria-sort, sort fields, pager, page size 10, show password checkbox, save on change, PermissionSaveQueue, Saved indicator, protected administrator, IsProtected, admin reset, recovery, doctor row actions, no detail page, doctor edit, doctor specialties, doctor clinics
 D65 | ACCEPTED | Action button styles and icons | bootstrap-icons, icons, cb-icon, svg loader, aria-hidden, rtl mirroring, cbAction, outline buttons, add, edit, save, delete, danger, cancel, button colours, contrast, toast colours, confirmKind, bundle size
+D66 | ACCEPTED | Appointments back end | appointment, booking, BookingReference, slot_taken, unique index, double booking, grid, DST, Cairo day, 90 days, MaxDaysAhead, patient overlap, confirmPatientOverlap, reschedule, cancel, record, NoShow, final status, day list, available slots, isDeleted, appointments.* permissions, leave days, confirmCancelAppointments, appointmentCount, seams, ClientNoAction
 O1 | OPEN | Azure region: West Europe vs UAE North | Azure, region, Container Apps, ACR, Key Vault, Azure SQL, price
 O2 | OPEN | Custom domain and TLS, or the default Container Apps hostname | domain, TLS, hostname, Azure
 ```
@@ -523,7 +524,7 @@ touching authorization.
 - Slot duration belongs to the doctor (D43).
 
 ### D41 — Booking rules
-`ACCEPTED`
+`ACCEPTED` (implemented by D66)
 
 - Status machine: `Booked → Completed | Cancelled | NoShow`. Cancelled frees the
   slot; completed does not.
@@ -534,7 +535,7 @@ touching authorization.
 - Booking references are unique and collision-checked on insert. Slots: D43.
 
 ### D43 — Fixed slots per doctor
-`ACCEPTED`
+`ACCEPTED` (implemented by D66)
 
 - One slot duration per doctor, in every clinic, stored as history rows
   `(DoctorId, SlotMinutes, EffectiveFrom)` (`EffectiveFrom` is a Cairo date).
@@ -1191,7 +1192,7 @@ every document into `CLAUDE.md` (imports load in full every session); dropping t
 rejected alternatives (an assistant would propose them again).
 
 ### D61 — Doctors back end
-`ACCEPTED` (refines D32, D35, D43, D50, D55, D57; refined by D62)
+`ACCEPTED` (refines D32, D35, D43, D50, D55, D57; refined by D62; Phase 2 seam filled by D66)
 
 - **Doctor.** `NameAr`, `NameEn`: required, trimmed, ≤ 100, normalised copies for
   search (D49), **no unique constraint** (people share names). No phone, no other
@@ -1387,7 +1388,7 @@ a route guard for edit (only the loaded doctor knows its clinics); form-level-on
 422s (the owner wanted them next to the period).
 
 ### D63 — Patients
-`ACCEPTED` (implements D38 and D44; supersedes D49's patient-search note; follows D50, D53, D55, D56)
+`ACCEPTED` (implements D38 and D44; supersedes D49's patient-search note; follows D50, D53, D55, D56; Phase 2 seam filled by D66)
 
 - **Patient:** `Name` (one name, stored as entered and trimmed, required, ≤ 100,
   `nvarchar`) with `NameNormalized` for search (D49), and `Phone` (required, E.164
@@ -1597,6 +1598,106 @@ almost no cost to the bundle.
 an SVG sprite (an extra request and a build script, no gain over inline SVG); a CDN (D15, same origin);
 colour classes copied per screen (they drift); the trash icon on non-delete confirmations (it says
 "delete"; each gets an icon for what it does instead).
+
+### D66 — Appointments back end
+`ACCEPTED` (implements D31, D41, D43; fills the Phase 2 seams of D61 and D63; decided by the owner on 2026-11-06)
+
+- **Permissions** (clinic-scoped, D34): `appointments.read` (day list, get), `appointments.book` (book),
+  `appointments.reschedule`, `appointments.cancel`, `appointments.record` (Completed or NoShow). In
+  `Permissions.ClinicScoped`, `permissions.ts`, labelled in the users scope. Free slots: `book` **or**
+  `reschedule` in that clinic (checked in the service; 403). Global permissions never satisfy them.
+- **Appointment:** `BookingReference`, `DoctorId`, `ClinicId`, `PatientId`, `StartUtc`, `EndUtc` (start + the
+  doctor's slot duration on that Cairo date, stored at booking), `Status` (`tinyint`). Audited, `RowVersion`,
+  never deleted (D35), no free text. **Real foreign keys, no EF navigations**, so a soft-deleted doctor or
+  patient never hides an appointment through a filtered join (no new EF 10622 case); `ClientNoAction` so EF
+  leaves tracked appointments alone when their doctor or patient is soft-deleted in the same save (the database
+  keeps NO ACTION). Indexes: `(ClinicId, StartUtc)`, `(PatientId, StartUtc)`.
+- **Reference:** 6 characters from `23456789ABCDEFGHJKMNPQRSTUVWXYZ` (no 0/O, 1/I/L), `RandomNumberGenerator`,
+  unique index `UX_Appointments_BookingReference`; checked before the insert inside the serializable
+  transaction and regenerated on a collision (10 attempts). Addressed by it in the API; a typed reference is
+  trimmed and upper-cased; a malformed one is 404.
+- **Double booking (D31, D43):** unique filtered index `UX_Appointments_Doctor_Start (DoctorId, StartUtc) WHERE
+  [Status] <> 2` with conflict key `error.appointment.slot_taken` (409). The friendly pre-check refuses any time
+  overlap with the doctor's non-cancelled appointments in any clinic. Losers of a race get 409 `slot_taken` or
+  `error.concurrency.conflict` (deadlock victim).
+- **Endpoints:** `POST /api/clinics/{clinicId}/appointments` (201 + `Location`), `GET
+  /api/clinics/{clinicId}/appointments?date=&doctorId=` (day list), `GET
+  /api/clinics/{clinicId}/doctors/{doctorId}/available-slots?date=`, `GET /api/appointments/{reference}`, `POST
+  /api/appointments/{reference}/reschedule|cancel|complete|no-show` (200, the appointment). Leave: `GET
+  /api/doctors/{id}/leave-days?from=&to=`, `POST /api/doctors/{id}/leave-days`, `DELETE
+  /api/doctors/{id}/leave-days/{date}`.
+- **Booking body** `{ doctorId, patientId, startUtc, confirmPatientOverlap }`. Order of checks: input (400
+  `error.appointment.doctor_required|patient_required|start_required`); unknown or deleted patient 400 on
+  `patientId` `error.appointment.patient_unavailable`; then 422: the doctor active in the clinic (doctor and
+  clinic live) `doctor_not_available`; start after now `in_past`; the start's Cairo date at most today +
+  `Appointments:MaxDaysAhead` (90) `too_far_ahead`; not a leave day `on_leave`; exactly a grid start
+  `off_grid`; then 409 `slot_taken`; then the 409 patient overlap. A booking is never asked to be confirmed and
+  then refused.
+- **Grid (D43):** for each working-hour period of that weekday, starts at `period start + n × duration` whose
+  slot ends inside the period (wall-clock time), with the duration in effect on that Cairo date. **Daylight
+  saving:** a Cairo time that does not exist (spring, 00:00–00:59) is no slot; a time that occurs twice
+  (autumn, 23:00–23:59) is a slot only at its **first** occurrence, so the grid never holds two instants for one
+  wall-clock time. A Cairo day is `[first instant of the date, first instant of the next date)`.
+- **Patient overlap (D41, D63 mechanism):** another **booked** appointment of the patient overlapping the time
+  (any doctor, any clinic): 409 `error.appointment.patient_overlap`, nothing saved; `matchCount` counts all;
+  `matches` (up to 5: `startUtc`, `endUtc`, doctor id and names, clinic id and names; never the patient's
+  details) only those in clinics where the caller holds `appointments.read`. Resend with
+  `confirmPatientOverlap: true`. **Accepted:** two simultaneous bookings for the same patient at overlapping
+  times can both pass the warning; it is a warning, not a constraint (as D63).
+- **Reschedule** `{ startUtc, rowVersion, confirmPatientOverlap }`: same doctor and clinic, the same
+  reference, every booking rule with the appointment itself excluded, the overlap warning. Only a booked
+  appointment that has not started. Its own start again: 200, nothing changes. Changing doctor or clinic is a
+  cancel plus a new booking.
+- **Cancel** (booked, not started) and **record** Completed or NoShow (booked, started: `StartUtc <= now`), body
+  `{ rowVersion }`; a stale one is 409 `error.concurrency.conflict` (D50). Completed, Cancelled and NoShow are
+  final in Phase 2. Wrong state: 422 `error.appointment.not_booked` (already final), `already_started` (cancel
+  or reschedule after the start), `not_started` (record before it). Cancelled frees the slot.
+- **Day list:** one Cairo date in one clinic, optional doctor, **every status**, by start then id, no paging.
+  **Get by reference:** `appointments.read` in its clinic; the D6/D57 rule (nothing held there: 404
+  `error.appointment.not_found`; another clinic-scoped permission: 403; a soft-deleted clinic grants nothing).
+  Response: reference, `status` (`booked|completed|cancelled|noShow`), start, end, doctor (id, names,
+  **`isDeleted`**), clinic (id, names), patient (id, **name and phone only with `patients.read`**, else null;
+  **`isDeleted`**), audit dates, `rowVersion`.
+- **Free slots:** the grid of that date minus starts at or before now minus any slot overlapping a
+  non-cancelled appointment of the doctor in any clinic; empty on a leave day, an inactive assignment, a past
+  date or a date past the booking limit. Unknown doctor 404 `error.doctor.not_found`; not assigned 404
+  `error.doctor.clinic_not_assigned`. Response `{ doctorId, clinicId, date, slotMinutes, slots: [{ startUtc,
+  endUtc }] }`.
+- **Leave days** (`DoctorLeaveDays`: `DoctorId`, `Date`, audited; unique `(DoctorId, Date)`; removing
+  hard-deletes, D35): whole Cairo days per doctor, every clinic. Add `{ from, to, confirmCancelAppointments }`:
+  a range of at most 60 days both included, `from` today or later (422 `error.doctor.leave_in_past`); dates
+  already on leave are skipped; booked appointments not yet started on the new dates make one 409
+  `error.doctor.leave_has_appointments` with the **total** `appointmentCount`; confirmed, they are cancelled
+  and the days added in one transaction; returns the leave days of the range. Remove one date per request,
+  today or later (422 `leave_in_past`), 404 `error.doctor.leave_day_not_found`. Add and remove need
+  `doctors.manage` in **any** of the doctor's clinics (`IClinicAccess`, 404 `error.doctor.not_found`), and may
+  cancel appointments in a clinic the caller does not manage (a doctor's absence is one fact). Reading: any
+  signed-in user, a range of at most 366 days. Input keys `error.doctor.leave_from_required|leave_to_required|
+  leave_range_invalid|leave_range_too_long`.
+- **Confirm and cancel** (deactivate, delete doctor, delete patient, leave): counts booked appointments **not
+  yet started** (`appointmentCount`); without the flag 409 and nothing changes; with it they are cancelled in the
+  same serializable transaction. Started but unrecorded ones stay booked, to be recorded. The action's own
+  permission is enough (no `appointments.cancel`). Keys: `error.doctor.has_future_appointments` (deactivate:
+  that clinic only; delete: every clinic), `error.patient.has_future_appointments`. Flags: deactivate body `{
+  confirmCancelAppointments }` (an empty body still accepted), `?confirmCancelAppointments=true` on the two
+  `DELETE`s.
+- **Slot change (D43):** `EffectiveFrom` must also be after the Cairo date of the doctor's last booked
+  appointment, any clinic: 422 `error.doctor.effective_from_before_last_appointment`.
+- **Working hours (D43):** a replacement that would leave a booked, not-started appointment of that (doctor,
+  clinic) outside a period or off the grid (with the duration of its date) is 422
+  `error.doctor.hours_strand_appointments` with `appointmentCount`.
+- **Seams:** `IDoctorScheduleGuard`, `IPatientScheduleGuard` and their allow-all implementations are removed;
+  the services query appointments directly (`FutureAppointments`). `ConflictException` carries numeric details
+  like `BusinessRuleException`. Rules that read other rows run in serializable transactions (D57, D61).
+- **Privacy (D38, D45):** no patient name or phone in a log line or exception message; the log scan covers
+  booking, the overlap 409, reschedule, cancel, record, get and the day list.
+**Why:** one database guard against double booking, every rule in one transaction, a schedule that never
+silently loses a booked patient, and personal data only for those allowed to read it.
+**Rejected:** EF navigations from Appointment (a deleted doctor or patient would hide history); an
+application-only overlap check (D31); a patient-overlap constraint (D41: a warning); several leave requests for
+a long absence (one range, one confirmation); returning the second occurrence of a repeated autumn hour as a
+slot (two instants for one wall-clock time); `appointments.cancel` for the seam cancellations (the action's
+permission already decides); undoing a final status (Later).
 
 ---
 

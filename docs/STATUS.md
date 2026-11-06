@@ -2,26 +2,23 @@
 
 Read at the start of every session; update at the end. Keep it short: what is
 done in one line per step (the detail is in the decisions), what is next, and
-what the owner must check by hand. Last updated: 2026-11-06 (action button styles and icons, D65).
+what the owner must check by hand. Last updated: 2026-11-06 (Appointments back end, D66).
 
 ---
 
 ## Now
 
-**Phase 1 complete, waiting for the owner.** Appointments (Phase 2) start only when
-the owner says so (D54). Nothing else is planned meanwhile; ideas go under Later.
-
-**Phase 2 seams waiting for Appointments** (`IDoctorScheduleGuard`, D61, and
-`IPatientScheduleGuard`, D63; Phase 1 registers implementations that allow everything):
-- Leave days: not modelled yet; they come with Appointments.
-- Slot-duration change only after the doctor's last active appointment (D43).
-- Deleting a doctor with upcoming appointments: confirmation, cancel them in the
-  same transaction (D35); deactivating an assignment with future appointments there.
-- A working-hours change that leaves a future appointment outside its period or
-  off the grid is refused (D43).
-- Deleting a patient with future appointments (D63).
-- The patient-overlap warning (D41) reuses the duplicate-phone mechanism: a 409 with
-  the matches and a confirm flag to resend (D63).
+**Phase 2, next step: the Appointment screens** (a separate task; the full audit trail is
+another). The back end is done (D66). Until the screens exist:
+- The existing Doctors and Patients screens do not offer the new confirm-and-cancel flow:
+  deactivating an assignment, deleting a doctor or deleting a patient with upcoming
+  appointments shows the translated 409 (`error.doctor.has_future_appointments`,
+  `error.patient.has_future_appointments`) and changes nothing. The screens task adds the
+  confirmation (resend with `confirmCancelAppointments`).
+- A slot change or a working-hours save refused by the new 422s
+  (`effective_from_before_last_appointment`, `hours_strand_appointments`) shows the
+  translated message; `appointmentCount` is not shown yet.
+- Leave days have no screen yet (API only).
 
 ---
 
@@ -63,6 +60,13 @@ the owner says so (D54). Nothing else is planned meanwhile; ideas go under Later
 - Bootstrap Icons, self-hosted (only the six icons used ship); `cbAction` outline buttons with icons
   (add, edit, save, delete, danger, cancel) on every screen; green success toasts with an icon (D65).
   Initial bundle 404.64 → 412.16 kB raw (104.98 → 106.83 kB transferred).
+
+**Phase 2** (in progress)
+- Appointments back end (D66): book, day list, free slots, get by reference, reschedule,
+  cancel, complete, no-show; five clinic-scoped `appointments.*` permissions; the double-booking
+  index; the Cairo grid with daylight saving; the patient-overlap warning; leave days; every
+  Phase 1 seam filled (deactivate, delete doctor, delete patient, slot change, working hours);
+  `AddAppointments` migration.
 
 ---
 
@@ -151,6 +155,21 @@ password). Covered by unit tests; still to check by hand:
 - [ ] Toasts: light green with the check icon, readable in both languages; icons sit before the
       text in RTL too (none of the current icons is mirrored).
 - [ ] `docker compose build` still succeeds (the image builds the icons in through `npm ci`).
+- [ ] D66 against the real container (`docker compose up --build`): the `AddAppointments` migration
+      applies and the API starts. In SQL: `Appointments` has `UX_Appointments_Doctor_Start` filtered
+      `[Status] <> 2` and `UX_Appointments_BookingReference`; `DoctorLeaveDays` has
+      `UX_DoctorLeaveDays_Doctor_Date`; the three appointment foreign keys are NO ACTION.
+- [ ] D66 through the API (no screens yet): on the Users page grant yourself the five
+      `appointments.*` permissions in a clinic (the labels show in both languages); with a doctor
+      working there, `GET /api/clinics/{clinicId}/doctors/{doctorId}/available-slots?date=<tomorrow>`
+      lists slots in UTC; `POST /api/clinics/{clinicId}/appointments` books one (201, a 6-character
+      reference); booking it again is 409 `slot_taken`; `GET /api/appointments/{reference}` and the
+      day list return it; cancel it with its `rowVersion`.
+- [ ] D66 in the existing screens: deactivating an assignment, deleting a doctor or a patient with an
+      upcoming appointment shows the translated "has upcoming appointments" message and changes nothing.
+- [ ] Review the Arabic wording of the new `error.appointment.*` keys, `error.doctor.has_future_appointments`,
+      `effective_from_before_last_appointment`, `hours_strand_appointments`, the `error.doctor.leave_*`
+      keys, `error.patient.has_future_appointments` and the five `permissions.appointments.*` labels.
 
 ---
 
@@ -164,6 +183,11 @@ password). Covered by unit tests; still to check by hand:
   500, which the failure message now shows with the response body (`AssertStatusAsync`,
   used by every test helper), then find the logged exception with that id in the test
   host's console output. In CI, the job timeout ends such a run (D47).
+- **One unexplained test failure (2026-11-06).** In one full run,
+  `PatientsSearchTests.Digits_without_a_leading_0_or_plus_match_anywhere_in_the_number` failed;
+  it passed alone and in the next full run (829 of 829). It uses random phone digits on its own
+  database; the cause was not captured. If it fails again, keep the failure message (which id was
+  missing or present).
 
 ---
 
@@ -197,3 +221,6 @@ under control: ideas that arrive mid-build go under "Later", not into code.
 - Patient name search with full-text (or a prefix index) once patients pass about
   100,000 or a search takes more than 200 ms; today it is a scan (D63).
 - Forgot password (self-service recovery); when built, revisit the admin reset (D58, D64).
+- Undo a final appointment status (Completed, Cancelled, NoShow are final in Phase 2, D66).
+- Partial-day leave (leave is whole Cairo days today, D66).
+- A patient's appointment history (D66 lists by clinic and day only).
