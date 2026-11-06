@@ -203,7 +203,7 @@
           <button
             id="patient-save"
             type="submit"
-            class="rounded-lg bg-blue-700 px-4 py-2 font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            [cbAction]="isNew ? 'save-new' : 'save-existing'"
             [disabled]="patientForm().submitting() || conflict()"
             [attr.aria-busy]="patientForm().submitting()"
           >
@@ -215,9 +215,9 @@
           </button>
           @if (canRead()) {
             <a
+              cbAction="cancel"
               routerLink="/patients"
               [queryParams]="listQuery()"
-              class="rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
             >
               {{ 'patients.form.cancel' | transloco }}
             </a>

@@ -11,6 +11,7 @@ import {
 import { form, FormField, submit, validate } from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from '../../../shared/ui/action';
 import { firstValueFrom } from 'rxjs';
 import { UsersApi } from '../../../../api/users-api';
 import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
@@ -36,7 +37,7 @@ const USER_NAME_KEY = /^error\.user\.user_name_/;
  */
 @Component({
   selector: 'cb-user-form',
-  imports: [FormField, RouterLink, TranslocoPipe],
+  imports: [Action, FormField, RouterLink, TranslocoPipe],
   templateUrl: './user-form.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

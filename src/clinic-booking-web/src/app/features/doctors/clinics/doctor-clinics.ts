@@ -12,6 +12,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from '../../../shared/ui/action';
 import { firstValueFrom } from 'rxjs';
 import { Doctor, DoctorsApi } from '../../../../api/doctors-api';
 import { ApiError, parseApiError } from '../../../core/auth/api-error';
@@ -59,7 +60,7 @@ interface ClinicOption {
  */
 @Component({
   selector: 'cb-doctor-clinics',
-  imports: [RouterLink, TranslocoPipe, ConfirmDialog],
+  imports: [Action, RouterLink, TranslocoPipe, ConfirmDialog],
   templateUrl: './doctor-clinics.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

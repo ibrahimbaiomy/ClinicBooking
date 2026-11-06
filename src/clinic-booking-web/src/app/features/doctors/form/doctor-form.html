@@ -160,7 +160,7 @@
         <button
           id="doctor-form-save"
           type="submit"
-          class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          cbAction="save-new"
           [disabled]="doctorForm().submitting()"
           [attr.aria-busy]="doctorForm().submitting()"
         >
@@ -171,9 +171,9 @@
           }
         </button>
         <a
+          cbAction="cancel"
           routerLink="/doctors"
           [queryParams]="listQuery()"
-          class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
         >
           {{ 'doctors.form.cancel' | transloco }}
         </a>

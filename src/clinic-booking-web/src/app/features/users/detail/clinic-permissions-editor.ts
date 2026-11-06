@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { rxResource, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from '../../../shared/ui/action';
 import { catchError, debounceTime, map, of, Subject } from 'rxjs';
 import { ClinicPage, ClinicsApi } from '../../../../api/clinics-api';
 import { LanguageService } from '../../../core/i18n/language.service';
@@ -58,7 +59,7 @@ type PickerResult = { page: ClinicPage } | { failed: true };
  */
 @Component({
   selector: 'cb-clinic-permissions-editor',
-  imports: [TranslocoPipe, PermissionChecklist],
+  imports: [Action, TranslocoPipe, PermissionChecklist],
   templateUrl: './clinic-permissions-editor.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

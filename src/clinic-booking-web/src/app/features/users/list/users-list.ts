@@ -15,6 +15,7 @@ import {
 import { rxResource, takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from '../../../shared/ui/action';
 import { catchError, debounceTime, map, of, Subject } from 'rxjs';
 import { UserPage, UsersApi } from '../../../../api/users-api';
 import { ApiError, NETWORK_ERROR_KEY, parseApiError, UNEXPECTED_ERROR_KEY } from '../../../core/auth/api-error';
@@ -56,7 +57,7 @@ interface RowView {
 /** Users (D57, D59): search by user name, filter by status, sort, page. The URL is the state (D53). */
 @Component({
   selector: 'cb-users-list',
-  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, Pager, FilterPanel],
+  imports: [Action, NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, Pager, FilterPanel],
   templateUrl: './users-list.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

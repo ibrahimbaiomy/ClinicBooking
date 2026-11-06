@@ -23,6 +23,7 @@ import {
 } from '@angular/forms/signals';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from '../../../shared/ui/action';
 import { firstValueFrom } from 'rxjs';
 import { Clinic, ClinicsApi } from '../../../../api/clinics-api';
 import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
@@ -77,7 +78,7 @@ const blankToNull = (text: string): string | null => (text.trim() === '' ? null 
 /** Create and edit share one page: `/clinics/new` and `/clinics/:id/edit`. */
 @Component({
   selector: 'cb-clinic-form',
-  imports: [FormField, RouterLink, TranslocoPipe, IntlPipe],
+  imports: [Action, FormField, RouterLink, TranslocoPipe, IntlPipe],
   templateUrl: './clinic-form.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

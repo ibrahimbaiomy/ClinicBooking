@@ -502,6 +502,25 @@ describe('SpecialtiesList', () => {
       expect(document.activeElement).toBe(dialogButton(sar.delete.cancel));
     });
 
+    it('the list and the delete dialog use the D65 action buttons', async () => {
+      await open();
+      flush(nextList(), pageOf([CARDIOLOGY]));
+      await settle();
+
+      const kindOf = (selector: string) => one<HTMLElement>(selector)?.getAttribute('data-action');
+      expect(kindOf('a[href="/specialties/new"]')).toBe('add');
+      expect(kindOf('table tbody a[href$="/edit"]')).toBe('edit');
+      expect(kindOf('table tbody button')).toBe('delete');
+      expect(one('table tbody button cb-icon')!.getAttribute('data-icon')).toBe('trash');
+
+      await askDelete();
+      const confirm = dialogButton(sar.delete.confirm)!;
+      expect(confirm.getAttribute('data-action')).toBe('delete');
+      expect(confirm.className).toContain('bg-transparent');
+      expect(confirm.querySelector('cb-icon')!.getAttribute('data-icon')).toBe('trash');
+      expect(dialogButton(sar.delete.cancel)!.getAttribute('data-action')).toBe('cancel');
+    });
+
     it('Cancel closes without calling the API', async () => {
       await open();
       flush(nextList(), pageOf([CARDIOLOGY]));

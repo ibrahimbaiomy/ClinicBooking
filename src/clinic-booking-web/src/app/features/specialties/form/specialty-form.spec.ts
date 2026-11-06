@@ -91,6 +91,29 @@ describe('SpecialtyForm', () => {
 
   afterEach(() => http.verify());
 
+  describe('action buttons (D65)', () => {
+    const save = () => one<HTMLButtonElement>('form button[type=submit]')!;
+
+    it('Save is a green outline with a check on the create form, and Cancel a grey outline with an x', async () => {
+      await open('/specialties/new');
+
+      expect(save().getAttribute('data-action')).toBe('save-new');
+      expect(save().className).toContain('text-green-700');
+      expect(save().querySelector('cb-icon')!.getAttribute('data-icon')).toBe('check');
+      const cancel = one<HTMLElement>('[data-action=cancel]')!;
+      expect(cancel.className).toContain('text-slate-600');
+      expect(cancel.querySelector('cb-icon')!.getAttribute('data-icon')).toBe('x');
+    });
+
+    it('Save is a blue outline on the edit form', async () => {
+      await openEdit();
+
+      expect(save().getAttribute('data-action')).toBe('save-existing');
+      expect(save().className).toContain('text-blue-700');
+      expect(save().className).not.toContain('text-green-700');
+    });
+  });
+
   describe('create', () => {
     beforeEach(() => open('/specialties/new'));
 

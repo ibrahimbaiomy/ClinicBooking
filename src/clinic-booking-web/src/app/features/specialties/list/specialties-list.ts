@@ -15,6 +15,7 @@ import {
 import { rxResource, takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from '../../../shared/ui/action';
 import { catchError, debounceTime, firstValueFrom, map, of, Subject } from 'rxjs';
 import { SpecialtiesApi, SpecialtyPage } from '../../../../api/specialties-api';
 import { ApiError, NETWORK_ERROR_KEY, parseApiError, UNEXPECTED_ERROR_KEY } from '../../../core/auth/api-error';
@@ -68,7 +69,7 @@ const EN = (text: string): NameView => ({ text, lang: 'en', dir: 'ltr' });
 
 @Component({
   selector: 'cb-specialties-list',
-  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, CanDirective, Pager, ConfirmDialog],
+  imports: [Action, NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, CanDirective, Pager, ConfirmDialog],
   templateUrl: './specialties-list.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

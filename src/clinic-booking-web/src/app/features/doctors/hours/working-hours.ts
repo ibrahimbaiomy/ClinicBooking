@@ -13,6 +13,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from '../../../shared/ui/action';
 import { firstValueFrom, forkJoin } from 'rxjs';
 import { Doctor, DoctorsApi, WorkingHours } from '../../../../api/doctors-api';
 import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
@@ -48,7 +49,7 @@ const NO_ERRORS: PeriodErrors = { start: [], end: [], rule: null };
  */
 @Component({
   selector: 'cb-working-hours',
-  imports: [RouterLink, TranslocoPipe],
+  imports: [Action, RouterLink, TranslocoPipe],
   templateUrl: './working-hours.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

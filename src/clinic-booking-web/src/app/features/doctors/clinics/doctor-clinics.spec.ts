@@ -179,6 +179,18 @@ describe('DoctorClinicsPage (D62, D64)', () => {
       http.expectNone(`${URL}/clinics/1/deactivate`);
     });
 
+    it('the deactivate confirmation is a red outline without an icon (danger, D65)', async () => {
+      await open();
+
+      await click(row(1).querySelector<HTMLButtonElement>('.deactivate'));
+      const confirm = dialogButtons()[1];
+      expect(confirm.getAttribute('data-action')).toBe('danger');
+      expect(confirm.className).toContain('text-red-700');
+      expect(confirm.querySelector('cb-icon')).toBeNull();
+      expect(dialogButtons()[0].getAttribute('data-action')).toBe('cancel');
+      await click(dialogButtons()[0]);
+    });
+
     it('confirming deactivates and shows the row as inactive', async () => {
       await open();
 

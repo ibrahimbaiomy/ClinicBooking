@@ -12,6 +12,7 @@ import {
 import { form, FormField, submit, validate } from '@angular/forms/signals';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from '../../../shared/ui/action';
 import { firstValueFrom } from 'rxjs';
 import { AuthApi } from '../../../../api/auth-api';
 import { ApiError, NETWORK_ERROR_KEY, parseApiError, UNEXPECTED_ERROR_KEY } from '../../../core/auth/api-error';
@@ -48,7 +49,7 @@ const EMPTY = { current: '', next: '', confirm: '' };
  */
 @Component({
   selector: 'cb-change-password',
-  imports: [FormField, TranslocoPipe],
+  imports: [Action, FormField, TranslocoPipe],
   templateUrl: './change-password.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

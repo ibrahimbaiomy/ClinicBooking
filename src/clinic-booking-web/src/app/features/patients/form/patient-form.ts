@@ -23,6 +23,7 @@ import {
 } from '@angular/forms/signals';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from '../../../shared/ui/action';
 import { firstValueFrom } from 'rxjs';
 import { Patient, PatientsApi } from '../../../../api/patients-api';
 import { ApiError, parseApiError, PhoneMatch, supportReference } from '../../../core/auth/api-error';
@@ -70,7 +71,7 @@ const FIELDS: readonly Field[] = ['name', 'phone'];
  */
 @Component({
   selector: 'cb-patient-form',
-  imports: [FormField, RouterLink, TranslocoPipe, IntlPipe, PhonePipe],
+  imports: [Action, FormField, RouterLink, TranslocoPipe, IntlPipe, PhonePipe],
   templateUrl: './patient-form.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

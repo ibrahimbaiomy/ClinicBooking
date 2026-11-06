@@ -170,7 +170,8 @@
                   @if (canEdit()) {
                     <button
                       type="button"
-                      class="remove rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                      cbAction="delete"
+                      class="remove"
                       (click)="removePeriod(day.dayOfWeek, period.key)"
                     >
                       {{ 'doctors.hours.remove' | transloco }}
@@ -199,7 +200,7 @@
             @if (canEdit()) {
               <button
                 type="button"
-                class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                cbAction="add"
                 [id]="'add-' + day.dayOfWeek"
                 (click)="addPeriod(day.dayOfWeek)"
               >
@@ -216,7 +217,7 @@
             <button
               id="hours-save"
               type="submit"
-              class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              cbAction="save-existing"
               [disabled]="saving() || conflict()"
               [attr.aria-busy]="saving()"
             >
@@ -227,8 +228,8 @@
               }
             </button>
             <a
+              cbAction="cancel"
               [routerLink]="['/doctors', doctorId, 'clinics']"
-              class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
             >
               {{ 'doctors.hours.cancel' | transloco }}
             </a>

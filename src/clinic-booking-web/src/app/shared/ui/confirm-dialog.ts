@@ -8,6 +8,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from './action';
 
 /**
  * A confirmation dialog on the native `<dialog>` (D53): `showModal()` gives the focus trap, the
@@ -19,7 +20,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
  */
 @Component({
   selector: 'cb-confirm-dialog',
-  imports: [TranslocoPipe],
+  imports: [TranslocoPipe, Action],
   templateUrl: './confirm-dialog.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -31,12 +32,18 @@ export class ConfirmDialog {
   readonly busy = input(false);
   /** A translation key for an error to show inside the dialog (already resolved by the caller). */
   readonly errorKey = input<string | null>(null);
+  /**
+   * The confirm button (D65): 'delete' is the red outline with the trash icon (a delete dialog); 'danger' is the
+   * red outline without an icon (deactivate, disable, reset password, removing your own users.manage).
+   */
+  readonly confirmKind = input<'delete' | 'danger'>('danger');
 
   readonly confirmed = output<void>();
   readonly cancelled = output<void>();
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
-  private readonly cancelButton = viewChild.required<ElementRef<HTMLButtonElement>>('cancelButton');
+  // The button hosts cbAction (a component), so read the element explicitly.
+  private readonly cancelButton = viewChild.required('cancelButton', { read: ElementRef<HTMLButtonElement> });
 
   constructor() {
     effect(() => {

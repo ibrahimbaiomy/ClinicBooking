@@ -23,6 +23,7 @@ import {
 } from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from '../../../shared/ui/action';
 import { firstValueFrom } from 'rxjs';
 import { DoctorsApi } from '../../../../api/doctors-api';
 import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
@@ -80,7 +81,7 @@ function nameProblem(raw: string, language: 'ar' | 'en') {
  */
 @Component({
   selector: 'cb-doctor-form',
-  imports: [FormField, RouterLink, TranslocoPipe, IntlPipe],
+  imports: [Action, FormField, RouterLink, TranslocoPipe, IntlPipe],
   templateUrl: './doctor-form.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

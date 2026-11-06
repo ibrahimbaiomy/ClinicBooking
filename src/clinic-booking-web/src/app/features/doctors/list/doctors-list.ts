@@ -14,6 +14,7 @@ import {
 import { rxResource, takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from '../../../shared/ui/action';
 import { catchError, debounceTime, firstValueFrom, map, of, Subject } from 'rxjs';
 import { DoctorPage, DoctorsApi } from '../../../../api/doctors-api';
 import { ApiError, NETWORK_ERROR_KEY, parseApiError, UNEXPECTED_ERROR_KEY } from '../../../core/auth/api-error';
@@ -97,7 +98,7 @@ interface RowView {
  */
 @Component({
   selector: 'cb-doctors-list',
-  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, Pager, FilterPanel, ConfirmDialog],
+  imports: [Action, NgTemplateOutlet, RouterLink, TranslocoPipe, IntlPipe, SortButton, Pager, FilterPanel, ConfirmDialog],
   templateUrl: './doctors-list.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

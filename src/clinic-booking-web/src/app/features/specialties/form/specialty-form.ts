@@ -22,6 +22,7 @@ import {
 } from '@angular/forms/signals';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from '../../../shared/ui/action';
 import { firstValueFrom } from 'rxjs';
 import { SpecialtiesApi, Specialty } from '../../../../api/specialties-api';
 import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
@@ -59,7 +60,7 @@ function nameProblem(raw: string, language: 'ar' | 'en') {
 /** Create and edit share one page: `/specialties/new` and `/specialties/:id/edit`. */
 @Component({
   selector: 'cb-specialty-form',
-  imports: [FormField, RouterLink, TranslocoPipe, IntlPipe],
+  imports: [Action, FormField, RouterLink, TranslocoPipe, IntlPipe],
   templateUrl: './specialty-form.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

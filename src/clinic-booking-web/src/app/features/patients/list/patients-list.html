@@ -4,9 +4,9 @@
       {{ 'patients.title' | transloco }}
     </h2>
     <a
+      cbAction="add"
       *cbCan="permissions.PatientsCreate"
       routerLink="/patients/new"
-      class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
     >
       {{ 'patients.new' | transloco }}
     </a>
@@ -177,9 +177,9 @@
 <ng-template #actions let-row>
   <div class="flex flex-wrap gap-2">
     <a
+      cbAction="edit"
       *cbCan="permissions.PatientsEdit"
       [routerLink]="['/patients', row.id, 'edit']"
-      class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
       [attr.aria-label]="'patients.edit_named' | transloco: { name: row.name }"
     >
       {{ 'patients.edit' | transloco }}
@@ -187,7 +187,7 @@
     <button
       *cbCan="permissions.PatientsDelete"
       type="button"
-      class="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+      cbAction="delete"
       [attr.aria-label]="'patients.delete.named' | transloco: { name: row.name }"
       (click)="askDelete(row)"
     >
@@ -197,6 +197,7 @@
 </ng-template>
 
 <cb-confirm-dialog
+  confirmKind="delete"
   [open]="pendingDelete() !== null"
   [busy]="deleting()"
   [errorKey]="deleteErrorKey()"

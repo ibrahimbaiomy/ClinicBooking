@@ -24,7 +24,7 @@
     <button
       #cancelButton
       type="button"
-      class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      cbAction="cancel"
       [disabled]="busy()"
       (click)="cancelled.emit()"
     >
@@ -32,7 +32,7 @@
     </button>
     <button
       type="button"
-      class="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+      [cbAction]="confirmKind()"
       [disabled]="busy()"
       [attr.aria-busy]="busy()"
       (click)="confirmed.emit()"

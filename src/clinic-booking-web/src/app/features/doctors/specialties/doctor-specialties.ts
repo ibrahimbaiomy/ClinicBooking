@@ -13,6 +13,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from '../../../shared/ui/action';
 import { firstValueFrom } from 'rxjs';
 import { Doctor, DoctorsApi } from '../../../../api/doctors-api';
 import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
@@ -42,7 +43,7 @@ interface OptionView {
  */
 @Component({
   selector: 'cb-doctor-specialties',
-  imports: [RouterLink, TranslocoPipe],
+  imports: [Action, RouterLink, TranslocoPipe],
   templateUrl: './doctor-specialties.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

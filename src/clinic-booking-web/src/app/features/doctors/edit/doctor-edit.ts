@@ -23,6 +23,7 @@ import {
 } from '@angular/forms/signals';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { Action } from '../../../shared/ui/action';
 import { firstValueFrom } from 'rxjs';
 import { Doctor, DoctorsApi } from '../../../../api/doctors-api';
 import { ApiError, parseApiError, supportReference } from '../../../core/auth/api-error';
@@ -71,7 +72,7 @@ function nameProblem(raw: string, language: 'ar' | 'en') {
  */
 @Component({
   selector: 'cb-doctor-edit',
-  imports: [FormField, RouterLink, TranslocoPipe, IntlPipe],
+  imports: [Action, FormField, RouterLink, TranslocoPipe, IntlPipe],
   templateUrl: './doctor-edit.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

@@ -5,8 +5,8 @@
     </h2>
     @if (canCreate()) {
       <a
+        cbAction="add"
         routerLink="/doctors/new"
-        class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
       >
         {{ 'doctors.new' | transloco }}
       </a>
@@ -277,8 +277,9 @@
   <div class="flex flex-wrap gap-2">
     @if (row.canEdit) {
       <a
+        cbAction="edit"
+        class="row-edit"
         [routerLink]="['/doctors', row.id, 'edit']"
-        class="row-edit inline-block rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
         [attr.aria-label]="'doctors.actions.edit_named' | transloco: { name: row.primary.text }"
       >
         {{ 'doctors.actions.edit' | transloco }}
@@ -301,7 +302,8 @@
     @if (row.canDelete) {
       <button
         type="button"
-        class="row-delete rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-800 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+        cbAction="delete"
+        class="row-delete"
         [attr.aria-label]="'doctors.actions.delete_named' | transloco: { name: row.primary.text }"
         (click)="askDelete(row)"
       >
@@ -312,6 +314,7 @@
 </ng-template>
 
 <cb-confirm-dialog
+  confirmKind="delete"
   [open]="pendingDelete() !== null"
   [busy]="deleting()"
   [errorKey]="deleteErrorKey()"

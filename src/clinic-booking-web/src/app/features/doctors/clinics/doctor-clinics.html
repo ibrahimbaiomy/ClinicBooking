@@ -115,7 +115,7 @@
           <button
             id="doctor-add-clinic"
             type="button"
-            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            cbAction="add"
             (click)="openPicker()"
           >
             {{ 'doctors.detail.add_clinic' | transloco }}
@@ -149,7 +149,7 @@
               @if (addOptions().length !== 0 && !refreshingOptions()) {
                 <button
                   type="submit"
-                  class="rounded-lg bg-blue-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                  cbAction="add"
                   [disabled]="chosenClinic() === '' || adding()"
                 >
                   @if (adding()) {
@@ -161,7 +161,7 @@
               }
               <button
                 type="button"
-                class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                cbAction="cancel"
                 [disabled]="adding()"
                 (click)="closePicker()"
               >
