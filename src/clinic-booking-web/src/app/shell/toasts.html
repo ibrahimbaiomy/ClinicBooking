@@ -4,19 +4,22 @@
   class="pointer-events-none fixed start-4 end-4 bottom-4 z-50 flex flex-col gap-2 sm:start-auto sm:w-96"
 >
   @for (toast of service.toasts(); track toast.id) {
+    <!-- A success toast (D65): light green, dark green text (about 10:1), an icon and text, never colour alone. -->
     <div
-      class="cb-toast pointer-events-auto flex items-start gap-3 rounded-lg bg-slate-900 p-3 text-sm text-white shadow-lg"
+      class="cb-toast pointer-events-auto flex items-start gap-3 rounded-lg border border-green-300 bg-green-50 p-3 text-sm text-green-900 shadow-lg"
+      data-variant="success"
       [attr.data-toast]="toast.key"
       (mouseenter)="hold(toast.id, 'hover')"
       (mouseleave)="release(toast.id, 'hover')"
       (focusin)="hold(toast.id, 'focus')"
       (focusout)="release(toast.id, 'focus', $event)"
     >
+      <cb-icon name="check-circle-fill" class="mt-0.5 text-base text-green-700" />
       <!-- The keys come from showToast('…') calls, which check:i18n verifies. i18n-keys: toast.close -->
       <p class="min-w-0 grow break-words">{{ toast.key | transloco: toast.params }}</p>
       <button
         type="button"
-        class="shrink-0 rounded px-2 py-0.5 text-sm font-medium text-slate-100 underline hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        class="shrink-0 rounded px-2 py-0.5 text-sm font-medium text-green-900 underline hover:text-green-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-800"
         (click)="close(toast.id)"
       >
         {{ 'toast.close' | transloco }}

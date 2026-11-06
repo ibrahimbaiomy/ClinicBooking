@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { ToastService } from '../core/ui/toast.service';
+import { Icon } from '../shared/ui/icon';
 
 /**
  * The toast stack (D64), at the bottom on the inline-end side (mirrors in RTL). The polite status region
@@ -9,7 +10,7 @@ import { ToastService } from '../core/ui/toast.service';
  */
 @Component({
   selector: 'cb-toasts',
-  imports: [TranslocoPipe],
+  imports: [TranslocoPipe, Icon],
   templateUrl: './toasts.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

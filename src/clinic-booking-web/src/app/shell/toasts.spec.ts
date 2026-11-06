@@ -58,6 +58,23 @@ describe('Toasts (D64)', () => {
     expect(closeButton(toasts()[0]).textContent?.trim()).toBe(ar.toast.close);
   });
 
+  it('is a success toast: light green background, dark green text, an icon and text (D65)', async () => {
+    const fixture = await render();
+    service.showToast('clinics.flash.deleted');
+    await fixture.whenStable();
+
+    const toast = toasts()[0];
+    expect(toast.getAttribute('data-variant')).toBe('success');
+    expect(toast.className.split(/\s+/)).toEqual(expect.arrayContaining(['bg-green-50', 'text-green-900', 'border-green-300']));
+    const icon = toast.querySelector('cb-icon')!;
+    expect(icon.getAttribute('data-icon')).toBe('check-circle-fill');
+    expect(icon.getAttribute('aria-hidden')).toBe('true');
+    expect(icon.className).toContain('text-green-700');
+    expect(icon.querySelector('svg')).not.toBeNull();
+    // Never colour alone: the message is text.
+    expect(toast.querySelector('p')!.textContent?.trim()).toBe(clinicsAr.flash.deleted);
+  });
+
   it('never takes the focus', async () => {
     const fixture = await render();
     const outside = document.createElement('button');
