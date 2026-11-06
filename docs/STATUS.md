@@ -2,7 +2,7 @@
 
 Read at the start of every session; update at the end. Keep it short: what is
 done in one line per step (the detail is in the decisions), what is next, and
-what the owner must check by hand. Last updated: 2026-11-05 (UI refinements and the protected administrator, D64).
+what the owner must check by hand. Last updated: 2026-11-06 (action button styles and icons, D65).
 
 ---
 
@@ -60,6 +60,9 @@ the owner says so (D54). Nothing else is planned meanwhile; ideas go under Later
 - "Show password" checkboxes; permissions save on each change with a "Saved" indicator; the
   protected administrator's screen.
 - Doctors: direct row actions (Edit, Specialties, Clinics, Delete); the detail page is gone.
+- Bootstrap Icons, self-hosted (only the six icons used ship); `cbAction` outline buttons with icons
+  (add, edit, save, delete, danger, cancel) on every screen; green success toasts with an icon (D65).
+  Initial bundle 404.64 → 412.16 kB raw (104.98 → 106.83 kB transferred).
 
 ---
 
@@ -136,6 +139,16 @@ password). Covered by unit tests; still to check by hand:
       the new sort labels and the three `error.user.protected_*` texts.
 - [ ] Try the protected-password recovery procedure once on a local copy
       (`docs/guides/build-and-run.md`).
+- [ ] D65 in the browser, Arabic and English, at 360 px and on a desktop: every Add, Edit, Save,
+      Delete, Remove period and Cancel shows its icon and text; colours as D65 (green add and
+      create-save, blue edit and edit-save, red delete, grey cancel), filled on hover, a visible
+      focus ring with the keyboard, faded when disabled; row actions and dialog buttons still wrap.
+      Check the contrast of text and border with the browser's accessibility tools (≥ 4.5:1).
+- [ ] Dialogs: the delete confirm shows the trash icon; deactivate, disable, reset password and
+      removing your own users.manage are a red outline without an icon.
+- [ ] Toasts: light green with the check icon, readable in both languages; icons sit before the
+      text in RTL too (none of the current icons is mirrored).
+- [ ] `docker compose build` still succeeds (the image builds the icons in through `npm ci`).
 
 ---
 

@@ -96,6 +96,22 @@ page that needs a clinic-scoped permission anywhere uses `clinicPermissionInAnyG
   `translateObject`, and a script proves every name has wording. A picker over a
   paged list searches and shows the first page with a "refine" hint.
 
+## Buttons, icons and toasts (D64, D65)
+
+- **Action buttons** use `cbAction` on the native `<button>` or `<a>` (import `Action` from
+  `shared/ui/action`); never copy colour classes onto a page, only layout ones (a margin, a width).
+  `add` for New and Add (green, plus); `edit` for Edit (blue, pencil); Save is `save-new` on a create
+  form and `save-existing` on an edit form (green or blue, check; a shared form binds
+  `[cbAction]="isNew ? 'save-new' : 'save-existing'"`); `delete` for Delete and Remove (red, trash);
+  `cancel` for Cancel (grey, x). A delete dialog passes `confirmKind="delete"`; any other confirmation
+  keeps the default `danger` (red outline, no icon). Any other button keeps its own look.
+- **Icons** come only from `shared/ui/icons.ts` (Bootstrap Icons, imported as SVG text; add one import
+  per new icon) and render with `<cb-icon name="…" />`: decorative (`aria-hidden`), so the visible text
+  stays the accessible name. Mark an icon `directional` when it points a way (arrows, chevrons): it is
+  then mirrored in RTL. Never load icons from a CDN or a font.
+- **Success messages** are toasts: `inject(ToastService).showToast('area.key')` with a literal key
+  (`check:i18n` verifies it), before navigating. Errors are never toasts: they stay next to what failed.
+
 ## Test notes (D53)
 
 jsdom lacks `<dialog>.showModal()`/`close()`: use `src/testing/dialog-polyfill.ts`.

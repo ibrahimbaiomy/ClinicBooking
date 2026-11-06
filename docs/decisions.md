@@ -98,6 +98,7 @@ D61 | ACCEPTED | Doctors back end | doctor, DoctorClinic, assignment, IsActive, 
 D62 | ACCEPTED | Doctors screens (front end) | doctor screens, list filters, IsActive filter, clinicPermissionInAnyGuard, canIn, canInAny, refreshUser, clinic picker, checkbox group, slot change, Cairo tomorrow, working hours editor, DayOfWeek, Saturday first, HH:mm, periodIndex, FeatureSession, scopeResolver, list-params, reference lists, incomplete note
 D63 | ACCEPTED | Patients | patient, name, phone, E.164, PhoneNumber key, patients.read, patients.create, patients.edit, patients.delete, phone search, prefix, contains, name search, scan, full-text, duplicate phone, phone_exists, matches, matchCount, confirmDuplicatePhone, privacy, log scan, IListQuery, IPatientScheduleGuard, patient screens, duplicate panel
 D64 | ACCEPTED | UI refinements and the protected administrator | toasts, ToastService, app-settings, message duration, filter panel, Filter button, header sorting, aria-sort, sort fields, pager, page size 10, show password checkbox, save on change, PermissionSaveQueue, Saved indicator, protected administrator, IsProtected, admin reset, recovery, doctor row actions, no detail page, doctor edit, doctor specialties, doctor clinics
+D65 | ACCEPTED | Action button styles and icons | bootstrap-icons, icons, cb-icon, svg loader, aria-hidden, rtl mirroring, cbAction, outline buttons, add, edit, save, delete, danger, cancel, button colours, contrast, toast colours, confirmKind, bundle size
 O1 | OPEN | Azure region: West Europe vs UAE North | Azure, region, Container Apps, ACR, Key Vault, Azure SQL, price
 O2 | OPEN | Custom domain and TLS, or the default Container Apps hostname | domain, TLS, hostname, Azure
 ```
@@ -788,7 +789,7 @@ Specialties is the reference implementation; Clinics, Doctors and Patients copy 
   overrides `application/problem+json`).
 
 ### D51 — Front-end foundation and hosting
-`ACCEPTED` (implements D15, D22, D24–D27)
+`ACCEPTED` (implements D15, D22, D24–D27; agreed packages extended by D65)
 
 - Workspace `src/clinic-booking-web`: prefix `cb`, standalone, `strict` and
   `strictTemplates`, OnPush, no `any`, `inject()`, Signals, `templateUrl` only,
@@ -796,7 +797,8 @@ Specialties is the reference implementation; Clinics, Doctors and Patients copy 
 - **Agreed packages** beyond the CLI's (rule 8): `tailwindcss`,
   `@tailwindcss/postcss`, `postcss` (Tailwind 4 through `.postcssrc.json`),
   `@jsverse/transloco`, `openapi-typescript`, `eslint`, `typescript-eslint`,
-  `angular-eslint`. Check scripts and `gen:api` are plain Node, tested with
+  `angular-eslint`, and `bootstrap-icons` (D65: self-hosted SVG, only the icons used ship).
+  Check scripts and `gen:api` are plain Node, tested with
   `node --test`. `package-lock.json` committed; `npm ci` in the image.
 - **Scripts:** `build` (`prebuild` runs `check:logical` and `check:i18n`), `lint`
   (angular-eslint then `check:logical`, plus `check:permissions`, D52), `test`
@@ -1462,7 +1464,7 @@ client-only duplicate check (the server must decide for every caller); showing t
 matches to a user without `patients.read`; reading patients without a permission.
 
 ### D64 — UI refinements and the protected administrator
-`ACCEPTED` (refines D53, D57, D58, D59, D62; decided by the owner on 2026-11-05)
+`ACCEPTED` (refines D53, D57, D58, D59, D62; decided by the owner on 2026-11-05; refined by D65)
 
 - **Toasts.** Every one-time success message (create, edit, delete and "already deleted", activate,
   deactivate, add a clinic, slot change, working hours, specialties, reset password, enable, disable, the
@@ -1542,6 +1544,55 @@ identifying the protected user by configuration (the seed variables disappear af
 letting another administrator reset the protected password (it would be the way around the protection);
 a detail page next to the row actions (two ways to do the same thing); one Save per permission editor
 (owner chose save-on-change).
+- **Refined by D65:** the success toast is light green with an icon; action buttons are outline
+  buttons with icons.
+
+### D65 — Action button styles and icons
+`ACCEPTED` (refines D64; extends D51's agreed packages; decided by the owner on 2026-11-06)
+
+- **Package.** `bootstrap-icons` 1.13.2 (MIT, pinned), agreed by the owner (rule 8). **Self-hosted, same
+  origin (D15), no CDN, no font.** The application builder imports `.svg` as text (`angular.json`
+  `"loader": { ".svg": "text" }`, declared in `src/svg.d.ts`); the build options apply to `ng test` too,
+  and a test proves the markup loads under Vitest. Only the icons imported in `shared/ui/icons.ts` ship:
+  `plus`, `pencil`, `trash`, `check`, `x`, `check-circle-fill` (2.3 kB of SVG). Adding an icon is one
+  import there.
+- **`cb-icon`** (`shared/ui/icon.ts`): decorative only (`aria-hidden`, the SVG not focusable); the
+  button's text is the accessible name; 1em, following the text. An icon marked `directional` in the
+  registry is mirrored with `rtl:-scale-x-100` (D25); plus, pencil, trash, check and x are not. The markup
+  is written to the element directly (it comes only from the build-time registry): an `[innerHTML]`
+  binding would strip SVG and add Angular's HTML sanitizer (about 7 kB) to the bundle.
+- **Action buttons:** `<button cbAction="…">` / `<a cbAction="…">` (`shared/ui/action.ts`, an attribute
+  component on the native element, so it keeps its semantics; the one lint exception for the `cb`
+  selector prefix). The icon comes before the projected text, in tables, cards, forms and dialogs.
+  Bootstrap-style outline: transparent background, coloured border and text, filled with white text on
+  hover, a focus ring in the same colour, a disabled state (`opacity-50`, also `aria-disabled` on links).
+  **The colours are defined once, in `ACTION_STYLES`**; a page may add layout classes, never colours.
+
+  | Kind | Colour (text and border on white) | Icon | Used for |
+  |---|---|---|---|
+  | `add` | `green-700` (≈5.0:1) | plus | New …, Add a clinic, Add (doctor's clinic), Add period |
+  | `edit` | `blue-700` (≈6.7:1) | pencil | Edit (rows) |
+  | `save-new` | `green-700` | check | Save on a create form (incl. Create user) |
+  | `save-existing` | `blue-700` | check | Save on an edit form (incl. working hours, the doctor's names, Schedule the change, specialties, change password) |
+  | `delete` | `red-700` (≈6.5:1) | trash | Delete in rows, Remove period, the delete dialogs' confirm |
+  | `danger` | `red-700` | none | the other dialog confirmations: deactivate, disable, reset password, removing your own users.manage |
+  | `cancel` | `slate-600` (≈7.6:1) | x | Cancel everywhere, dialogs included |
+
+  A form that both creates and edits binds `[cbAction]="isNew ? 'save-new' : 'save-existing'"`.
+  `cb-confirm-dialog` takes `confirmKind` (`'delete'` or the default `'danger'`). **Every other button
+  keeps its look** (login, row Specialties and Clinics, activate and deactivate, enable and disable, the
+  reset-password opener, pager, Filter, header sort, Reload after a conflict, "Save anyway").
+- **Toasts:** a success toast is `green-50` with `green-900` text (≈10:1), a `green-300` border and a
+  `check-circle-fill` icon in `green-700` next to the text (never colour alone). Behaviour as D64; errors
+  are still never toasts.
+- **Bundle (production, initial):** 404.64 kB raw / 104.98 kB transferred before, 412.16 kB / 106.83 kB
+  after (`main` 382.52 → 387.65 kB; `styles` 22.12 → 24.51 kB for the new utility classes).
+**Why:** one recognisable colour and icon per action across every screen, readable without colour, at
+almost no cost to the bundle.
+**Rejected:** the icon font (about 130 kB font and 95 kB CSS for six icons; subsetting needs another tool);
+an SVG sprite (an extra request and a build script, no gain over inline SVG); a CDN (D15, same origin);
+colour classes copied per screen (they drift); the trash icon on non-delete confirmations (owner: red
+outline without an icon).
 
 ---
 
