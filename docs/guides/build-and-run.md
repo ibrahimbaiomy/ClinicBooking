@@ -12,6 +12,8 @@ cp .env.example .env
 
 # full stack, local
 docker compose up --build
+# By hand: docker compose build alone does not restart the running container; use
+# docker compose up --build (otherwise the old image keeps serving the old front end).
 
 # API alone (SQL Server must already be running; uses User Secrets, which must
 # provide ConnectionStrings:Default and Jwt:SigningKey, plus Seed:* for a first user)

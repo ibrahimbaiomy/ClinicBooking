@@ -1554,11 +1554,12 @@ a detail page next to the row actions (two ways to do the same thing); one Save 
   origin (D15), no CDN, no font.** The application builder imports `.svg` as text (`angular.json`
   `"loader": { ".svg": "text" }`, declared in `src/svg.d.ts`); the build options apply to `ng test` too,
   and a test proves the markup loads under Vitest. Only the icons imported in `shared/ui/icons.ts` ship:
-  `plus`, `pencil`, `trash`, `check`, `x`, `check-circle-fill` (2.3 kB of SVG). Adding an icon is one
-  import there.
+  `plus`, `pencil`, `trash`, `check`, `x`, `check-circle-fill`, and for the danger confirmations
+  `pause-circle`, `person-slash`, `key`, `shield-slash` (ten icons, 4.8 kB of SVG text). Adding an
+  icon is one import there.
 - **`cb-icon`** (`shared/ui/icon.ts`): decorative only (`aria-hidden`, the SVG not focusable); the
   button's text is the accessible name; 1em, following the text. An icon marked `directional` in the
-  registry is mirrored with `rtl:-scale-x-100` (D25); plus, pencil, trash, check and x are not. The markup
+  registry is mirrored with `rtl:-scale-x-100` (D25); none of the ten icons used today is. The markup
   is written to the element directly (it comes only from the build-time registry): an `[innerHTML]`
   binding would strip SVG and add Angular's HTML sanitizer (about 7 kB) to the bundle.
 - **Action buttons:** `<button cbAction="…">` / `<a cbAction="…">` (`shared/ui/action.ts`, an attribute
@@ -1575,24 +1576,27 @@ a detail page next to the row actions (two ways to do the same thing); one Save 
   | `save-new` | `green-700` | check | Save on a create form (incl. Create user) |
   | `save-existing` | `blue-700` | check | Save on an edit form (incl. working hours, the doctor's names, Schedule the change, specialties, change password) |
   | `delete` | `red-700` (≈6.5:1) | trash | Delete in rows, Remove period, the delete dialogs' confirm |
-  | `danger` | `red-700` | none | the other dialog confirmations: deactivate, disable, reset password, removing your own users.manage |
+  | `danger` | `red-700` | its own, through `cbActionIcon` | the other dialog confirmations: deactivate (pause-circle), disable (person-slash), reset password (key), removing your own users.manage (shield-slash) |
   | `cancel` | `slate-600` (≈7.6:1) | x | Cancel everywhere, dialogs included |
 
   A form that both creates and edits binds `[cbAction]="isNew ? 'save-new' : 'save-existing'"`.
-  `cb-confirm-dialog` takes `confirmKind` (`'delete'` or the default `'danger'`). **Every other button
+  `cb-confirm-dialog` takes `confirmKind` (`'delete'` or the default `'danger'`) and, for danger,
+  `confirmIcon`; without an icon, `danger` shows none. Tests check that the rendered `<svg>` inside a
+  button holds a `<path>`, in the component test and in real screens. **Every other button
   keeps its look** (login, row Specialties and Clinics, activate and deactivate, enable and disable, the
   reset-password opener, pager, Filter, header sort, Reload after a conflict, "Save anyway").
 - **Toasts:** a success toast is `green-50` with `green-900` text (≈10:1), a `green-300` border and a
   `check-circle-fill` icon in `green-700` next to the text (never colour alone). Behaviour as D64; errors
   are still never toasts.
 - **Bundle (production, initial):** 404.64 kB raw / 104.98 kB transferred before, 412.16 kB / 106.83 kB
-  after (`main` 382.52 → 387.65 kB; `styles` 22.12 → 24.51 kB for the new utility classes).
+  after (`main` 382.52 → 387.65 kB; `styles` 22.12 → 24.51 kB for the new utility classes); with the four
+  danger icons 414.79 kB / 107.68 kB.
 **Why:** one recognisable colour and icon per action across every screen, readable without colour, at
 almost no cost to the bundle.
 **Rejected:** the icon font (about 130 kB font and 95 kB CSS for six icons; subsetting needs another tool);
 an SVG sprite (an extra request and a build script, no gain over inline SVG); a CDN (D15, same origin);
-colour classes copied per screen (they drift); the trash icon on non-delete confirmations (owner: red
-outline without an icon).
+colour classes copied per screen (they drift); the trash icon on non-delete confirmations (it says
+"delete"; each gets an icon for what it does instead).
 
 ---
 

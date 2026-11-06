@@ -104,7 +104,9 @@ page that needs a clinic-scoped permission anywhere uses `clinicPermissionInAnyG
   form and `save-existing` on an edit form (green or blue, check; a shared form binds
   `[cbAction]="isNew ? 'save-new' : 'save-existing'"`); `delete` for Delete and Remove (red, trash);
   `cancel` for Cancel (grey, x). A delete dialog passes `confirmKind="delete"`; any other confirmation
-  keeps the default `danger` (red outline, no icon). Any other button keeps its own look.
+  keeps the default `danger` (red outline) and passes `confirmIcon` with an icon naming what it does
+  (`cbActionIcon` on a plain button). Any other button keeps its own look. Tests check that the rendered
+  `<svg>` inside a button holds a `<path>`.
 - **Icons** come only from `shared/ui/icons.ts` (Bootstrap Icons, imported as SVG text; add one import
   per new icon) and render with `<cb-icon name="…" />`: decorative (`aria-hidden`), so the visible text
   stays the accessible name. Mark an icon `directional` when it points a way (arrows, chevrons): it is

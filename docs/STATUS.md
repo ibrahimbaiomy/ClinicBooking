@@ -144,8 +144,10 @@ password). Covered by unit tests; still to check by hand:
       create-save, blue edit and edit-save, red delete, grey cancel), filled on hover, a visible
       focus ring with the keyboard, faded when disabled; row actions and dialog buttons still wrap.
       Check the contrast of text and border with the browser's accessibility tools (≥ 4.5:1).
-- [ ] Dialogs: the delete confirm shows the trash icon; deactivate, disable, reset password and
-      removing your own users.manage are a red outline without an icon.
+- [ ] Dialogs: the delete confirm shows the trash icon; deactivate (pause-circle), disable
+      (person-slash), reset password (key) and removing your own users.manage (shield-slash) are a red
+      outline with their own icon. Icons confirmed rendering after `docker compose up --build`
+      (2026-11-06); the colour, contrast and 360 px checks above are still open.
 - [ ] Toasts: light green with the check icon, readable in both languages; icons sit before the
       text in RTL too (none of the current icons is mirrored).
 - [ ] `docker compose build` still succeeds (the image builds the icons in through `npm ci`).
