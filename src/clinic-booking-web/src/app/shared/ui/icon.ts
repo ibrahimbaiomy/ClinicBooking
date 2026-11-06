@@ -1,5 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, input } from '@angular/core';
 import { ICON_REGISTRY } from './icons';
 
 /**
@@ -7,8 +6,9 @@ import { ICON_REGISTRY } from './icons';
  * accessible name. Sized 1em by default so it follows the text. A directional icon is mirrored in RTL with
  * `rtl:-scale-x-100` (D25).
  *
- * The markup is trusted on purpose: it comes only from the build-time registry (`icons.ts`), never from
- * the server or a user, and Angular's sanitizer would otherwise strip SVG.
+ * The markup is written to the element directly: it comes only from the build-time registry (`icons.ts`),
+ * never from the server or a user. An `[innerHTML]` binding would strip the SVG and pull Angular's HTML
+ * sanitizer into the bundle (about 10 kB) for nothing.
  */
 @Component({
   selector: 'cb-icon',
@@ -18,12 +18,11 @@ import { ICON_REGISTRY } from './icons';
     'aria-hidden': 'true',
     '[class]': 'classes()',
     '[attr.data-icon]': 'name()',
-    '[innerHTML]': 'markup()',
   },
 })
 export class Icon {
   private readonly registry = inject(ICON_REGISTRY);
-  private readonly sanitizer = inject(DomSanitizer);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly name = input.required<string>();
 
@@ -33,8 +32,13 @@ export class Icon {
     () => 'inline-flex size-[1em] shrink-0 [&>svg]:size-full' + (this.directional() ? ' rtl:-scale-x-100' : ''),
   );
 
-  protected readonly markup = computed<SafeHtml>(() => {
-    const svg = (this.registry[this.name()]?.svg ?? '').replace('<svg ', '<svg aria-hidden="true" focusable="false" ');
-    return this.sanitizer.bypassSecurityTrustHtml(svg);
-  });
+  private readonly markup = computed(() =>
+    (this.registry[this.name()]?.svg ?? '').replace('<svg ', '<svg aria-hidden="true" focusable="false" '),
+  );
+
+  constructor() {
+    effect(() => {
+      this.host.nativeElement.innerHTML = this.markup();
+    });
+  }
 }
