@@ -166,6 +166,28 @@
         "label": "Delete patients",
         "description": "Delete patients."
       }
+    },
+    "appointments": {
+      "read": {
+        "label": "View appointments",
+        "description": "Open this clinic's appointments by day or by booking reference."
+      },
+      "book": {
+        "label": "Book appointments",
+        "description": "Book appointments in this clinic and see the free times."
+      },
+      "reschedule": {
+        "label": "Reschedule appointments",
+        "description": "Move an appointment to another time with the same doctor."
+      },
+      "cancel": {
+        "label": "Cancel appointments",
+        "description": "Cancel appointments that have not started."
+      },
+      "record": {
+        "label": "Record attendance",
+        "description": "Mark appointments as completed or as no-show."
+      }
     }
   }
 }

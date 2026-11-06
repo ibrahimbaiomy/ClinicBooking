@@ -30,4 +30,18 @@ public static class DoctorErrors
     public const string PeriodsOverlap = WeeklyPeriod.OverlapKey;
     public const string PeriodOverlapsOtherClinic = WeeklyPeriod.OverlapsOtherClinicKey;
     public const string PeriodShorterThanSlot = WeeklyPeriod.ShorterThanSlotKey;
+
+    // Appointments (D66).
+    public const string HasFutureAppointments = "error.doctor.has_future_appointments";
+    public const string EffectiveFromBeforeLastAppointment = "error.doctor.effective_from_before_last_appointment";
+    public const string HoursStrandAppointments = "error.doctor.hours_strand_appointments";
+
+    // Leave days (D66).
+    public const string LeaveFromRequired = "error.doctor.leave_from_required";
+    public const string LeaveToRequired = "error.doctor.leave_to_required";
+    public const string LeaveRangeInvalid = "error.doctor.leave_range_invalid";
+    public const string LeaveRangeTooLong = "error.doctor.leave_range_too_long";
+    public const string LeaveInPast = "error.doctor.leave_in_past";
+    public const string LeaveHasAppointments = "error.doctor.leave_has_appointments";
+    public const string LeaveDayNotFound = "error.doctor.leave_day_not_found";
 }

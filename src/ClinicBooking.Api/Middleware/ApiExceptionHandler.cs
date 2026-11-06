@@ -67,8 +67,9 @@ public sealed class ApiExceptionHandler : IExceptionHandler
             ForbiddenException e => Create(StatusCodes.Status403Forbidden, e.ErrorKey),
             AccountLockedException e => Create(StatusCodes.Status423Locked, e.ErrorKey),
             NotFoundException e => Create(StatusCodes.Status404NotFound, e.ErrorKey),
-            ConflictException e => Create(StatusCodes.Status409Conflict, e.ErrorKey),
+            ConflictException e => WithDetails(Create(StatusCodes.Status409Conflict, e.ErrorKey), e.Details),
             DuplicatePhoneException e => WithMatches(Create(StatusCodes.Status409Conflict, e.ErrorKey), e),
+            PatientOverlapException e => WithOverlaps(Create(StatusCodes.Status409Conflict, e.ErrorKey), e),
             BusinessRuleException e => WithDetails(Create(StatusCodes.Status422UnprocessableEntity, e.ErrorKey), e.Details),
             _ => Create(StatusCodes.Status500InternalServerError, UnexpectedKey)
         };
@@ -82,6 +83,26 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         {
             problem.Extensions["matches"] = exception.Matches
                 .Select(m => new Dictionary<string, object> { ["id"] = m.Id, ["name"] = m.Name, ["phone"] = m.Phone })
+                .ToList();
+        }
+
+        return problem;
+    }
+
+    // As WithMatches: the overlaps go to the caller only, and only those in clinics it may read (D66).
+    private static ProblemDetails WithOverlaps(ProblemDetails problem, PatientOverlapException exception)
+    {
+        problem.Extensions["matchCount"] = exception.MatchCount;
+        if (exception.Matches.Count > 0)
+        {
+            problem.Extensions["matches"] = exception.Matches
+                .Select(m => new Dictionary<string, object>
+                {
+                    ["startUtc"] = m.StartUtc,
+                    ["endUtc"] = m.EndUtc,
+                    ["doctor"] = new Dictionary<string, object> { ["id"] = m.DoctorId, ["nameAr"] = m.DoctorNameAr, ["nameEn"] = m.DoctorNameEn },
+                    ["clinic"] = new Dictionary<string, object> { ["id"] = m.ClinicId, ["nameAr"] = m.ClinicNameAr, ["nameEn"] = m.ClinicNameEn },
+                })
                 .ToList();
         }
 

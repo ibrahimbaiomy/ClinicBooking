@@ -4,6 +4,7 @@ using ClinicBooking.Domain.Permissions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace ClinicBooking.Api.Controllers;
 
@@ -70,16 +71,22 @@ public sealed class DoctorsController : ControllerBase
         CancellationToken cancellationToken) =>
         Ok(await _doctors.UpdateAsync(id, request, cancellationToken));
 
-    /// <summary>Soft delete. Needs doctors.manage in all of the doctor's clinics, active or not.</summary>
+    /// <summary>
+    /// Soft delete. Needs doctors.manage in all of the doctor's clinics, active or not. Upcoming appointments make
+    /// 409 error.doctor.has_future_appointments (appointmentCount) unless confirmCancelAppointments=true cancels them.
+    /// </summary>
     [HttpDelete("{id:long}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict, "application/problem+json")]
-    public async Task<IActionResult> Delete(long id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Delete(
+        long id,
+        [FromQuery] bool confirmCancelAppointments,
+        CancellationToken cancellationToken)
     {
-        await _doctors.DeleteAsync(id, cancellationToken);
+        await _doctors.DeleteAsync(id, confirmCancelAppointments, cancellationToken);
 
         return NoContent();
     }
@@ -122,15 +129,22 @@ public sealed class DoctorsController : ControllerBase
     public async Task<ActionResult<DoctorResponse>> ActivateClinic(long id, long clinicId, CancellationToken cancellationToken) =>
         Ok(await _doctors.ActivateClinicAsync(id, clinicId, cancellationToken));
 
-    /// <summary>The doctor stopped working at the clinic (idempotent). Needs doctors.manage in that clinic.</summary>
+    /// <summary>
+    /// The doctor stopped working at the clinic (idempotent). Needs doctors.manage in that clinic. Upcoming
+    /// appointments there make 409 error.doctor.has_future_appointments unless the body confirms their cancellation.
+    /// </summary>
     [HttpPost("{id:long}/clinics/{clinicId:long}/deactivate")]
     [Authorize(Policy = Permissions.Doctors.Manage)]
     [ProducesResponseType(typeof(DoctorResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict, "application/problem+json")]
-    public async Task<ActionResult<DoctorResponse>> DeactivateClinic(long id, long clinicId, CancellationToken cancellationToken) =>
-        Ok(await _doctors.DeactivateClinicAsync(id, clinicId, cancellationToken));
+    public async Task<ActionResult<DoctorResponse>> DeactivateClinic(
+        long id,
+        long clinicId,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] DeactivateClinicRequest? request,
+        CancellationToken cancellationToken) =>
+        Ok(await _doctors.DeactivateClinicAsync(id, clinicId, request, cancellationToken));
 
     /// <summary>The week of one assignment, active or not. Open to any signed-in user (no policy).</summary>
     [HttpGet("{id:long}/clinics/{clinicId:long}/working-hours")]
@@ -157,4 +171,48 @@ public sealed class DoctorsController : ControllerBase
         [FromBody] ReplaceWorkingHoursRequest request,
         CancellationToken cancellationToken) =>
         Ok(await _doctors.ReplaceWorkingHoursAsync(id, clinicId, request, cancellationToken));
+
+    /// <summary>The doctor's leave days from <c>from</c> to <c>to</c> (at most 366 days). Open to any signed-in user.</summary>
+    [HttpGet("{id:long}/leave-days")]
+    [Authorize]
+    [ProducesResponseType(typeof(LeaveDaysResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<ActionResult<LeaveDaysResponse>> ListLeaveDays(
+        long id,
+        [FromQuery] LeaveDaysQuery query,
+        CancellationToken cancellationToken) =>
+        Ok(await _doctors.ListLeaveDaysAsync(id, query, cancellationToken));
+
+    /// <summary>
+    /// Leave on every date of a range (at most 60 days, from today), in every clinic; dates already on leave are
+    /// skipped. Upcoming appointments on the new dates make one 409 with their total count unless the body confirms
+    /// their cancellation. Needs doctors.manage in any of the doctor's clinics. Returns the leave days of the range.
+    /// </summary>
+    [HttpPost("{id:long}/leave-days")]
+    [Authorize]
+    [ProducesResponseType(typeof(LeaveDaysResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    public async Task<ActionResult<LeaveDaysResponse>> AddLeaveDays(
+        long id,
+        [FromBody] AddLeaveDaysRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await _doctors.AddLeaveDaysAsync(id, request, cancellationToken));
+
+    /// <summary>Removes one leave day, today or later. Needs doctors.manage in any of the doctor's clinics.</summary>
+    [HttpDelete("{id:long}/leave-days/{date}")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    public async Task<IActionResult> RemoveLeaveDay(long id, DateOnly date, CancellationToken cancellationToken)
+    {
+        await _doctors.RemoveLeaveDayAsync(id, date, cancellationToken);
+
+        return NoContent();
+    }
 }

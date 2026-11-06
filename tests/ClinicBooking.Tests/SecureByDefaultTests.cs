@@ -111,6 +111,7 @@ public class SecureByDefaultTests : IClassFixture<ApiFactory>
             || type == typeof(Guid)
             || type == typeof(DateTimeOffset)
             || type == typeof(TimeOnly)
+            || type == typeof(DateOnly)
             || type == typeof(CancellationToken);
     }
 }

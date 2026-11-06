@@ -1,3 +1,4 @@
+using ClinicBooking.Application.Features.Appointments;
 using ClinicBooking.Application.Features.Auth;
 using ClinicBooking.Application.Features.Clinics;
 using ClinicBooking.Application.Features.Doctors;
@@ -21,11 +22,8 @@ public static class DependencyInjection
         services.AddScoped<IClinicAccess, ClinicAccess>();
         services.AddScoped<IDoctorService, DoctorService>();
 
-        // Phase 1: no appointments, nothing to protect. Appointments (Phase 2) replace this (D61).
-        services.AddScoped<IDoctorScheduleGuard, NoAppointmentsScheduleGuard>();
-
         services.AddScoped<IPatientService, PatientService>();
-        services.AddScoped<IPatientScheduleGuard, NoAppointmentsPatientGuard>(); // Phase 2 replaces it (D63)
+        services.AddScoped<IAppointmentService, AppointmentService>();
 
         // Every validator in this assembly, so a new entity needs no registration code.
         services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();

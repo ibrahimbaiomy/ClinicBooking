@@ -1,4 +1,5 @@
 using ClinicBooking.Application.DTOs;
+using ClinicBooking.Application.Features.Appointments;
 using ClinicBooking.Application.Features.Common;
 using ClinicBooking.Application.Interfaces;
 using ClinicBooking.Domain.Entities;
@@ -18,16 +19,16 @@ public sealed class PatientService : IPatientService
     public const int MaxMatches = 5;
 
     private readonly IAppDbContext _db;
-    private readonly IPatientScheduleGuard _guard;
     private readonly IPermissionChecker _permissions;
     private readonly IUser _user;
+    private readonly TimeProvider _clock;
 
-    public PatientService(IAppDbContext db, IPatientScheduleGuard guard, IPermissionChecker permissions, IUser user)
+    public PatientService(IAppDbContext db, IPermissionChecker permissions, IUser user, TimeProvider clock)
     {
         _db = db;
-        _guard = guard;
         _permissions = permissions;
         _user = user;
+        _clock = clock;
     }
 
     public async Task<PagedResponse<PatientResponse>> ListAsync(ListPatientsQuery query, CancellationToken cancellationToken)
@@ -81,15 +82,24 @@ public sealed class PatientService : IPatientService
         return patient.ToResponse();
     }
 
-    public async Task DeleteAsync(long id, CancellationToken cancellationToken)
+    public async Task DeleteAsync(long id, bool confirmCancelAppointments, CancellationToken cancellationToken)
     {
         var patient = await FindAsync(id, cancellationToken);
 
-        // Future appointments are a Phase 2 concern (D63).
-        await _guard.EnsureCanDeleteAsync(id, cancellationToken);
+        // Upcoming appointments, in any clinic, are cancelled with the delete once confirmed (D66). Serializable:
+        // a booking at the same moment is either counted here or finds the patient gone.
+        await _db.InSerializableTransactionAsync(
+            async () =>
+            {
+                var now = _clock.GetUtcNow();
+                var upcoming = await _db.Appointments.Upcoming(now).Where(a => a.PatientId == id).ToListAsync(cancellationToken);
+                FutureAppointments.CancelAfterConfirmation(upcoming, confirmCancelAppointments, PatientErrors.HasFutureAppointments, now);
 
-        _db.Patients.Remove(patient);
-        await _db.SaveGuardedAsync(cancellationToken);
+                _db.Patients.Remove(patient);
+                await _db.SaveGuardedAsync(cancellationToken);
+                return true;
+            },
+            cancellationToken);
     }
 
     /// <summary>

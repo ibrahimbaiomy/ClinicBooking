@@ -22,4 +22,9 @@ export const Permissions = {
 /** Clinic-scoped permissions (`Permissions.ClinicScoped`): granted per clinic; ask with `canIn`. */
 export const ClinicPermissions = {
   DoctorsManage: 'doctors.manage',
+  AppointmentsRead: 'appointments.read',
+  AppointmentsBook: 'appointments.book',
+  AppointmentsReschedule: 'appointments.reschedule',
+  AppointmentsCancel: 'appointments.cancel',
+  AppointmentsRecord: 'appointments.record',
 } as const;

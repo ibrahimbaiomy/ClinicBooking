@@ -16,5 +16,5 @@ public interface IPatientService
     Task<PatientResponse> UpdateAsync(long id, UpdatePatientRequest request, CancellationToken cancellationToken);
 
     /// <summary>Soft delete (D35).</summary>
-    Task DeleteAsync(long id, CancellationToken cancellationToken);
+    Task DeleteAsync(long id, bool confirmCancelAppointments, CancellationToken cancellationToken);
 }

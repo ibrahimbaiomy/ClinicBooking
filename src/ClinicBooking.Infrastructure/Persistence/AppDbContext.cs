@@ -40,6 +40,10 @@ public class AppDbContext : IdentityUserContext<ApplicationUser, long>, IAppDbCo
 
     public DbSet<Patient> Patients => Set<Patient>();
 
+    public DbSet<Appointment> Appointments => Set<Appointment>();
+
+    public DbSet<DoctorLeaveDay> DoctorLeaveDays => Set<DoctorLeaveDay>();
+
     public void MarkModified(AuditableEntity entity) => Entry(entity).State = EntityState.Modified;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

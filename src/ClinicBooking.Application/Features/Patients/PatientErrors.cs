@@ -13,4 +13,5 @@ public static class PatientErrors
     public const string PhoneRequired = Patient.PhoneRequiredKey;
     public const string PhoneInvalid = Patient.PhoneInvalidKey;
     public const string PhoneExists = DuplicatePhoneException.Key;
+    public const string HasFutureAppointments = "error.patient.has_future_appointments";
 }

@@ -68,4 +68,46 @@ public class PatientPrivacyTests : IClassFixture<LogCaptureAuthFixture>
             Assert.DoesNotContain(word, log);
         }
     }
+
+    /// <summary>The same scan over appointments (D66): booking, the overlap 409, reschedule, cancel, record, the day list.</summary>
+    [Fact]
+    public async Task No_patient_name_or_phone_is_logged_by_appointments()
+    {
+        // 1 January 2026, 12:00 UTC = 14:00 in Cairo (Thursday).
+        _fixture.Clock.Now = new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
+        var name = "Wardah Halabi " + UniqueEnglish()[..8];
+        var phone = UniqueMobile();
+        var w = await AppointmentHelpers.WorldAsync(_fixture, _client, periods: AppointmentHelpers.EveryDay("09:00", "23:00"), patientName: name, patientPhone: phone);
+
+        var later = await AppointmentHelpers.BookOkAsync(_client, w, AppointmentHelpers.Cairo(2026, 1, 2, 10, 0));
+        var soon = await AppointmentHelpers.BookOkAsync(_client, w, AppointmentHelpers.Cairo(2026, 1, 1, 14, 20));
+
+        // The overlap warning with a second doctor (its body carries the match; the log must not).
+        var doctor2 = await AppointmentHelpers.NewDoctorAsync(_fixture, _client, [w.Clinic]);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await DoctorHelpers.SaveHoursAsync(_client, w.Manager.Token, doctor2, w.Clinic, AppointmentHelpers.EveryDay("09:00", "23:00"))).StatusCode);
+        var overlap = await AppointmentHelpers.BookAsync(_client, w.Desk.Token, w.Clinic, doctor2, w.Patient, AppointmentHelpers.Cairo(2026, 1, 2, 10, 0));
+        Assert.Equal(HttpStatusCode.Conflict, overlap.StatusCode);
+
+        Assert.Equal(HttpStatusCode.OK, (await AppointmentHelpers.RescheduleAsync(_client, w.Desk.Token, later, AppointmentHelpers.Cairo(2026, 1, 2, 11, 0))).StatusCode);
+        var day = await AppointmentHelpers.DayListOkAsync(_client, w.Desk.Token, w.Clinic, "2026-01-02");
+        Assert.Contains(name, day.GetRawText());
+        var moved = await AppointmentHelpers.GetAppointmentOkAsync(_client, w.Desk.Token, AppointmentHelpers.Reference(later));
+        Assert.Equal(HttpStatusCode.OK, (await AppointmentHelpers.ChangeStatusAsync(_client, w.Desk.Token, moved, "cancel")).StatusCode);
+
+        _fixture.Clock.Now = new DateTimeOffset(2026, 1, 1, 12, 30, 0, TimeSpan.Zero);
+        var desk = await AppointmentHelpers.SignInAgainAsync(_client, w.Desk);
+        Assert.Equal(HttpStatusCode.OK, (await AppointmentHelpers.ChangeStatusAsync(_client, desk.Token, soon, "complete")).StatusCode);
+
+        var log = _fixture.Output;
+        Assert.Contains("/api/appointments/", log);
+        Assert.Contains("error.appointment.patient_overlap", log);
+
+        foreach (var secret in new[] { name, phone, E164(phone), phone[1..] }.Concat(name.Split(' ')))
+        {
+            Assert.DoesNotContain(secret, log);
+            Assert.DoesNotContain(JsonSerializer.Serialize(secret).Trim('"'), log);
+        }
+    }
 }

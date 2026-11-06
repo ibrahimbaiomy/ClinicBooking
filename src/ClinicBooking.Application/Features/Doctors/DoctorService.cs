@@ -1,10 +1,12 @@
 using System.Linq.Expressions;
 using ClinicBooking.Application.DTOs;
+using ClinicBooking.Application.Features.Appointments;
 using ClinicBooking.Application.Features.Clinics;
 using ClinicBooking.Application.Features.Common;
 using ClinicBooking.Application.Features.Users;
 using ClinicBooking.Application.Interfaces;
 using ClinicBooking.Domain.Entities;
+using ClinicBooking.Domain.Enums;
 using ClinicBooking.Domain.Exceptions;
 using ClinicBooking.Domain.Permissions;
 using ClinicBooking.Domain.ValueObjects;
@@ -24,7 +26,6 @@ public sealed class DoctorService : IDoctorService
     private readonly IAppDbContext _db;
     private readonly IPermissionChecker _permissions;
     private readonly IClinicAccess _access;
-    private readonly IDoctorScheduleGuard _guard;
     private readonly IUser _user;
     private readonly TimeProvider _clock;
 
@@ -32,14 +33,12 @@ public sealed class DoctorService : IDoctorService
         IAppDbContext db,
         IPermissionChecker permissions,
         IClinicAccess access,
-        IDoctorScheduleGuard guard,
         IUser user,
         TimeProvider clock)
     {
         _db = db;
         _permissions = permissions;
         _access = access;
-        _guard = guard;
         _user = user;
         _clock = clock;
     }
@@ -170,7 +169,7 @@ public sealed class DoctorService : IDoctorService
         return await GetAsync(id, cancellationToken);
     }
 
-    public async Task DeleteAsync(long id, CancellationToken cancellationToken)
+    public async Task DeleteAsync(long id, bool confirmCancelAppointments, CancellationToken cancellationToken)
     {
         // Loaded alone: no related row is tracked, so nothing but the doctor itself changes (D35).
         var doctor = await _db.Doctors.SingleOrDefaultAsync(d => d.Id == id, cancellationToken)
@@ -185,10 +184,20 @@ public sealed class DoctorService : IDoctorService
             throw new ForbiddenException(DoctorErrors.AllClinicsRequired);
         }
 
-        await _guard.EnsureCanDeleteAsync(id, cancellationToken);
+        // Serializable: a booking at the same moment either is seen here (and counted) or waits and then
+        // finds the doctor gone. Upcoming appointments are cancelled with the delete, once confirmed (D35, D66).
+        await _db.InSerializableTransactionAsync(
+            async () =>
+            {
+                var now = _clock.GetUtcNow();
+                var upcoming = await _db.Appointments.Upcoming(now).Where(a => a.DoctorId == id).ToListAsync(cancellationToken);
+                FutureAppointments.CancelAfterConfirmation(upcoming, confirmCancelAppointments, DoctorErrors.HasFutureAppointments, now);
 
-        _db.Doctors.Remove(doctor);
-        await _db.SaveGuardedAsync(cancellationToken);
+                _db.Doctors.Remove(doctor);
+                await _db.SaveGuardedAsync(cancellationToken);
+                return true;
+            },
+            cancellationToken);
     }
 
     public async Task<DoctorResponse> ChangeSlotDurationAsync(
@@ -206,9 +215,6 @@ public sealed class DoctorService : IDoctorService
             throw new BusinessRuleException(DoctorErrors.EffectiveFromNotFuture);
         }
 
-        // "After the doctor's last active appointment" (D43) needs Appointments: the Phase 2 seam (D61).
-        await _guard.EnsureSlotChangeAllowedAsync(id, effectiveFrom, cancellationToken);
-
         var row = DoctorSlotDuration.Create(id, request.SlotMinutes!.Value, effectiveFrom);
 
         // At most one pending change: a new one replaces it (history rows are hard-deleted, D35, D61).
@@ -216,6 +222,16 @@ public sealed class DoctorService : IDoctorService
         await _db.InSerializableTransactionAsync(
             async () =>
             {
+                // A new duration starts only after the doctor's last booked appointment, in any clinic (D43, D66),
+                // so no booked appointment ever changes length. Serializable: a booking cannot slip in meanwhile.
+                var lastStart = await _db.Appointments
+                    .Where(a => a.DoctorId == id && a.Status == AppointmentStatus.Booked)
+                    .MaxAsync(a => (DateTimeOffset?)a.StartUtc, cancellationToken);
+                if (lastStart is { } last && effectiveFrom <= CairoTime.DateOf(last))
+                {
+                    throw new BusinessRuleException(DoctorErrors.EffectiveFromBeforeLastAppointment);
+                }
+
                 var pending = await _db.DoctorSlotDurations
                     .Where(s => s.DoctorId == id && s.EffectiveFrom > today)
                     .ToListAsync(cancellationToken);
@@ -286,19 +302,36 @@ public sealed class DoctorService : IDoctorService
         return await GetAsync(id, cancellationToken);
     }
 
-    public async Task<DoctorResponse> DeactivateClinicAsync(long id, long clinicId, CancellationToken cancellationToken)
+    public async Task<DoctorResponse> DeactivateClinicAsync(
+        long id,
+        long clinicId,
+        DeactivateClinicRequest? request,
+        CancellationToken cancellationToken)
     {
-        await EnsureDoctorExistsAsync(id, cancellationToken);
-        var assignment = await FindAssignmentAsync(id, clinicId, cancellationToken);
+        // Serializable: a booking in that clinic at the same moment is either counted here or refused afterwards.
+        await _db.InSerializableTransactionAsync(
+            async () =>
+            {
+                await EnsureDoctorExistsAsync(id, cancellationToken);
+                var assignment = await FindAssignmentAsync(id, clinicId, cancellationToken);
+                if (!assignment.IsActive)
+                {
+                    return true;
+                }
 
-        if (assignment.IsActive)
-        {
-            // Future appointments in that clinic are a Phase 2 concern (D61).
-            await _guard.EnsureCanDeactivateAsync(id, clinicId, cancellationToken);
+                // Upcoming appointments there are cancelled with the deactivation, once confirmed (D66).
+                var now = _clock.GetUtcNow();
+                var upcoming = await _db.Appointments.Upcoming(now)
+                    .Where(a => a.DoctorId == id && a.ClinicId == clinicId)
+                    .ToListAsync(cancellationToken);
+                FutureAppointments.CancelAfterConfirmation(
+                    upcoming, request?.ConfirmCancelAppointments == true, DoctorErrors.HasFutureAppointments, now);
 
-            assignment.IsActive = false;
-            await _db.SaveGuardedAsync(cancellationToken);
-        }
+                assignment.IsActive = false;
+                await _db.SaveGuardedAsync(cancellationToken);
+                return true;
+            },
+            cancellationToken);
 
         return await GetAsync(id, cancellationToken);
     }
@@ -353,7 +386,7 @@ public sealed class DoctorService : IDoctorService
                         periods, await OtherActivePeriodsAsync(id, assignment.Id, cancellationToken));
                 }
 
-                await _guard.EnsureWorkingHoursChangeAllowedAsync(id, clinicId, periods, cancellationToken);
+                await EnsureNoAppointmentStrandedAsync(id, clinicId, periods, cancellationToken);
 
                 _db.WorkingHourPeriods.RemoveRange(assignment.WorkingHours.ToList());
                 foreach (var period in periods)
@@ -369,6 +402,132 @@ public sealed class DoctorService : IDoctorService
             cancellationToken);
 
         return ToWorkingHoursResponse(assignment);
+    }
+
+    public async Task<LeaveDaysResponse> ListLeaveDaysAsync(long id, LeaveDaysQuery query, CancellationToken cancellationToken)
+    {
+        await EnsureDoctorExistsAsync(id, cancellationToken);
+        return await LeaveDaysAsync(id, query.From!.Value, query.To!.Value, cancellationToken);
+    }
+
+    public async Task<LeaveDaysResponse> AddLeaveDaysAsync(long id, AddLeaveDaysRequest request, CancellationToken cancellationToken)
+    {
+        await EnsureDoctorExistsAsync(id, cancellationToken);
+        await _access.RequireAsync(await LiveClinicIdsAsync(id, cancellationToken), Manage, DoctorErrors.NotFound, cancellationToken);
+
+        var from = request.From!.Value;
+        var to = request.To!.Value;
+        if (from < CairoTime.Today(_clock))
+        {
+            throw new BusinessRuleException(DoctorErrors.LeaveInPast);
+        }
+
+        // Serializable: a booking on one of these dates at the same moment is either counted here or refused
+        // afterwards as a leave day (D66).
+        await _db.InSerializableTransactionAsync(
+            async () =>
+            {
+                var existing = await _db.DoctorLeaveDays
+                    .Where(l => l.DoctorId == id && l.Date >= from && l.Date <= to)
+                    .Select(l => l.Date)
+                    .ToListAsync(cancellationToken);
+
+                // Dates already on leave are skipped (D66).
+                var added = Enumerable.Range(0, to.DayNumber - from.DayNumber + 1)
+                    .Select(from.AddDays)
+                    .Except(existing)
+                    .ToHashSet();
+                if (added.Count == 0)
+                {
+                    return true;
+                }
+
+                // One answer for the whole range: the total count, one confirmation (D66). Every clinic: leave
+                // is the person's.
+                var now = _clock.GetUtcNow();
+                var rangeStart = CairoTime.StartOfDay(from);
+                var rangeEnd = CairoTime.StartOfDay(to.AddDays(1));
+                var candidates = await _db.Appointments.Upcoming(now)
+                    .Where(a => a.DoctorId == id && a.StartUtc >= rangeStart && a.StartUtc < rangeEnd)
+                    .ToListAsync(cancellationToken);
+                var upcoming = candidates.Where(a => added.Contains(CairoTime.DateOf(a.StartUtc))).ToList();
+                FutureAppointments.CancelAfterConfirmation(
+                    upcoming, request.ConfirmCancelAppointments == true, DoctorErrors.LeaveHasAppointments, now);
+
+                foreach (var date in added)
+                {
+                    _db.DoctorLeaveDays.Add(DoctorLeaveDay.Create(id, date));
+                }
+
+                await _db.SaveGuardedAsync(cancellationToken);
+                return true;
+            },
+            cancellationToken);
+
+        return await LeaveDaysAsync(id, from, to, cancellationToken);
+    }
+
+    public async Task RemoveLeaveDayAsync(long id, DateOnly date, CancellationToken cancellationToken)
+    {
+        await EnsureDoctorExistsAsync(id, cancellationToken);
+        await _access.RequireAsync(await LiveClinicIdsAsync(id, cancellationToken), Manage, DoctorErrors.NotFound, cancellationToken);
+
+        // The past stays as history (D66).
+        if (date < CairoTime.Today(_clock))
+        {
+            throw new BusinessRuleException(DoctorErrors.LeaveInPast);
+        }
+
+        var row = await _db.DoctorLeaveDays.SingleOrDefaultAsync(l => l.DoctorId == id && l.Date == date, cancellationToken)
+                  ?? throw new NotFoundException(DoctorErrors.LeaveDayNotFound);
+
+        _db.DoctorLeaveDays.Remove(row);
+        await _db.SaveGuardedAsync(cancellationToken);
+    }
+
+    private async Task<LeaveDaysResponse> LeaveDaysAsync(long id, DateOnly from, DateOnly to, CancellationToken cancellationToken)
+    {
+        var dates = await _db.DoctorLeaveDays
+            .Where(l => l.DoctorId == id && l.Date >= from && l.Date <= to)
+            .OrderBy(l => l.Date)
+            .Select(l => l.Date)
+            .ToListAsync(cancellationToken);
+        return new LeaveDaysResponse(id, dates);
+    }
+
+    /// <summary>
+    /// New hours must keep every upcoming appointment of this (doctor, clinic) inside a period and on its grid,
+    /// with the slot duration of the appointment's date (D43, D66): otherwise 422 with how many would be stranded.
+    /// </summary>
+    private async Task EnsureNoAppointmentStrandedAsync(
+        long id,
+        long clinicId,
+        IReadOnlyList<WeeklyPeriod> periods,
+        CancellationToken cancellationToken)
+    {
+        var upcoming = await _db.Appointments.Upcoming(_clock.GetUtcNow())
+            .Where(a => a.DoctorId == id && a.ClinicId == clinicId)
+            .Select(a => a.StartUtc)
+            .ToListAsync(cancellationToken);
+        if (upcoming.Count == 0)
+        {
+            return;
+        }
+
+        var history = await _db.DoctorSlotDurations.Where(s => s.DoctorId == id).AsNoTracking().ToListAsync(cancellationToken);
+        var stranded = upcoming.Count(start =>
+        {
+            var date = CairoTime.DateOf(start);
+            return DoctorSchedule.SlotMinutesOn(history, date) is not { } minutes
+                   || SlotGrid.For(date, periods, minutes).All(s => s.StartUtc != start);
+        });
+
+        if (stranded > 0)
+        {
+            throw new BusinessRuleException(
+                DoctorErrors.HoursStrandAppointments,
+                new Dictionary<string, long> { [AppointmentErrors.AppointmentCountDetail] = stranded });
+        }
     }
 
     private async Task EnsureDoctorExistsAsync(long id, CancellationToken cancellationToken)

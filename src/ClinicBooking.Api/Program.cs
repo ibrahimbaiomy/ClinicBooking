@@ -4,6 +4,7 @@ using ClinicBooking.Api.Middleware;
 using ClinicBooking.Api.OpenApi;
 using ClinicBooking.Api.Services;
 using ClinicBooking.Api.Spa;
+using ClinicBooking.Application.Features.Appointments;
 using ClinicBooking.Infrastructure.Identity;
 using ClinicBooking.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -23,6 +24,7 @@ builder.Host.UseSerilog((_, logger) => logger
 
 builder.Services.AddCurrentUser();
 builder.Services.AddApplication();
+builder.Services.Configure<AppointmentOptions>(builder.Configuration.GetSection(AppointmentOptions.SectionName));
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddControllers(options => options.Filters.Add<ValidationFilter>());
 builder.Services.AddErrorHandling();

@@ -22,6 +22,75 @@ namespace ClinicBooking.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("ClinicBooking.Domain.Entities.Appointment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("BookingReference")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(6)");
+
+                    b.Property<long>("ClinicId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("DoctorId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("EndUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long>("PatientId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTimeOffset>("StartUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long?>("UpdatedBy")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingReference")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Appointments_BookingReference");
+
+                    b.HasIndex("ClinicId", "StartUtc");
+
+                    b.HasIndex("DoctorId", "StartUtc")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Appointments_Doctor_Start")
+                        .HasFilter("[Status] <> 2")
+                        .HasAnnotation("ClinicBooking:ConflictKey", "error.appointment.slot_taken");
+
+                    b.HasIndex("PatientId", "StartUtc");
+
+                    b.ToTable("Appointments", (string)null);
+                });
+
             modelBuilder.Entity("ClinicBooking.Domain.Entities.Clinic", b =>
                 {
                     b.Property<long>("Id")
@@ -217,6 +286,48 @@ namespace ClinicBooking.Infrastructure.Persistence.Migrations
                         .HasAnnotation("ClinicBooking:ConflictKey", "error.doctor.clinic_already_assigned");
 
                     b.ToTable("DoctorClinics", (string)null);
+                });
+
+            modelBuilder.Entity("ClinicBooking.Domain.Entities.DoctorLeaveDay", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<long>("DoctorId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long?>("UpdatedBy")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DoctorId", "Date")
+                        .IsUnique()
+                        .HasDatabaseName("UX_DoctorLeaveDays_Doctor_Date")
+                        .HasAnnotation("ClinicBooking:ConflictKey", "error.concurrency.conflict");
+
+                    b.ToTable("DoctorLeaveDays", (string)null);
                 });
 
             modelBuilder.Entity("ClinicBooking.Domain.Entities.DoctorSlotDuration", b =>
@@ -753,6 +864,27 @@ namespace ClinicBooking.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("ClinicBooking.Domain.Entities.Appointment", b =>
+                {
+                    b.HasOne("ClinicBooking.Domain.Entities.Clinic", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicId")
+                        .OnDelete(DeleteBehavior.ClientNoAction)
+                        .IsRequired();
+
+                    b.HasOne("ClinicBooking.Domain.Entities.Doctor", null)
+                        .WithMany()
+                        .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.ClientNoAction)
+                        .IsRequired();
+
+                    b.HasOne("ClinicBooking.Domain.Entities.Patient", null)
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.ClientNoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ClinicBooking.Domain.Entities.DoctorClinic", b =>
                 {
                     b.HasOne("ClinicBooking.Domain.Entities.Clinic", "Clinic")
@@ -768,6 +900,15 @@ namespace ClinicBooking.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Clinic");
+                });
+
+            modelBuilder.Entity("ClinicBooking.Domain.Entities.DoctorLeaveDay", b =>
+                {
+                    b.HasOne("ClinicBooking.Domain.Entities.Doctor", null)
+                        .WithMany()
+                        .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ClinicBooking.Domain.Entities.DoctorSlotDuration", b =>

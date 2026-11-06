@@ -75,3 +75,26 @@ public sealed record ReplaceWorkingHoursRequest(IReadOnlyList<WorkingHourPeriodR
 /// <param name="SlotMinutes">5 to 120 in steps of 5.</param>
 /// <param name="EffectiveFrom">A Cairo calendar date after today.</param>
 public sealed record ChangeSlotDurationRequest(int? SlotMinutes, DateOnly? EffectiveFrom);
+
+/// <summary>Deactivating an assignment (D61, D66).</summary>
+/// <param name="ConfirmCancelAppointments">True to cancel the doctor's upcoming appointments in that clinic and
+/// deactivate; without it they make a 409 with their count.</param>
+public sealed record DeactivateClinicRequest(bool? ConfirmCancelAppointments);
+
+/// <summary>Leave on every Cairo date from <paramref name="From"/> to <paramref name="To"/>, both included (D66).</summary>
+/// <param name="From">Today or later.</param>
+/// <param name="To">At most 60 days in the range.</param>
+/// <param name="ConfirmCancelAppointments">True to cancel the upcoming appointments on those dates; without it
+/// they make one 409 with their total count.</param>
+public sealed record AddLeaveDaysRequest(DateOnly? From, DateOnly? To, bool? ConfirmCancelAppointments);
+
+/// <summary>Query string of a doctor's leave days: a range of at most 366 days.</summary>
+public sealed class LeaveDaysQuery
+{
+    public DateOnly? From { get; set; }
+
+    public DateOnly? To { get; set; }
+}
+
+/// <param name="Dates">Cairo calendar dates in the asked range, ascending.</param>
+public sealed record LeaveDaysResponse(long DoctorId, IReadOnlyList<DateOnly> Dates);

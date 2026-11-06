@@ -474,7 +474,16 @@ public class UserManagementTests : IClassFixture<AuthApiFixture>
         var body = await ProblemAsync(response);
         Assert.Equal(Permissions.Global.ToArray(), UserApi.Strings(body.GetProperty("global")));
         Assert.Equal(Permissions.ClinicScoped.ToArray(), UserApi.Strings(body.GetProperty("clinicScoped")));
-        Assert.Equal([Permissions.Doctors.Manage], UserApi.Strings(body.GetProperty("clinicScoped")));
+        Assert.Equal(
+            [
+                Permissions.Doctors.Manage,
+                Permissions.Appointments.Read,
+                Permissions.Appointments.Book,
+                Permissions.Appointments.Reschedule,
+                Permissions.Appointments.Cancel,
+                Permissions.Appointments.Record,
+            ],
+            UserApi.Strings(body.GetProperty("clinicScoped")));
     }
 
     [Fact]

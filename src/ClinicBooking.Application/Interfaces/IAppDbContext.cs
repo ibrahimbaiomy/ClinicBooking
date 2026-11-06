@@ -25,6 +25,10 @@ public interface IAppDbContext
 
     DbSet<Patient> Patients { get; }
 
+    DbSet<Appointment> Appointments { get; }
+
+    DbSet<DoctorLeaveDay> DoctorLeaveDays { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>

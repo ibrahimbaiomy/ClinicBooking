@@ -119,7 +119,17 @@
       "period_end_not_after_start": "A working period must end after it starts, on the same day.",
       "periods_overlap": "Two working periods on the same day overlap.",
       "period_overlaps_other_clinic": "A working period overlaps the doctor's hours in another clinic on the same day.",
-      "period_shorter_than_slot": "A working period is shorter than one appointment."
+      "period_shorter_than_slot": "A working period is shorter than one appointment.",
+      "has_future_appointments": "The doctor has upcoming appointments. Confirm to cancel them.",
+      "effective_from_before_last_appointment": "The new length can start only after the doctor's last booked appointment.",
+      "hours_strand_appointments": "These hours would leave booked appointments outside the doctor's appointment times.",
+      "leave_from_required": "Choose the first day of leave.",
+      "leave_to_required": "Choose the last day of leave.",
+      "leave_range_invalid": "The last day cannot be before the first.",
+      "leave_range_too_long": "The date range is too long.",
+      "leave_in_past": "Leave cannot be added or removed for a past day.",
+      "leave_has_appointments": "The doctor has appointments on these days. Confirm to cancel them.",
+      "leave_day_not_found": "That day is not a leave day."
     },
     "health": {
       "not_ready": "The service is not ready yet. Please try again shortly."
@@ -144,7 +154,8 @@
       "name_invalid": "The name is not valid.",
       "phone_required": "Enter the patient's phone number.",
       "phone_invalid": "The phone number is not valid. Enter a valid number.",
-      "phone_exists": "Other patients already have this phone number."
+      "phone_exists": "Other patients already have this phone number.",
+      "has_future_appointments": "The patient has upcoming appointments. Confirm to cancel them."
     },
     "search": {
       "too_long": "The search text is too long."
@@ -189,6 +200,24 @@
       "405": "This action is not allowed.",
       "406": "The requested response format is not supported.",
       "415": "The data format sent is not supported."
+    },
+    "appointment": {
+      "not_found": "The appointment was not found.",
+      "doctor_required": "Choose a doctor.",
+      "patient_required": "Choose a patient.",
+      "start_required": "Choose a time.",
+      "date_required": "Choose a date.",
+      "patient_unavailable": "This patient no longer exists.",
+      "doctor_not_available": "This doctor does not currently work at this clinic.",
+      "in_past": "Appointments can only be booked for a time in the future.",
+      "too_far_ahead": "That date is too far ahead to book.",
+      "on_leave": "The doctor is on leave that day.",
+      "off_grid": "That time is not one of the doctor's appointment times.",
+      "slot_taken": "That time has just been booked. Choose another time.",
+      "patient_overlap": "The patient already has an appointment at that time.",
+      "not_booked": "This appointment is no longer booked, so it cannot be changed.",
+      "already_started": "This appointment has already started.",
+      "not_started": "This appointment has not started yet."
     }
   }
 }

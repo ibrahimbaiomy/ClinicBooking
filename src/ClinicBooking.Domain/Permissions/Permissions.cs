@@ -43,12 +43,38 @@ public static class Permissions
         public const string Manage = "doctors.manage";
     }
 
+    /// <summary>Appointments of one clinic (D66). Clinic-scoped: granted per clinic.</summary>
+    public static class Appointments
+    {
+        /// <summary>The clinic's day list and an appointment by its reference.</summary>
+        public const string Read = "appointments.read";
+
+        /// <summary>Book, and see the free slots.</summary>
+        public const string Book = "appointments.book";
+
+        /// <summary>Move to another time with the same doctor and clinic, and see the free slots.</summary>
+        public const string Reschedule = "appointments.reschedule";
+
+        public const string Cancel = "appointments.cancel";
+
+        /// <summary>Record the outcome: Completed or NoShow.</summary>
+        public const string Record = "appointments.record";
+    }
+
     /// <summary>Permissions that are not clinic-specific (D34): held once, for the whole system.</summary>
     public static IReadOnlyList<string> Global { get; } =
         [Users.Manage, Specialties.Manage, Clinics.Manage, Patients.Read, Patients.Create, Patients.Edit, Patients.Delete];
 
     /// <summary>Permissions granted per clinic (D34, D57): a grant is valid only in the clinic it names.</summary>
-    public static IReadOnlyList<string> ClinicScoped { get; } = [Doctors.Manage];
+    public static IReadOnlyList<string> ClinicScoped { get; } =
+    [
+        Doctors.Manage,
+        Appointments.Read,
+        Appointments.Book,
+        Appointments.Reschedule,
+        Appointments.Cancel,
+        Appointments.Record,
+    ];
 
     /// <summary>Every permission; one authorization policy exists for each.</summary>
     public static IReadOnlyList<string> All { get; } = [.. Global, .. ClinicScoped];

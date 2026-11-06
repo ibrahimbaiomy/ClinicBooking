@@ -67,14 +67,21 @@ public sealed class PatientsController : ControllerBase
         CancellationToken cancellationToken) =>
         Ok(await _patients.UpdateAsync(id, request, cancellationToken));
 
+    /// <summary>
+    /// Soft delete. Upcoming appointments (any clinic) make 409 error.patient.has_future_appointments
+    /// (appointmentCount) unless confirmCancelAppointments=true cancels them (D66).
+    /// </summary>
     [HttpDelete("{id:long}")]
     [Authorize(Policy = Permissions.Patients.Delete)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict, "application/problem+json")]
-    public async Task<IActionResult> Delete(long id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Delete(
+        long id,
+        [FromQuery] bool confirmCancelAppointments,
+        CancellationToken cancellationToken)
     {
-        await _patients.DeleteAsync(id, cancellationToken);
+        await _patients.DeleteAsync(id, confirmCancelAppointments, cancellationToken);
 
         return NoContent();
     }
