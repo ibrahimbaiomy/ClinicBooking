@@ -183,11 +183,16 @@ password). Covered by unit tests; still to check by hand:
   500, which the failure message now shows with the response body (`AssertStatusAsync`,
   used by every test helper), then find the logged exception with that id in the test
   host's console output. In CI, the job timeout ends such a run (D47).
-- **One unexplained test failure (2026-11-06).** In one full run,
-  `PatientsSearchTests.Digits_without_a_leading_0_or_plus_match_anywhere_in_the_number` failed;
-  it passed alone and in the next full run (829 of 829). It uses random phone digits on its own
-  database; the cause was not captured. If it fails again, keep the failure message (which id was
-  missing or present).
+- **Fixed: random phone digits in `PatientsSearchTests` (2026-11-06).**
+  `Digits_without_a_leading_0_or_plus_match_anywhere_in_the_number` failed once in a full run. Cause:
+  it searched six random digits, which start with `0` one time in ten; a search starting with `0` is a
+  national-number prefix search (`+20…`, D63), so the target was missed. The prefix theory next to it had
+  a second chance failure: its six cases share one database and varied the "other" phone by two random
+  digits, so two cases could create the same number (a 409 duplicate warning), about one run in six by
+  arithmetic. Both were forced once to prove them and fail as described. The tests now use fixed or
+  per-case distinct numbers. Unrelated to the stalled run above (a hang, not wrong data). The other
+  search suites (Specialties, Clinics, Doctors, Users) scope every search with a GUID-based tag (8 to 32
+  characters), where a chance match is negligible; unchanged.
 
 ---
 

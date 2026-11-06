@@ -9,6 +9,8 @@ namespace ClinicBooking.Tests;
 [Collection(SqlServerCollection.Name)]
 public class PatientsSearchTests : IClassFixture<AuthApiFixture>
 {
+    private static int _prefixCase;
+
     private readonly AuthApiFixture _fixture;
     private readonly HttpClient _client;
 
@@ -31,10 +33,13 @@ public class PatientsSearchTests : IClassFixture<AuthApiFixture>
     public async Task A_phone_prefix_finds_the_number_and_not_one_that_only_contains_it(string search)
     {
         var token = await PatientManagerAsync(_fixture, _client);
-        var unique = Random.Shared.Next(1000, 9999).ToString();
-        var target = await CreatePatientOkAsync(_client, token, phone: $"0101234{unique}");
+
+        // Distinct numbers for every case: the cases share one database, and a repeated phone is a 409
+        // duplicate warning (D63). Random digits here would collide in about one run in six.
+        var n = Interlocked.Increment(ref _prefixCase);
+        var target = await CreatePatientOkAsync(_client, token, phone: $"0101234{1000 + n}");
         // +2011101234.. contains "101234" but does not start with +20101234.
-        var other = await CreatePatientOkAsync(_client, token, phone: $"011101234{unique[..2]}");
+        var other = await CreatePatientOkAsync(_client, token, phone: $"011101234{n:D2}");
 
         var ids = await SearchAsync(token, search);
 
@@ -46,11 +51,13 @@ public class PatientsSearchTests : IClassFixture<AuthApiFixture>
     public async Task Digits_without_a_leading_0_or_plus_match_anywhere_in_the_number()
     {
         var token = await PatientManagerAsync(_fixture, _client);
-        var tail = Random.Shared.Next(10_000_000, 99_999_999).ToString();
-        var target = await CreatePatientOkAsync(_client, token, phone: "012" + tail);
-        var other = await CreatePatientOkAsync(_client, token);
 
-        var ids = await SearchAsync(token, tail[2..]);
+        // Fixed digits: the searched part must not start with 0, which would make it a national-number prefix
+        // search (+20…, D63) that misses the target. Random digits did so in about one run in ten.
+        var target = await CreatePatientOkAsync(_client, token, phone: "01279513864");
+        var other = await CreatePatientOkAsync(_client, token, phone: "01011112222");
+
+        var ids = await SearchAsync(token, "795138");
 
         Assert.Contains(target.GetProperty("id").GetInt64(), ids);
         Assert.DoesNotContain(other.GetProperty("id").GetInt64(), ids);
