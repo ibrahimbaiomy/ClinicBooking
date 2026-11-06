@@ -26,7 +26,10 @@
             ],
             "styles": [
               "src/styles.css"
-            ]
+            ],
+            "loader": {
+              ".svg": "text"
+            }
           },
           "configurations": {
             "production": {
